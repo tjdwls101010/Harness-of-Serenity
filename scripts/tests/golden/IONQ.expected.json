@@ -1,0 +1,21 @@
+{
+  "ticker": "IONQ",
+  "role": "loser",
+  "note": "quantum computing, negligible-commercial (P/S 122x, op margin -402%) \u2014 must stay <= HOLD",
+  "captured_at": "2026-06-21",
+  "hard": {
+    "revenue_status": "has_revenue",
+    "data_insufficient": false,
+    "screen_component_keys": [
+      "catalyst",
+      "health",
+      "momentum",
+      "valuation"
+    ],
+    "pre_commercial": true
+  },
+  "baseline": {
+    "screen_score": 46.0
+  },
+  "ceiling": "HOLD"
+}

@@ -1,0 +1,29 @@
+# Core - YFinance
+yfinance>=0.2.36
+pandas>=2.0.0
+numpy>=1.24.0
+lxml>=5.0.0
+
+# Environment management
+python-dotenv>=1.0.0
+
+# FRED API
+fredapi>=0.5.2
+
+# Finviz scraper
+finvizfinance>=0.14.6
+finviz>=2.0.0
+
+# SEC EDGAR
+sec-edgar-downloader>=5.0.0
+sec-analyzer>=0.2.0
+
+# RS Rating (IBD-style relative strength)
+ibd-rs-rating
+
+# HTTP requests for CBOE/CFTC direct API
+requests>=2.31.0
+
+# Macro/sentiment libraries (modules/fear_greed.py, modules/fedwatch.py)
+fear-greed>=0.1.1
+cme-fedwatch>=0.1.2

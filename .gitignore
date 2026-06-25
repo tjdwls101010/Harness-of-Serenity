@@ -1,0 +1,22 @@
+# --- Secrets: NEVER commit ---
+.env
+.env.*
+!.env.example
+
+# --- Python venv & caches ---
+**/.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# --- OS / editor cruft ---
+.DS_Store
+*.swp
+
+# --- Scratch / local validation artifacts ---
+.tmp/
+scripts/**/.Seongjin/
+
+# --- Dev-time meta-tooling, not part of the harness deliverable ---
+.claude/skills/skill-creator/

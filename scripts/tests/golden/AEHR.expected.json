@@ -1,0 +1,20 @@
+{
+  "ticker": "AEHR",
+  "role": "winner",
+  "note": "burn-in/test, design-win driven \u2014 recognized PARTIAL bottleneck; proves the moat exemption keeps a real early winner uncapped",
+  "captured_at": "2026-06-21",
+  "hard": {
+    "revenue_status": "has_revenue",
+    "data_insufficient": false,
+    "screen_component_keys": [
+      "catalyst",
+      "health",
+      "momentum",
+      "valuation"
+    ],
+    "pre_commercial": false
+  },
+  "baseline": {
+    "screen_score": 53.0
+  }
+}

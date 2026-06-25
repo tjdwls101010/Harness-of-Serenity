@@ -1,0 +1,20 @@
+{
+  "ticker": "CRCL",
+  "role": "winner",
+  "note": "stablecoin issuer \u2014 financial-float disruption",
+  "captured_at": "2026-06-21",
+  "hard": {
+    "revenue_status": "has_revenue",
+    "data_insufficient": false,
+    "screen_component_keys": [
+      "catalyst",
+      "health",
+      "momentum",
+      "valuation"
+    ],
+    "pre_commercial": false
+  },
+  "baseline": {
+    "screen_score": 40.5
+  }
+}
