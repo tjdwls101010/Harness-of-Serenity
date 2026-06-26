@@ -24,13 +24,18 @@ Resume anchor after session compaction. Everything below the "Done" line is comm
 - **Ask the user via the AskUserQuestion tool**, never a free-text question.
 - edgartools 5.35.1 bugs to code around: `EightK.get()` doesn't exist (subscript+guard); `FactQuery.by_value` takes a callable; no top-level `get_company` / `find(form=,ticker=)` (use `Company().get_filings`); MD&A is `.management_discussion`, TenQ lacks named section props. Identity required (`set_identity` / `EDGAR_IDENTITY`).
 
-## PROGRESS (post-compaction session — committed to main)
-- **DONE** WF3 steps 1,2 (serenity_pipeline.py live analyze/macro/discover = evidence-only + _fetch.py + schema collapse `by_horizon`), step 6 (serenity_harness.py validate), step 7 (legacy quarantine → pipeline/legacy/, active path loads ZERO legacy), step 3 (serenity_filings.py — thin edgartools CLI, offline-tested), step 5 (.claude/agents/serenity-filings.md subagent).
-- **DONE** adversarial review WF over the evidence core (4 lenses × verify, 21 agents): 15 confirmed findings applied — closed vix_regime/bdi_demand/dxy_strength leaks + hardened sanitizer; broadened evidence (relative_strength, short_interest_depth, insider_flow, capex, recommendation_distribution, next_report, absence_evidence_flags surfaced); EV/FCF>0 guard; validate gained macro_sanitizer + sec_prose_path checks. validate = 11 pass / 0 fail.
-- **ENV NOTE**: SEC is IP-blocked here (all endpoints 403 after a brief initial window) — sec-analyzer produced a live NVDA/AMD dossier early in the session, then SEC throttled. So the edgartools/SEC-numbers path is NOT live-testable here; verify on the user's machine. yfinance fully works.
-- **REMAINING**: step 4 (SEC rework — DECISION PENDING, see below), step 8 (hooks), then WF4.
+## BUILD COMPLETE — only WF4 (validation) remains. Resume at "THEN WF4" below.
+All of WF3 + hooks are done, committed to main, and `serenity_harness.py validate` = **13 pass / 0 warn / 0 fail**.
+- **Evidence-only pipeline**: `serenity_pipeline.py` (macro | analyze TICKER [--skip-macro] | discover | evidence) → `_fetch.py` (deterministic I/O, no regime) → `_evidence.py build_evidence` (judgment-free; macro_inputs sanitized; `by_horizon` collapse). Broadened by the review: relative_strength, short_interest_depth, insider_flow, capex, recommendation_distribution, next_report, absence_evidence_flags; EV/FCF>0 guard. Live yfinance verified.
+- **SEC layer (full edgartools rewrite — sec-analyzer DROPPED, no LLM/OpenRouter)**: `pipeline/_sec_xbrl.py` = deterministic XBRL buckets (geo/customer concentration, inventory, purchase obligations); narrative via the `serenity-filings` subagent (`.claude/agents/serenity-filings.md`) + `serenity_filings.py` CLI. CLAUDE.md + analysis skill point the agent to the subagent.
+- **Self-check**: `serenity_harness.py validate` (structural + evidence invariants over 16 golden fixtures + macro_sanitizer + sec_xbrl_path + judgment_boundary + hooks).
+- **Legacy quarantine**: `pipeline/legacy/` (judgment modules); active path loads ZERO legacy.
+- **Hooks**: `.claude/settings.json` + `.claude/hooks/{evidence_discipline,web_number_guard}.py` (context-injectors, never block).
+- **Adversarial review WF** (4 lenses × verify, 21 agents): 15 findings applied; 2 false positives dismissed.
+- **ENV NOTE**: SEC is IP-blocked here (all endpoints 403). The edgartools XBRL path is built-from-the-verified-reference + offline-tested (imports/argparse/graceful-degradation); the numbers verify on the USER'S machine. yfinance fully works here.
+- **DECISIONS LOCKED (do not re-litigate)**: SEC = full edgartools rewrite (chosen by user). Proceed autonomously with compaction checkpoints; the user expects a `/compact` before the token-heavy WF4.
 
-## REMAINING WF3 (resume here — autonomous via dynamic-workflow)
+## (archived) REMAINING WF3 — all done
 1. **serenity_pipeline.py** — `analyze TICKER [--skip-macro]` (= fetch → `build_evidence`), `macro` (raw gauges, NO regime classification), `discover TKRS` (comparator). Factor `pipeline/_fetch.py: fetch_payload(ticker, skip_macro)` = macro signals (NO `_classify_macro_regime`) + l4 (info WITHOUT `longBusinessSummary`) + l5 + sec. Reuse the module script defs from `_commands.cmd_analyze` (lines ~192-365). **yfinance-testable here.**
 2. **Schema collapse**: `analyst_revisions`+`earnings_estimate`+`revenue_estimate` → one `by_horizon` view (reuse `_postprocess._clean_analyst_revisions` minus its `trend_direction` label). fixture-testable.
 3. **serenity_filings.py** — thin edgartools CLI per `references/edgartools-guide.md`: numbers (`company`/`financials`/`xbrl-facts`/`segments`/`statement`) + text (`filings`/`section`/`eightk`/`text`/`context`). JSON-out, possibly-null→null, no LLM/schema. Offline-test (imports/argparse) only.
