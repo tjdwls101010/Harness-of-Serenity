@@ -72,9 +72,9 @@ def _check_evidence_invariants(checks):
 	from pipeline._evidence import (
 		build_evidence,
 		FORBIDDEN_EVIDENCE_KEYS,
-		FORBIDDEN_KEY_NORMALIZED,
 		FORBIDDEN_VALUE_PATTERN,
 		FORBIDDEN_EVIDENCE_VALUES,
+		_key_is_forbidden,
 	)
 
 	golden_dir = os.path.join(_SCRIPTS, "tests", "golden")
@@ -101,13 +101,14 @@ def _check_evidence_invariants(checks):
 		if ev.get("evidence_contract", {}).get("judgment_owner") != "agent":
 			problems.append("evidence_contract.judgment_owner != agent")
 
-		# No forbidden keys (literal + normalized)
+		# No forbidden keys — literal, normalized, AND the namespaced-judgment substrings
+		# (catches vix_regime / x_risk_level), via the same matcher the sanitizer uses.
 		keys = set(_walk_keys(ev))
 		if keys & FORBIDDEN_EVIDENCE_KEYS:
 			problems.append(f"forbidden keys: {sorted(keys & FORBIDDEN_EVIDENCE_KEYS)}")
-		norm_hits = [k for k in keys if re.sub(r"[^a-z0-9]", "", k.lower()) in FORBIDDEN_KEY_NORMALIZED]
+		norm_hits = [k for k in keys if _key_is_forbidden(k)]
 		if norm_hits:
-			problems.append(f"normalized-forbidden keys: {norm_hits}")
+			problems.append(f"forbidden/namespaced-judgment keys: {norm_hits}")
 
 		# No verdict-shaped value strings. Scan everything EXCEPT the filing-narrative
 		# subtree: filing_evidence is objective reproduced filing text that legitimately
@@ -134,7 +135,9 @@ def _check_evidence_invariants(checks):
 		if "ev_multiples" not in ev.get("valuation_inputs", {}):
 			problems.append("valuation_inputs.ev_multiples missing")
 		er = ev.get("catalyst_inputs", {}).get("estimate_revisions")
-		if not isinstance(er, dict) or "by_horizon" not in er:
+		# Tolerate the documented graceful-degradation shape: a rate-limited revisions call
+		# returns {"error": ...}, the same contract the rest of the pipeline uses.
+		if not isinstance(er, dict) or ("by_horizon" not in er and "error" not in er):
 			problems.append("catalyst_inputs.estimate_revisions.by_horizon missing")
 
 		# When the fixture carries SEC supply-chain facts, the dossier must surface them
@@ -153,6 +156,49 @@ def _check_evidence_invariants(checks):
 		f"{len(fixtures) - len(failed)}/{len(fixtures)} golden fixtures clean"
 		+ ("" if all_ok else f"; failing: {failed}"),
 	))
+
+
+def _check_macro_sanitizer(checks):
+	"""Synthetic l1 with judgment-shaped keys must come out as raw gauges only — the macro
+	path none of the golden fixtures exercise (they all have l1=None)."""
+	from pipeline._evidence import build_evidence, _key_is_forbidden
+	payload = {
+		"l1": {"vix_spot": 18.9, "real_rate": 1.2,
+			   "vix_regime": "panic", "regime": "risk_off", "macro_risk_level": "high"},
+		"l4": {}, "l5": {}, "sec_sc": {},
+	}
+	mi = build_evidence(payload, "SYNTH").get("macro_inputs") or {}
+	leaked = [k for k in mi if _key_is_forbidden(k)]
+	kept = "vix_spot" in mi and "real_rate" in mi
+	ok = not leaked and kept
+	checks.append(("macro_sanitizer", "pass" if ok else "fail",
+		"raw gauges kept; regime/risk_level stripped" if ok else f"leaked={leaked} gauges_kept={kept}"))
+
+
+def _check_sec_prose(checks):
+	"""Synthetic SEC classification (new prose schema) must surface the dossier facts AND the
+	Mag7 flag WITHOUT the editorial `signal` string — the prose/flag path none of the golden
+	fixtures exercise (they carry the OLD enum schema)."""
+	from pipeline._evidence import build_evidence
+	payload = {
+		"l1": None, "l4": {}, "l5": {},
+		"sec_sc": {
+			"sec_supply_chain": {"data": {"filing": {"form": "10-K"}, "classification": {
+				"company_relationships": "Anchor customer Microsoft ~18% of revenue.",
+				"financing_facts": "No ATM or convertible disclosed.",
+			}, "xbrl": {}}},
+			"sec_events": {},
+		},
+	}
+	fe = build_evidence(payload, "SYNTH").get("filing_evidence", {})
+	dossier_ok = bool((fe.get("dossier") or {}).get("filing_facts"))
+	flags = fe.get("absence_evidence_flags") or []
+	mag7_ok = any(isinstance(f, dict) and f.get("type") == "mag7_named_counterparty" for f in flags)
+	no_editorial = all(isinstance(f, dict) and "signal" not in f for f in flags)
+	ok = dossier_ok and mag7_ok and no_editorial
+	checks.append(("sec_prose_path", "pass" if ok else "fail",
+		"dossier facts + mag7 flag surfaced, no editorial signal" if ok
+		else f"dossier={dossier_ok} mag7_flag={mag7_ok} no_editorial={no_editorial}"))
 
 
 def cmd_validate(args):
@@ -185,6 +231,11 @@ def cmd_validate(args):
 
 	# 4. Evidence invariants over the golden corpus (the real regression)
 	_check_evidence_invariants(checks)
+
+	# 4b. Exercise the two layers the golden corpus can't (all fixtures have l1=None and
+	# carry the OLD SEC enum schema): the macro sanitizer and the SEC prose/flag path.
+	_check_macro_sanitizer(checks)
+	_check_sec_prose(checks)
 
 	# 5. Boundary: the active path must not pull in any legacy (judgment) module
 	leaked = sorted(m for m in sys.modules if "pipeline.legacy" in m)

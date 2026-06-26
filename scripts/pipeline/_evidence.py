@@ -39,6 +39,17 @@ FORBIDDEN_KEY_NORMALIZED = {
 	re.sub(r"[^a-z0-9]", "", key.lower())
 	for key in FORBIDDEN_EVIDENCE_KEYS
 }
+# Namespaced-judgment tokens: a key whose normalized form CONTAINS one of these is a
+# judgment even when prefixed (vix_regime, macro_regime, vix_risk_level). Kept narrow so
+# it can't nuke a legitimate field — no evidence key contains "regime"/"risklevel" as a
+# substring, whereas "rating"/"recommendation" DO appear in real fields (rs_rating,
+# recommendation_distribution) and so are matched exactly, never as substrings.
+FORBIDDEN_KEY_SUBSTRINGS = ("regime", "risklevel")
+
+
+def _key_is_forbidden(key: str) -> bool:
+	norm = re.sub(r"[^a-z0-9]", "", key.lower())
+	return norm in FORBIDDEN_KEY_NORMALIZED or any(tok in norm for tok in FORBIDDEN_KEY_SUBSTRINGS)
 
 
 def _dict(value: object) -> JsonObject:
@@ -58,7 +69,7 @@ def _sanitize(value: Json) -> Json:
 		return {
 			key: sanitized
 			for key, child in value.items()
-			if re.sub(r"[^a-z0-9]", "", key.lower()) not in FORBIDDEN_KEY_NORMALIZED
+			if not _key_is_forbidden(key)
 			if (sanitized := _sanitize(child)) is not None
 		}
 	if isinstance(value, list):
@@ -119,16 +130,46 @@ def _without(rows: Json, drop: tuple[str, ...]) -> list[Json]:
 
 def _ev_multiples(info: JsonObject, sbc: JsonObject) -> JsonObject:
 	"""EV/Rev and EV/FCF — raw multiples the agent bands against peers/chain. Arithmetic only,
-	no verdict; this is the real valuation lens (peer/chain multiple banding)."""
+	no verdict; this is the real valuation lens (peer/chain multiple banding). EV/FCF is
+	emitted ONLY for a positive FCF: a negative 'multiple' is a division artifact, not a
+	comparable — for a cash-burner the agent reaches for EV/Rev or net-cash-after-ATM, and
+	the raw (negative) real_fcf is preserved here and in sbc_and_dilution regardless."""
 	ev = info.get("enterpriseValue")
 	rev = info.get("totalRevenue")
 	fcf = sbc.get("real_fcf")
 	out: JsonObject = {"enterprise_value": ev, "total_revenue": rev, "real_fcf": fcf}
 	if isinstance(ev, (int, float)) and isinstance(rev, (int, float)) and rev:
 		out["ev_to_revenue"] = round(ev / rev, 2)
-	if isinstance(ev, (int, float)) and isinstance(fcf, (int, float)) and fcf:
+	if isinstance(ev, (int, float)) and isinstance(fcf, (int, float)) and fcf > 0:
 		out["ev_to_fcf"] = round(ev / fcf, 1)
 	return out
+
+
+def _next_report(earnings_dates: object) -> Json:
+	"""The next scheduled earnings date + consensus EPS — the days-to-earnings the CSP /
+	earnings-gap timing rule turns on. A date and an estimate, no judgment."""
+	ed = _dict(earnings_dates)
+	dates_col = ed.get("Earnings Date")
+	eps_col = ed.get("EPS Estimate")
+	if not isinstance(dates_col, dict) or not dates_col:
+		return None
+	first = next(iter(dates_col), None)
+	if first is None:
+		return None
+	return {
+		"date": dates_col.get(first),
+		"eps_estimate": eps_col.get(first) if isinstance(eps_col, dict) else None,
+	}
+
+
+def _absence_flags(l3: JsonObject) -> Json:
+	"""The L3 objective absence/presence flags (high-risk-region revenue %, named Mag7
+	counterparty, no-recent-material-event) — surfaced as FACTS only. The editorial
+	`signal` prose each flag carried ('more likely fear than fundamental', the V3 tag) is
+	dropped: that read is the agent's, the flag's type + objective value is the evidence."""
+	flags = _list(l3.get("absence_evidence_flags"))
+	out = [{k: v for k, v in f.items() if k != "signal"} for f in flags if isinstance(f, dict)]
+	return out or None
 
 
 def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
@@ -148,14 +189,20 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 	revenue = _dict(l4.get("revenue_trajectory"))
 	earnings = _dict(l5.get("earnings_surprise"))
 	revisions = _dict(l5.get("analyst_revisions"))
-	l3 = _build_l3_bottleneck(sec_sc)
+	rs = _dict(l4.get("rs_ranking"))
+	capex = _dict(l4.get("capex"))
+	short_int = _dict(info.get("short_interest"))
+	recs = _dict(l5.get("analyst_recommendations"))
+	insider_raw = _dict(l5.get("insider_flow"))
+	insider = _dict(insider_raw.get("summary"))
+	l3 = _dict(_build_l3_bottleneck(sec_sc))
 
 	return {
 		"evidence_contract": {
 			"kind": "serenity_evidence",
 			"judgment_owner": "agent",
 			"code_role": "load_and_normalize_evidence",
-			"boundary": "No verdicts, portfolio actions, numeric conviction scores, or option vehicles.",
+			"boundary": "No verdicts, portfolio actions, numeric conviction scores, option vehicles, or a regime/risk_level label — the macro_inputs gauges are raw; the agent classifies the regime.",
 		},
 		"ticker": ticker,
 		"macro_inputs": _macro_inputs(l1),
@@ -228,6 +275,7 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 					"interest_coverage_metric",
 				),
 			),
+			"capex": _pick(capex, ("quarters", "latest_capex", "avg_capex", "direction")),
 		},
 		"valuation_inputs": {
 			"forward_pe": _pick(
@@ -257,6 +305,7 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 				),
 			),
 			"analyst_price_targets": _dict(l5.get("analyst_price_targets")),
+			"recommendation_distribution": recs.get("row_oriented") or (recs or None),
 			"ev_multiples": _ev_multiples(info, sbc),
 		},
 		"market_structure_inputs": {
@@ -264,6 +313,12 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 				"total": inst.get("total_institutional_holders"),
 				"top_holders": _top_holders_without_labels(inst.get("top_holders_classified")),
 			},
+			"relative_strength": _pick(rs, ("rs_rating", "spy_rs", "history")),
+			"short_interest_depth": _pick(short_int, ("days_to_cover", "si_trend")),
+			"insider_flow": _pick(
+				insider,
+				("net_value", "net_shares_6m", "buy_value_12m", "sell_value_12m", "buy_count_12m", "sell_count_12m"),
+			),
 			"volatility": _pick(
 				iv,
 				(
@@ -282,6 +337,7 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 			),
 		},
 		"catalyst_inputs": {
+			"next_report": _next_report(l5.get("earnings_dates")),
 			"earnings_history": _pick(
 				earnings,
 				("surprise_history", "consecutive_beats", "avg_surprise_pct", "total_quarters_analyzed"),
@@ -293,8 +349,9 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 			),
 		},
 		"filing_evidence": {
-			"dossier": _dict(l3).get("evidence_dossier"),
-			"recent_events": _without(_dict(_dict(l3).get("data")).get("sec_events"), ("confidence",)),
+			"dossier": l3.get("evidence_dossier"),
+			"absence_evidence_flags": _absence_flags(l3),
+			"recent_events": _without(_dict(_dict(l3.get("data")).get("sec_events")), ("confidence",)),
 		},
 	}
 

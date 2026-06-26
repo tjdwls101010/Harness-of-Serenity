@@ -122,7 +122,7 @@ When the transfer or a theme hands you a cohort rather than one name, rank for *
 
 ### Routing through `discover`
 
-`discover TKR1 TKR2 …` runs the pipeline's triage comparator across the cohort — a per-name health · momentum · catalyst · valuation read for ranking names against each other, never a grade (it's the comparator CLAUDE.md describes; the divergence between it and your structural read is the gap *you* resolve, most useful precisely where it disagrees with you). Workflow: feed the generated cohort to `discover` to isolate the laggard, then hand the chosen name to `analyze`.
+`discover TKR1 TKR2 …` returns a side-by-side **raw metric table** — per name: MC, fwd P/E (1y/2y), PEG, revenue growth, gross margin, RS rating, no-growth MoS%, %-above-52w-low / %-below-52w-high, short %. That's *all* it is: no triage label, no ranking, no sort-by-score, no health/momentum/catalyst/valuation composite (that legacy `objective_screen` was deleted — the active pipeline strips it). **You** rank the cohort and isolate the laggard, from these metrics plus your structural de-risk read — the table is routing fuel for your power-law pick, not a screen that picks for you. Workflow: feed the generated cohort to `discover`, read the metrics, pick the name, hand it to `analyze`.
 
 ```bash
 scripts/.venv/bin/python scripts/serenity_pipeline.py discover TKR1 TKR2 …

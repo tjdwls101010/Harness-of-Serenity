@@ -105,11 +105,14 @@ def fetch_macro(include_capex: bool = True) -> dict:
 	judgment word the evidence sanitizer strips."""
 	results = _run_parallel(_MACRO_SCRIPTS)
 
+	# Raw gauges only. Deliberately NOT emitted: vix_regime / bdi_demand / dxy_strength —
+	# those are the source modules collapsing a number into a risk-state WORD ("panic",
+	# "Extremely High"). That naming-the-meaning is the agent's read, not the code's; the
+	# raw level + z-score below carry the same information without the baked-in conclusion.
 	gauges: dict = {
 		"erp_pct": (results.get("erp") or {}).get("current", {}).get("erp"),
 		"vix_spot": (results.get("vix_curve") or {}).get("vix_spot"),
-		"vix_regime": (results.get("vix_curve") or {}).get("regime"),
-		"vix_structure": (results.get("vix_curve") or {}).get("structure_type"),
+		"vix_structure": (results.get("vix_curve") or {}).get("structure_type"),  # contango/backwardation = sign of spread, a fact
 		"net_liq_direction": (results.get("net_liquidity") or {}).get("net_liquidity", {}).get("direction"),
 		"fear_greed": (results.get("fear_greed") or {}).get("current", {}).get("score"),
 		"fedwatch_next_meeting": (results.get("fedwatch") or {}).get("next_meeting"),
@@ -119,11 +122,9 @@ def fetch_macro(include_capex: bool = True) -> dict:
 	bdi = results.get("bdi") or {}
 	if not bdi.get("error"):
 		gauges["bdi_z_score"] = bdi.get("statistics", {}).get("z_score")
-		gauges["bdi_demand"] = bdi.get("shipping_demand")
 	dxy = results.get("dxy") or {}
 	if not dxy.get("error"):
 		gauges["dxy_z_score"] = dxy.get("statistics", {}).get("z_score")
-		gauges["dxy_strength"] = dxy.get("dollar_strength")
 
 	real_rate = _real_rate(results)
 	if real_rate is not None:
@@ -158,6 +159,8 @@ def _fetch_l4(ticker: str) -> dict:
 		"no_growth_valuation": ("modules/no_growth_valuation.py", ["calculate", ticker]),
 		"margin_tracker": ("modules/margin_tracker.py", ["track", ticker]),
 		"iv_context": ("modules/iv_context.py", ["analyze", ticker]),
+		"rs_ranking": ("modules/rs_ranking.py", ["score", ticker]),
+		"capex_trend": ("modules/capex_tracker.py", ["track", ticker, "--quarters", "8"]),
 		"quarterly_financials": ("modules/financials.py", ["get-income-stmt", ticker, "--freq", "quarterly"]),
 	}
 	results = _run_parallel(specs)
@@ -167,6 +170,14 @@ def _fetch_l4(ticker: str) -> dict:
 	fin = results.pop("quarterly_financials", None)
 	if isinstance(fin, dict) and not fin.get("error"):
 		results["revenue_trajectory"] = fin.get("revenue_trajectory", {})
+
+	# Flatten the analyzed name's own CapEx series to the first symbol, mirroring the
+	# hyperscaler shape. The module's `direction` is deterministic arithmetic on the
+	# series (slope sign), the same class of fact as a QoQ change — not a verdict.
+	cap = results.pop("capex_trend", None)
+	if isinstance(cap, dict) and not cap.get("error"):
+		syms = cap.get("symbols") or []
+		results["capex"] = syms[0] if syms else {}
 	return results
 
 
@@ -175,10 +186,13 @@ def _fetch_l5(ticker: str) -> dict:
 	output — the evidence layer merges the revision horizons; the agent reads momentum."""
 	specs = {
 		"earnings_surprise": ("modules/surprise.py", ["history", ticker]),
+		"earnings_dates": ("modules/actions.py", ["get-earnings-dates", ticker, "--limit", "8"]),
 		"analyst_price_targets": ("modules/analysis.py", ["get-analyst-price-targets", ticker]),
+		"analyst_recommendations": ("modules/analysis.py", ["get-recommendations-summary", ticker]),
 		"analyst_revisions": ("modules/analysis.py", ["get-revisions", ticker]),
 		"earnings_estimate": ("modules/analysis.py", ["get-earnings-estimate", ticker]),
 		"revenue_estimate": ("modules/analysis.py", ["get-revenue-estimate", ticker]),
+		"insider_flow": ("modules/actions.py", ["get-insider", ticker]),
 	}
 	return _run_parallel(specs)
 
