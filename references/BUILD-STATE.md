@@ -24,6 +24,12 @@ Resume anchor after session compaction. Everything below the "Done" line is comm
 - **Ask the user via the AskUserQuestion tool**, never a free-text question.
 - edgartools 5.35.1 bugs to code around: `EightK.get()` doesn't exist (subscript+guard); `FactQuery.by_value` takes a callable; no top-level `get_company` / `find(form=,ticker=)` (use `Company().get_filings`); MD&A is `.management_discussion`, TenQ lacks named section props. Identity required (`set_identity` / `EDGAR_IDENTITY`).
 
+## PROGRESS (post-compaction session — committed to main)
+- **DONE** WF3 steps 1,2 (serenity_pipeline.py live analyze/macro/discover = evidence-only + _fetch.py + schema collapse `by_horizon`), step 6 (serenity_harness.py validate), step 7 (legacy quarantine → pipeline/legacy/, active path loads ZERO legacy), step 3 (serenity_filings.py — thin edgartools CLI, offline-tested), step 5 (.claude/agents/serenity-filings.md subagent).
+- **DONE** adversarial review WF over the evidence core (4 lenses × verify, 21 agents): 15 confirmed findings applied — closed vix_regime/bdi_demand/dxy_strength leaks + hardened sanitizer; broadened evidence (relative_strength, short_interest_depth, insider_flow, capex, recommendation_distribution, next_report, absence_evidence_flags surfaced); EV/FCF>0 guard; validate gained macro_sanitizer + sec_prose_path checks. validate = 11 pass / 0 fail.
+- **ENV NOTE**: SEC is IP-blocked here (all endpoints 403 after a brief initial window) — sec-analyzer produced a live NVDA/AMD dossier early in the session, then SEC throttled. So the edgartools/SEC-numbers path is NOT live-testable here; verify on the user's machine. yfinance fully works.
+- **REMAINING**: step 4 (SEC rework — DECISION PENDING, see below), step 8 (hooks), then WF4.
+
 ## REMAINING WF3 (resume here — autonomous via dynamic-workflow)
 1. **serenity_pipeline.py** — `analyze TICKER [--skip-macro]` (= fetch → `build_evidence`), `macro` (raw gauges, NO regime classification), `discover TKRS` (comparator). Factor `pipeline/_fetch.py: fetch_payload(ticker, skip_macro)` = macro signals (NO `_classify_macro_regime`) + l4 (info WITHOUT `longBusinessSummary`) + l5 + sec. Reuse the module script defs from `_commands.cmd_analyze` (lines ~192-365). **yfinance-testable here.**
 2. **Schema collapse**: `analyst_revisions`+`earnings_estimate`+`revenue_estimate` → one `by_horizon` view (reuse `_postprocess._clean_analyst_revisions` minus its `trend_direction` label). fixture-testable.

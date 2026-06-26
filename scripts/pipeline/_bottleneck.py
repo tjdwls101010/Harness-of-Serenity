@@ -117,11 +117,14 @@ def _build_evidence_dossier(evidence, xbrl):
 		"customer_concentration": _list("revenue_concentration"),
 		"inventory_mix": _list("inventory_composition"),
 		"purchase_obligations": _list("purchase_obligations"),
-		"note": ("Objective facts from the filing (prose) + XBRL (numbers) — reason and judge from "
-				 "THESE. A counterparty, country share, or contract not listed here is not in the "
-				 "filing; do not assert one from memory (a null field means the filing was silent). "
-				 "The bottleneck / archetype / moat / funding-quality judgments are YOURS, not the "
-				 "pipeline's — derive them here from this evidence plus the doctrine."),
+		"note": ("Deterministic XBRL NUMBERS from the filing — geographic & customer revenue "
+				 "concentration, inventory mix, purchase obligations. A share/figure not listed here "
+				 "is not in the XBRL; do not assert one from memory (a null field means the filing was "
+				 "silent). For the relationship NARRATIVE — named customers/suppliers/partners, "
+				 "critical-input sourcing, financing structure (ATM/convertible/offtake) — invoke the "
+				 "`serenity-filings` subagent; the pipeline no longer extracts prose (that adaptive "
+				 "read is the subagent's). The bottleneck / archetype / moat / funding-quality "
+				 "judgments are YOURS — derive them from these numbers + the subagent's facts + the doctrine."),
 	}
 
 

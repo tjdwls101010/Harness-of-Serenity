@@ -175,30 +175,35 @@ def _check_macro_sanitizer(checks):
 		"raw gauges kept; regime/risk_level stripped" if ok else f"leaked={leaked} gauges_kept={kept}"))
 
 
-def _check_sec_prose(checks):
-	"""Synthetic SEC classification (new prose schema) must surface the dossier facts AND the
-	Mag7 flag WITHOUT the editorial `signal` string — the prose/flag path none of the golden
-	fixtures exercise (they carry the OLD enum schema)."""
+def _check_sec_xbrl_path(checks):
+	"""The production SEC path: deterministic XBRL (no prose). A synthetic xbrl block with a
+	high-risk-region revenue share must surface the dossier's geographic_concentration AND the
+	high_risk_region_revenue flag WITHOUT the editorial `signal` string. None of the golden
+	fixtures exercise this (they carry the OLD sec-analyzer enum schema)."""
 	from pipeline._evidence import build_evidence
 	payload = {
 		"l1": None, "l4": {}, "l5": {},
 		"sec_sc": {
-			"sec_supply_chain": {"data": {"filing": {"form": "10-K"}, "classification": {
-				"company_relationships": "Anchor customer Microsoft ~18% of revenue.",
-				"financing_facts": "No ATM or convertible disclosed.",
-			}, "xbrl": {}}},
+			"sec_supply_chain": {"data": {"filing": {"form": "10-K"}, "classification": {}, "xbrl": {
+				"geographic_revenue": [
+					{"region": "Taiwan", "revenue_pct": 50.0, "revenue_amount": "$5.0B", "source": "xbrl"},
+					{"region": "United States", "revenue_pct": 50.0, "revenue_amount": "$5.0B", "source": "xbrl"},
+				],
+				"revenue_concentration": [{"entity": "Customer One", "revenue_pct": 30.0, "source": "xbrl"}],
+			}}},
 			"sec_events": {},
 		},
 	}
 	fe = build_evidence(payload, "SYNTH").get("filing_evidence", {})
-	dossier_ok = bool((fe.get("dossier") or {}).get("filing_facts"))
+	dossier = fe.get("dossier") or {}
+	geo_ok = bool(dossier.get("geographic_concentration")) and bool(dossier.get("customer_concentration"))
 	flags = fe.get("absence_evidence_flags") or []
-	mag7_ok = any(isinstance(f, dict) and f.get("type") == "mag7_named_counterparty" for f in flags)
+	hr_ok = any(isinstance(f, dict) and f.get("type") == "high_risk_region_revenue" for f in flags)
 	no_editorial = all(isinstance(f, dict) and "signal" not in f for f in flags)
-	ok = dossier_ok and mag7_ok and no_editorial
-	checks.append(("sec_prose_path", "pass" if ok else "fail",
-		"dossier facts + mag7 flag surfaced, no editorial signal" if ok
-		else f"dossier={dossier_ok} mag7_flag={mag7_ok} no_editorial={no_editorial}"))
+	ok = geo_ok and hr_ok and no_editorial
+	checks.append(("sec_xbrl_path", "pass" if ok else "fail",
+		"XBRL dossier + high-risk-region flag surfaced, no editorial signal" if ok
+		else f"dossier_geo={geo_ok} hr_flag={hr_ok} no_editorial={no_editorial}"))
 
 
 def cmd_validate(args):
@@ -235,7 +240,7 @@ def cmd_validate(args):
 	# 4b. Exercise the two layers the golden corpus can't (all fixtures have l1=None and
 	# carry the OLD SEC enum schema): the macro sanitizer and the SEC prose/flag path.
 	_check_macro_sanitizer(checks)
-	_check_sec_prose(checks)
+	_check_sec_xbrl_path(checks)
 
 	# 5. Boundary: the active path must not pull in any legacy (judgment) module
 	leaked = sorted(m for m in sys.modules if "pipeline.legacy" in m)

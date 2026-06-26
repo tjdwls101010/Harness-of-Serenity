@@ -17,8 +17,6 @@ gauges this module returns, never the pipeline's.
 from __future__ import annotations
 
 import concurrent.futures
-import os
-import sys
 
 from ._runner import _run_script
 
@@ -198,47 +196,27 @@ def _fetch_l5(ticker: str) -> dict:
 
 
 def _extract_sec_supply_chain(ticker: str) -> dict:
-	"""SEC supply-chain EVIDENCE: relationship prose + deterministic XBRL quantities
-	(geographic revenue, customer concentration, inventory, purchase obligations).
+	"""SEC supply-chain NUMBERS — deterministic XBRL only (customer/segment concentration,
+	geographic revenue, inventory mix, purchase obligations), via edgartools. No LLM, no
+	sec-analyzer, no OpenRouter.
 
-	NOTE — this still routes the narrative through sec-analyzer (an LLM over the filing),
-	which is exactly the non-determinism the architecture is moving OFF: the edgartools
-	rework will pull the XBRL numbers deterministically here and hand the narrative to the
-	`serenity-filings` subagent. Kept for now so the active path is self-contained and the
-	SEC evidence keeps flowing. On any failure it returns an error dict — the evidence
-	layer reads a silent/failed filing as null, never as a fabricated fact."""
-	try:
-		from dotenv import load_dotenv
-		_env = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-			os.path.dirname(os.path.abspath(__file__))))), ".env")
-		load_dotenv(_env)
-		from sec_analyzer import extract as _sec_extract
-		from pipeline._bottleneck import SerenitySupplyChain as _SCPreset
-		result = _sec_extract(ticker, preset=_SCPreset)
-	except Exception as e:
-		print(f"[sec-analyzer] extraction failed: {e}", file=sys.stderr)
-		return {"error": f"sec-analyzer extraction failed: {e}"}
-
-	classification = result.get("data", {}) or {}
-	filing = result.get("filing", {}) or {}
-
-	# Deterministic XBRL supplement (optional — never required; failure is silent).
-	xbrl = {}
-	try:
-		from sec_analyzer import extract_xbrl as _sec_xbrl
-		xres = _sec_xbrl(ticker, form=filing.get("form", "10-K"))
-		if xres and xres.get("xbrl_available"):
-			xbrl = xres.get("data", {}) or {}
-	except Exception as e:
-		print(f"[sec-analyzer] XBRL supplement failed: {e}", file=sys.stderr)
-
+	The relationship NARRATIVE (named customers/suppliers, financing structure) is no longer
+	extracted here — that adaptive prose reading is the `serenity-filings` subagent's job,
+	invoked by the analyzing agent on demand. So `classification` is intentionally empty:
+	the pipeline ships the filing's deterministic numbers, the agent reaches for the subagent
+	when it needs the filing's words. On any failure the XBRL is empty — the evidence layer
+	reads a silent filing as null, never as a fabricated fact."""
+	from ._sec_xbrl import extract_supply_chain_xbrl
+	res = extract_supply_chain_xbrl(ticker)
+	filing = res.get("filing", {}) or {}
 	return {
 		"data": {
 			"filing": filing,
-			"classification": classification,
-			"xbrl": xbrl,
+			"classification": {},  # narrative is the serenity-filings subagent's, not the pipeline's
+			"xbrl": res.get("data", {}) or {},
 		},
-		"metadata": {"symbol": ticker, "form": filing.get("form", "10-K")},
+		"metadata": {"symbol": ticker, "form": filing.get("form", "10-K"),
+					 "xbrl_available": res.get("xbrl_available", False)},
 	}
 
 

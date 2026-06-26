@@ -20,6 +20,8 @@ description: >-
 
 This is steps 2–5 of the funnel on ONE name: name the archetype, run the gates, read the cycle, pick the valuation lens, set entry/vehicle/kill. The pipeline already handed you the facts (run `analyze TICKER` first — the gives-vs-judges split, the never-cite-from-memory and V2 rules, the 6 roots, and the always-on invariants all live in CLAUDE.md; this skill is the situational depth that bites once the JSON is in front of you). Everything below is a verdict the code refuses to make for you.
 
+**The filing's words are a tool-call away.** `analyze` ships the deterministic XBRL numbers (country %, customer-concentration %, inventory, purchase obligations) but NOT the relationship prose. The moment a verdict turns on *who* the named customers/suppliers are, the critical-input sourcing, or the financing STRUCTURE (the funded-vs-dilution gate, kill-#8's raise terms) — invoke the **`serenity-filings` subagent** (via the Task tool) to read the 10-K/10-Q/8-K and return those facts verbatim. Don't infer a counterparty or a raise term from memory when the subagent can pull it from the filing; a DEDUCED link stays DEDUCED until it does.
+
 ---
 
 ## 0 — Name the archetype FIRST (it rotates everything downstream)
