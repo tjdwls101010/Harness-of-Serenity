@@ -73,20 +73,36 @@ def _top_holders_without_labels(rows: Json) -> list[Json]:
 	return holders
 
 
-def _legacy_sec_terms(sec_sc: JsonObject) -> JsonObject:
-	raw = _dict(sec_sc.get("sec_supply_chain"))
-	data = _dict(raw.get("data"))
-	classification = _dict(data.get("classification"))
-	return _pick(
-		classification,
-		(
-			"critical_input",
-			"critical_input_source",
-			"key_suppliers",
-			"key_customers",
-			"strategic_backstop",
-		),
-	)
+def _macro_signals(l1: object) -> Json:
+	"""Raw macro gauges only — the agent classifies the regime; the code never labels it
+	(no `regime`/`risk_level`/`regime_thresholds`, which are judgments)."""
+	sig = _dict(l1).get("signals")
+	return sig if isinstance(sig, dict) else None
+
+
+def _without(rows: Json, drop: tuple[str, ...]) -> list[Json]:
+	"""List of dicts with the given (judgment) keys stripped from each row."""
+	out: list[Json] = []
+	for row in _list(rows):
+		if isinstance(row, dict):
+			out.append({k: v for k, v in row.items() if k not in drop})
+		else:
+			out.append(row)
+	return out
+
+
+def _ev_multiples(info: JsonObject, sbc: JsonObject) -> JsonObject:
+	"""EV/Rev and EV/FCF — raw multiples the agent bands against peers/chain. Arithmetic only,
+	no verdict; this is the real valuation lens (peer/chain multiple banding)."""
+	ev = info.get("enterpriseValue")
+	rev = info.get("totalRevenue")
+	fcf = sbc.get("real_fcf")
+	out: JsonObject = {"enterprise_value": ev, "total_revenue": rev, "real_fcf": fcf}
+	if isinstance(ev, (int, float)) and isinstance(rev, (int, float)) and rev:
+		out["ev_to_revenue"] = round(ev / rev, 2)
+	if isinstance(ev, (int, float)) and isinstance(fcf, (int, float)) and fcf:
+		out["ev_to_fcf"] = round(ev / fcf, 1)
+	return out
 
 
 def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
@@ -116,7 +132,7 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 			"boundary": "No verdicts, portfolio actions, numeric conviction scores, or option vehicles.",
 		},
 		"ticker": ticker,
-			"macro_inputs": _sanitize(l1),
+		"macro_inputs": _macro_signals(l1),
 		"key_facts": _pick(
 			info,
 			(
@@ -215,11 +231,11 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 				),
 			),
 			"analyst_price_targets": _dict(l5.get("analyst_price_targets")),
+			"ev_multiples": _ev_multiples(info, sbc),
 		},
 		"market_structure_inputs": {
 			"institutional_holders": {
 				"total": inst.get("total_institutional_holders"),
-				"breakdown": inst.get("classified_breakdown"),
 				"top_holders": _top_holders_without_labels(inst.get("top_holders_classified")),
 			},
 			"volatility": _pick(
@@ -253,8 +269,7 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 		},
 		"filing_evidence": {
 			"dossier": _dict(l3).get("evidence_dossier"),
-			"legacy_extracted_terms": _legacy_sec_terms(sec_sc),
-			"recent_events": _dict(_dict(l3).get("data")).get("sec_events"),
+			"recent_events": _without(_dict(_dict(l3).get("data")).get("sec_events"), ("confidence",)),
 		},
 	}
 
