@@ -250,11 +250,29 @@ def cmd_validate(args):
 	# 6. SEC layer artifacts — soft (built in the SEC bundle; warn, don't fail)
 	for rel, label in (
 		(os.path.join("scripts", "serenity_filings.py"), "serenity_filings.py"),
+		(os.path.join("scripts", "pipeline", "_sec_xbrl.py"), "sec_xbrl module"),
 		(os.path.join(".claude", "agents", "serenity-filings.md"), "serenity-filings agent"),
 	):
 		p = os.path.join(_ROOT, rel)
 		checks.append((f"sec_layer:{label}", "pass" if os.path.isfile(p) else "warn",
 			"present" if os.path.isfile(p) else "not built yet"))
+
+	# 7. Hooks: settings.json valid + both hook scripts present
+	settings = os.path.join(_ROOT, ".claude", "settings.json")
+	if not os.path.isfile(settings):
+		checks.append(("hooks", "warn", "no .claude/settings.json"))
+	else:
+		try:
+			cfg = json.load(open(settings, encoding="utf-8"))
+			events = list((cfg.get("hooks") or {}).keys())
+			have = [e for e in ("UserPromptSubmit", "PreToolUse") if e in events]
+			h1 = os.path.isfile(os.path.join(_ROOT, ".claude", "hooks", "evidence_discipline.py"))
+			h2 = os.path.isfile(os.path.join(_ROOT, ".claude", "hooks", "web_number_guard.py"))
+			ok = len(have) == 2 and h1 and h2
+			checks.append(("hooks", "pass" if ok else "fail",
+				f"events={have} evidence_discipline={h1} web_number_guard={h2}"))
+		except Exception as e:  # noqa: BLE001
+			checks.append(("hooks", "fail", f"settings.json invalid: {e}"))
 
 	hard_fail = [c for c in checks if c[1] == "fail"]
 	report = {
