@@ -79,7 +79,12 @@ def test_pipeline_evidence_command_is_judgment_free() -> None:
 		key for key in all_keys
 		if "".join(ch for ch in key.lower() if ch.isalnum()) in FORBIDDEN_KEY_NORMALIZED
 	]
-	all_values = {value.strip() for value in _walk_strings(payload)}
+	# Verdict-value scan exempts the filing-narrative subtree: filing_evidence is objective
+	# reproduced filing text that legitimately contains "buy"/"sell" as ordinary verbs. The
+	# scan targets a CODE-emitted verdict label; the forbidden-KEY scan above still covers
+	# the whole tree (including filing_evidence), so no field can be named like a verdict.
+	scannable = {key: val for key, val in payload.items() if key != "filing_evidence"}
+	all_values = {value.strip() for value in _walk_strings(scannable)}
 	assert not (all_values & FORBIDDEN_VALUES)
 	assert not [
 		value for value in all_values

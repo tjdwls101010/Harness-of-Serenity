@@ -13,7 +13,7 @@ comparator and a set of flags, never a verdict.
 import re
 from datetime import datetime
 
-from ._bottleneck import _build_l3_bottleneck
+from .._bottleneck import _build_l3_bottleneck
 from ._health import _extract_health_gates
 
 

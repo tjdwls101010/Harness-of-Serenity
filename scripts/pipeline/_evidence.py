@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from ._bottleneck import _build_l3_bottleneck
+from ._postprocess import _clean_analyst_revisions
 
 type Json = None | bool | int | float | str | list[Json] | dict[str, Json]
 type JsonObject = dict[str, Json]
@@ -22,6 +23,12 @@ FORBIDDEN_EVIDENCE_KEYS = {
 	"recommendation",
 	"signals",
 	"assessment",
+	# Macro-regime judgments — never computed in code; stripped defensively in case a
+	# legacy payload that still carries them is ever replayed through build_evidence.
+	"regime",
+	"risk_level",
+	"regime_thresholds",
+	"trend_direction",
 }
 FORBIDDEN_EVIDENCE_VALUES = {"BUY", "SELL", "STRONG_BUY", "MOONSHOT", "ACCUMULATE", "AVOID"}
 FORBIDDEN_VALUE_PATTERN = re.compile(
@@ -73,11 +80,30 @@ def _top_holders_without_labels(rows: Json) -> list[Json]:
 	return holders
 
 
-def _macro_signals(l1: object) -> Json:
-	"""Raw macro gauges only — the agent classifies the regime; the code never labels it
-	(no `regime`/`risk_level`/`regime_thresholds`, which are judgments)."""
-	sig = _dict(l1).get("signals")
-	return sig if isinstance(sig, dict) else None
+def _macro_inputs(l1: object) -> Json:
+	"""Raw macro gauges, sanitized — the agent classifies the regime; the code never
+	labels it. Whatever the fetch layer hands up (a flat gauge dict) is passed through
+	with any judgment key/value stripped defensively, so a stray `regime`/`risk_level`
+	or a `BUY`-shaped string can never reach the agent disguised as evidence."""
+	if not l1:
+		return None
+	sanitized = _sanitize(l1)
+	return sanitized or None
+
+
+def _by_horizon_view(revisions: object, earnings_estimate: object, revenue_estimate: object) -> Json:
+	"""Collapse eps revisions/trend + earnings & revenue estimates into ONE per-horizon
+	view (0q/+1q/0y/+1y), each horizon carrying its eps and revenue numbers plus the raw
+	up/down revision counts. Drops `trend_direction` (+ the thresholds that define it):
+	'rising/falling/stable' is a directional judgment, and the net-revision counts plus the
+	horizon numbers are the raw evidence the agent reads the momentum from instead."""
+	cleaned = _clean_analyst_revisions(
+		revisions, earnings_estimate=earnings_estimate, revenue_estimate=revenue_estimate
+	)
+	if isinstance(cleaned, dict):
+		cleaned.pop("trend_direction", None)
+		cleaned.pop("thresholds", None)
+	return cleaned
 
 
 def _without(rows: Json, drop: tuple[str, ...]) -> list[Json]:
@@ -132,7 +158,7 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 			"boundary": "No verdicts, portfolio actions, numeric conviction scores, or option vehicles.",
 		},
 		"ticker": ticker,
-		"macro_inputs": _macro_signals(l1),
+		"macro_inputs": _macro_inputs(l1),
 		"key_facts": _pick(
 			info,
 			(
@@ -260,12 +286,11 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 				earnings,
 				("surprise_history", "consecutive_beats", "avg_surprise_pct", "total_quarters_analyzed"),
 			),
-			"analyst_revisions": _pick(
+			"estimate_revisions": _by_horizon_view(
 				revisions,
-				("eps_revisions", "eps_trend", "growth_estimates"),
+				l5.get("earnings_estimate"),
+				l5.get("revenue_estimate"),
 			),
-			"earnings_estimate": _dict(l5.get("earnings_estimate")),
-			"revenue_estimate": _dict(l5.get("revenue_estimate")),
 		},
 		"filing_evidence": {
 			"dossier": _dict(l3).get("evidence_dossier"),

@@ -160,7 +160,7 @@ def _capture_one(ticker):
 def subprocess_run(ticker, env):
 	import subprocess
 	return subprocess.run(
-		[sys.executable, "-m", "pipeline", "legacy-analyze", ticker, "--skip-macro"],
+		[sys.executable, "-m", "pipeline.legacy", "legacy-analyze", ticker, "--skip-macro"],
 		cwd=_SCRIPTS_DIR, env=env, capture_output=True, text=True, timeout=420,
 	)
 
