@@ -23,3 +23,7 @@ scripts/**/.Seongjin/
 
 # Runtime state cache (not a deliverable)
 data/state_store.db/
+
+# --- Runtime loop/research artifacts & scratch (not deliverables) ---
+.omo/
+scratchpad_macro.json
