@@ -180,6 +180,10 @@ def _build_debt_analysis(ticker, symbol):
 		],
 	)
 
+	# Balance-sheet identity inputs (for the data-integrity check: Cash + Inventory <= Total Assets).
+	total_assets = _get_field(bs, ["TotalAssets", "Total Assets"])
+	inventory = _get_field(bs, ["Inventory", "InventoryNet", "Inventories"])
+
 	# If TotalDebt is missing, try summing long-term and current debt
 	if total_debt is None:
 		lt_debt = _get_field(bs, ["LongTermDebt", "Long Term Debt"])
@@ -269,6 +273,8 @@ def _build_debt_analysis(ticker, symbol):
 		"total_debt": total_debt_val,
 		"cash_and_equivalents": cash_val,
 		"net_debt": net_debt,
+		"total_assets": int(total_assets) if total_assets is not None else None,
+		"inventory": int(inventory) if inventory is not None else None,
 		"market_cap": int(market_cap) if market_cap is not None else None,
 		"net_debt_to_mcap": net_debt_to_mcap,
 		"total_revenue": int(total_revenue) if total_revenue is not None else None,

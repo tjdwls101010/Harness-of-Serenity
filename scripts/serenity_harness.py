@@ -175,35 +175,23 @@ def _check_macro_sanitizer(checks):
 		"raw gauges kept; regime/risk_level stripped" if ok else f"leaked={leaked} gauges_kept={kept}"))
 
 
-def _check_sec_xbrl_path(checks):
-	"""The production SEC path: deterministic XBRL (no prose). A synthetic xbrl block with a
-	high-risk-region revenue share must surface the dossier's geographic_concentration AND the
-	high_risk_region_revenue flag WITHOUT the editorial `signal` string. None of the golden
-	fixtures exercise this (they carry the OLD sec-analyzer enum schema)."""
-	from pipeline._evidence import build_evidence
-	payload = {
-		"l1": None, "l4": {}, "l5": {},
-		"sec_sc": {
-			"sec_supply_chain": {"data": {"filing": {"form": "10-K"}, "classification": {}, "xbrl": {
-				"geographic_revenue": [
-					{"region": "Taiwan", "revenue_pct": 50.0, "revenue_amount": "$5.0B", "source": "xbrl"},
-					{"region": "United States", "revenue_pct": 50.0, "revenue_amount": "$5.0B", "source": "xbrl"},
-				],
-				"revenue_concentration": [{"entity": "Customer One", "revenue_pct": 30.0, "source": "xbrl"}],
-			}}},
-			"sec_events": {},
-		},
-	}
-	fe = build_evidence(payload, "SYNTH").get("filing_evidence", {})
-	dossier = fe.get("dossier") or {}
-	geo_ok = bool(dossier.get("geographic_concentration")) and bool(dossier.get("customer_concentration"))
-	flags = fe.get("absence_evidence_flags") or []
-	hr_ok = any(isinstance(f, dict) and f.get("type") == "high_risk_region_revenue" for f in flags)
-	no_editorial = all(isinstance(f, dict) and "signal" not in f for f in flags)
-	ok = geo_ok and hr_ok and no_editorial
-	checks.append(("sec_xbrl_path", "pass" if ok else "fail",
-		"XBRL dossier + high-risk-region flag surfaced, no editorial signal" if ok
-		else f"dossier_geo={geo_ok} hr_flag={hr_ok} no_editorial={no_editorial}"))
+def _check_sec_consolidation(checks):
+	"""The filing's disclosure numbers (customer %, geographic %, inventory, purchase obligations)
+	consolidated into the `serenity-filings` subagent. The active pipeline must therefore pull NO
+	in-pipeline XBRL — the brittle `_sec_xbrl` parser is retired to `pipeline/legacy/` — so the
+	live extractor returns an empty filing payload and imports no `_sec_xbrl` into the active path.
+	build_evidence KEEPS the capability to fold a populated filing payload (the golden fixtures
+	exercise it); this check guards only that the LIVE fetch ships none of its own."""
+	from pipeline._fetch import _extract_sec_supply_chain
+	leaked = sorted(m for m in sys.modules if "_sec_xbrl" in m and "legacy" not in m)
+	sc = _extract_sec_supply_chain("AAPL")  # pure stub now — no network
+	data = (sc.get("data") or {})
+	xbrl_empty = not (data.get("xbrl") or {})
+	classification_empty = not (data.get("classification") or {})
+	ok = not leaked and xbrl_empty and classification_empty
+	checks.append(("sec_consolidation", "pass" if ok else "fail",
+		"filing numbers consolidated to subagent; active path pulls no in-pipeline XBRL" if ok
+		else f"active_xbrl_leak={leaked} xbrl_empty={xbrl_empty} classification_empty={classification_empty}"))
 
 
 def cmd_validate(args):
@@ -237,40 +225,54 @@ def cmd_validate(args):
 	# 4. Evidence invariants over the golden corpus (the real regression)
 	_check_evidence_invariants(checks)
 
-	# 4b. Exercise the two layers the golden corpus can't (all fixtures have l1=None and
-	# carry the OLD SEC enum schema): the macro sanitizer and the SEC prose/flag path.
+	# 4b. Exercise the two layers the golden corpus can't (all fixtures have l1=None): the macro
+	# sanitizer, and the SEC-consolidation boundary (active path pulls no in-pipeline XBRL).
 	_check_macro_sanitizer(checks)
-	_check_sec_xbrl_path(checks)
+	_check_sec_consolidation(checks)
 
 	# 5. Boundary: the active path must not pull in any legacy (judgment) module
 	leaked = sorted(m for m in sys.modules if "pipeline.legacy" in m)
 	checks.append(("judgment_boundary", "pass" if not leaked else "fail",
 		"active path loads no legacy module" if not leaked else f"LEGACY LEAK: {leaked}"))
 
-	# 6. SEC layer artifacts — soft (built in the SEC bundle; warn, don't fail)
+	# 6. SEC layer artifacts — soft (warn, don't fail). The filing's disclosure numbers
+	# consolidated into the subagent, so the in-pipeline `_sec_xbrl` parser is intentionally
+	# retired to legacy and is NOT expected here; the live SEC surface is the CLI + the agent.
 	for rel, label in (
 		(os.path.join("scripts", "serenity_filings.py"), "serenity_filings.py"),
-		(os.path.join("scripts", "pipeline", "_sec_xbrl.py"), "sec_xbrl module"),
 		(os.path.join(".claude", "agents", "serenity-filings.md"), "serenity-filings agent"),
 	):
 		p = os.path.join(_ROOT, rel)
 		checks.append((f"sec_layer:{label}", "pass" if os.path.isfile(p) else "warn",
 			"present" if os.path.isfile(p) else "not built yet"))
 
-	# 7. Hooks: settings.json valid + both hook scripts present
+	# 7. Hooks: settings.json valid + every wired event maps to a present hook script. The
+	#    harness steers Claude with deterministic rails at each lifecycle point — a wired event
+	#    whose script is missing is a silent dead rail, so the check is event -> script presence.
 	settings = os.path.join(_ROOT, ".claude", "settings.json")
+	expected = {
+		"SessionStart": "session_status.py",
+		"UserPromptSubmit": "evidence_discipline.py",
+		"PreToolUse": "web_number_guard.py",
+		"PostToolUse": "data_integrity_guard.py",
+		"SubagentStart": "subagent_discipline.py",
+		"Stop": "verdict_gate.py",
+	}
 	if not os.path.isfile(settings):
 		checks.append(("hooks", "warn", "no .claude/settings.json"))
 	else:
 		try:
 			cfg = json.load(open(settings, encoding="utf-8"))
-			events = list((cfg.get("hooks") or {}).keys())
-			have = [e for e in ("UserPromptSubmit", "PreToolUse") if e in events]
-			h1 = os.path.isfile(os.path.join(_ROOT, ".claude", "hooks", "evidence_discipline.py"))
-			h2 = os.path.isfile(os.path.join(_ROOT, ".claude", "hooks", "web_number_guard.py"))
-			ok = len(have) == 2 and h1 and h2
-			checks.append(("hooks", "pass" if ok else "fail",
-				f"events={have} evidence_discipline={h1} web_number_guard={h2}"))
+			events = (cfg.get("hooks") or {})
+			missing_event = [e for e in expected if e not in events]
+			missing_script = [
+				s for s in expected.values()
+				if not os.path.isfile(os.path.join(_ROOT, ".claude", "hooks", s))
+			]
+			ok = not missing_event and not missing_script
+			detail = f"{len(expected) - len(missing_event)}/{len(expected)} events wired, all scripts present" if ok \
+				else f"missing_event={missing_event} missing_script={missing_script}"
+			checks.append(("hooks", "pass" if ok else "fail", detail))
 		except Exception as e:  # noqa: BLE001
 			checks.append(("hooks", "fail", f"settings.json invalid: {e}"))
 

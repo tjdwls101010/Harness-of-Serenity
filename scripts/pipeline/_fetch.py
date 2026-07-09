@@ -196,27 +196,19 @@ def _fetch_l5(ticker: str) -> dict:
 
 
 def _extract_sec_supply_chain(ticker: str) -> dict:
-	"""SEC supply-chain NUMBERS — deterministic XBRL only (customer/segment concentration,
-	geographic revenue, inventory mix, purchase obligations), via edgartools. No LLM, no
-	sec-analyzer, no OpenRouter.
-
-	The relationship NARRATIVE (named customers/suppliers, financing structure) is no longer
-	extracted here — that adaptive prose reading is the `serenity-filings` subagent's job,
-	invoked by the analyzing agent on demand. So `classification` is intentionally empty:
-	the pipeline ships the filing's deterministic numbers, the agent reaches for the subagent
-	when it needs the filing's words. On any failure the XBRL is empty — the evidence layer
-	reads a silent filing as null, never as a fabricated fact."""
-	from ._sec_xbrl import extract_supply_chain_xbrl
-	res = extract_supply_chain_xbrl(ticker)
-	filing = res.get("filing", {}) or {}
+	"""The filing's supply-chain disclosure NUMBERS are no longer pulled in the pipeline —
+	that extraction CONSOLIDATED into the `serenity-filings` subagent, which already reads the
+	same filing for the relationship narrative and pulls the structured figures
+	(customer-concentration %, geographic revenue %, inventory composition, purchase obligations)
+	byte-stably via `serenity_filings.py` (edgartools XBRL), citing the XBRL concept. The brittle
+	in-pipeline XBRL parser (`_sec_xbrl`) is retired to `pipeline/legacy/` — it duplicated the
+	subagent's capability and degraded silently on tag drift / SEC blocks. So the pipeline ships
+	NO filing prose AND no filing XBRL; only the agent's on-demand subagent does. This stub keeps
+	the payload shape (`classification`/`xbrl` empty) so `build_evidence` reads a silent filing as
+	null, never a fabricated fact."""
 	return {
-		"data": {
-			"filing": filing,
-			"classification": {},  # narrative is the serenity-filings subagent's, not the pipeline's
-			"xbrl": res.get("data", {}) or {},
-		},
-		"metadata": {"symbol": ticker, "form": filing.get("form", "10-K"),
-					 "xbrl_available": res.get("xbrl_available", False)},
+		"data": {"filing": {}, "classification": {}, "xbrl": {}},
+		"metadata": {"symbol": ticker, "form": "10-K", "xbrl_available": False},
 	}
 
 

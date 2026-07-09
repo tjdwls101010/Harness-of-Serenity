@@ -264,6 +264,8 @@ def build_evidence(payload: JsonObject, ticker: str) -> JsonObject:
 					"total_debt",
 					"cash_and_equivalents",
 					"net_debt",
+					"total_assets",
+					"inventory",
 					"market_cap",
 					"net_debt_to_mcap",
 					"total_revenue",
