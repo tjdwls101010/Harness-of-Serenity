@@ -21,6 +21,9 @@ scripts/**/.Seongjin/
 # --- Dev-time meta-tooling, not part of the harness deliverable ---
 .claude/skills/skill-creator/
 
+# Build-time scaffolding kept local; not published with the GitHub project.
+references/
+
 # Runtime state cache (not a deliverable)
 data/state_store.db/
 
