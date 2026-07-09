@@ -155,7 +155,15 @@ Because price is set 8–12mo ahead, an inflection arriving EARLIER than the Str
 - **Discriminator:** verify the sold-out is FUNDED demand — a sold order book, a customer-prepaid allocation, a tier-1 buying the input on the open market — NOT the name itself selling stock into the open market (the identical "open market" phrase flips from buy-signal to dilution-kill depending which side the company sits).
 - **The reflex this beats:** a cheap multiple on a commodity/memory bottleneck whose margins are ALREADY EXPANDING reads as "peak-cycle value trap — don't pay up." An EXPANDING margin is NOT by itself a late-cycle sell. Flip to "late-cycle value trap" only when the spot/contract index is actually ROLLING OVER (kill #6) — the *price of the input* turning down, not merely the margin being high.
 
-*(The full 5-stage table — guess-the-bottleneck · qualified-no-ramp · inflection-early · inflection-mid · end/structural, each bound to pipeline fields — is the deep catalogue; the two reads above are what you carry every time.)*
+### The 5-stage ladder — and the size-BY-stage rule (the meta-move on a basket)
+The two reads above are what you carry on ONE name. But when the ask is a **basket / "where in the cycle" / rank-these-N**, the ladder is the **organizing spine** — place each name on a *distinct* rung from its OWN `revenue_trajectory` + `margins` evidence (never the category label), then size BY STAGE:
+1. **Guess-the-bottleneck** — pre-/tiny-revenue, the thesis is an *option* (no ramp in the trajectory; story + a floor only). A **<2% lottery sliver**.
+2. **Qualified, no ramp** — design-win / contract-floor but still-flat revenue; MAGNITUDE peaks here, binary designed-out risk live. Small, asymmetric.
+3. **Inflection-early** — `revenue_trajectory` just turned up, margins beginning to fatten (the first 1–2 up quarters). Building weight.
+4. **Inflection-mid, proven ramp** — multi-quarter accelerating revenue + expanding margin, FCF converting. **The MOST weight** — earnings-de-risked AND magnitude still ahead.
+5. **End / structural** — decelerating, or a dated revenue cliff. Trim/exit regardless of how good the story was.
+
+**Allocation is sized by stage, NOT gate-strength:** the stage-4 proven-ramp name carries the most weight, the stage-1 name gets the <2% sliver. Reaching a same-direction *ranking* via gate-strength is the right answer for the wrong reason — **stage-drives-size** is the signature meta-move, and it's what a "where in the cycle" / rank-a-basket ask is really asking for.
 
 ---
 

@@ -2,6 +2,18 @@
 
 Resume anchor after session compaction. Everything below the "Done" line is committed to GitHub `main`.
 
+## HOOKS EXPANSION — the A+ push (NOT yet committed; pending the e2e workflow + its patches)
+The user re-opened the validated harness to drive it to A+/100, with hooks as the headline lever: "keep Claude's intelligence/creativity, raise predictability/reproducibility" — a hook is a deterministic RAIL that enforces a process invariant the model skips under output pressure; judgment stays 100% the model's. Calibration chosen (AskUserQuestion): **Hybrid** (cheap structural gaps block, judgment-fuzzy gaps inject). Validation path chosen: **e2e grader workflow + hook live re-measure**.
+- **Hooks 2 -> 6** (all in `.claude/hooks/` + `.claude/settings.json`), each load-bearing + narrow-firing:
+  - `session_status.py` (**SessionStart**) — runs `validate`, injects a WARNING only when RED; silent on green (no per-session tax).
+  - `evidence_discipline.py` (**UserPromptSubmit**) — unchanged (equity-intent reminder).
+  - `web_number_guard.py` (**PreToolUse** WebSearch|WebFetch) — **BUGFIX**: was printing plain stdout, which PreToolUse never delivers to the model; now emits `hookSpecificOutput.additionalContext`.
+  - `data_integrity_guard.py` (**PostToolUse** Bash) — NEW: parses `analyze` JSON, recomputes identity checks (MC≈price×shares, float≤shares, op≤gross margin, price∈52w, EV≈MC+debt−cash, revenue-base divergence), injects flags. Pure arithmetic = N9 made deterministic; renders NO verdict.
+  - `subagent_discipline.py` (**SubagentStart** matcher serenity-filings) — NEW: re-injects "extract-not-judge / silence=null" into the filings subagent (which doesn't inherit main hooks — the WF4 confound).
+  - `verdict_gate.py` (**Stop**) — NEW, the big one: on a TLDR answer, HARD-BLOCKS a missing NFI/NFA sign-off; INJECTS (continues one round, `stop_hook_active`-guarded) on lens-named-without-arithmetic (the 0/6 fix), missing Downsides, missing falsifier. Enforces the response contract at the one un-skippable point.
+- **Verified**: `serenity_harness.py validate` = 13 pass / 0 fail (hooks check rewritten to event→script-presence over all 6); a 12-case hook-mechanism test (`scratchpad/test_hooks.py`) = 12/12 (fires where intended, silent otherwise).
+- **In flight**: `Workflow serenity-e2e-gate-calibration` (runId wf_0d9b7484-34d) — blind point-in-time reproduction of the 12-thesis gold-set with the rails injected, LLM fidelity judge + the hooks as deterministic graders, synthesis -> ranked patches. The hooks double as the eval rubric. Next: apply the synthesis's patches, re-measure, converge.
+
 ## DONE (committed + pushed)
 - **Repo**: `scripts/` (code + `.venv`, gitignored), `data/analysis_Serenity.db`, `references/` (build-time only), `.claude/skills/`, `CLAUDE.md`. git + GitHub `tjdwls101010/Harness-of-Serenity` (private, authed via gh). `.gitignore` excludes `.env`/`.venv`/`skill-creator`.
 - **CLAUDE.md** (17.9KB / 138L): always-on persona, Claude-first voice, NO DB-ids, NO dev-meta. Carries: identity + 3-shapes, voice (asymmetrical un-banned), code/judgment boundary + CLI forms + gives-vs-judges table, 6 roots/10 values + priority order, funnel + archetype-fork + A>D>B>C>E, routing to the 3 skills, TLDR-sandwich + per-type content, non-negotiables (8) + prohibitions, DB-answer-key rule.

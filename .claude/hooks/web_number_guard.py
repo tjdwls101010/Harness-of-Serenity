@@ -4,8 +4,10 @@
 A standing prohibition: never use a web snippet for a number a script can load. This hook
 fires right before a web call and reminds the agent where each kind of fact actually comes
 from. It does NOT block — web research is essential for second-order context, supply-chain
-mapping past the filing, and US-listed substitutes. Exit 0 with the reminder on stdout, which
-the harness surfaces; the search proceeds.
+mapping past the filing, and US-listed substitutes. It emits the reminder as
+`hookSpecificOutput.additionalContext`: on PreToolUse, plain stdout is debug-only and never
+reaches the model (only UserPromptSubmit/SessionStart/UserPromptExpansion deliver plain stdout
+as context), so the JSON form is required for the reminder to actually land.
 """
 
 import json
@@ -23,7 +25,7 @@ def main() -> None:
 	except Exception:  # noqa: BLE001 — never let a hook crash the call
 		return
 	if data.get("tool_name") in ("WebSearch", "WebFetch"):
-		print(_REMINDER)
+		print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": _REMINDER}}))
 
 
 if __name__ == "__main__":

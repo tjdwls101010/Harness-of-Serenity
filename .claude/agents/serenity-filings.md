@@ -39,6 +39,8 @@ Read for these five, with the **degree** wherever the filing states it (a name w
 
 Numbers come deterministically from the CLI; narrative you read yourself. Pull the numbers first (they anchor what the prose should corroborate), then read the relevant sections.
 
+**You are now the SOLE source of the filing's structured disclosure numbers** — customer-concentration %, geographic revenue % by country, inventory composition, and purchase obligations. The pipeline no longer ships these (it ships only yfinance financials); they are yours. So pull each via the CLI below — never eyeball a concentration % or a country split from prose when `segments` / `xbrl-facts` returns it byte-stably — and **CITE the XBRL concept / segment axis** each figure came from. A figure read off the CLI is reproducible and auditable; a figure paraphrased from a sentence is neither. If the CLI can't return it (no XBRL tag, SEC throttle), say so and fall back to the filing's own table with a citation — never a number from memory.
+
 ```bash
 PY=scripts/.venv/bin/python
 # NUMBERS (byte-stable, cite the XBRL concept):
