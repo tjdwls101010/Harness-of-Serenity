@@ -64,7 +64,7 @@ def _checks(ev):
 				"severity": "HARD" if r > 0.35 else "soft",
 				"check": "marketCap vs price x sharesOutstanding",
 				"observed": f"MC {_money(mc)} vs price x shares {_money(implied)} ({r * 100:.0f}% gap)",
-				"read": "a >35% gap is a likely ticker-collision / stale capture — N9: that mismatch is itself the mispricing; reconcile before sizing.",
+				"read": "a >35% gap is a likely ticker-collision / stale capture — N9: that mismatch is itself the mispricing; reconcile before sizing. (Or a dual-class / multiple share-class structure, where `sharesOutstanding` is one class and MC counts all — confirm which before treating it as an error; this can't be told apart programmatically.)",
 			})
 
 	# 2. float <= shares outstanding (impossible otherwise)

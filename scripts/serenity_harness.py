@@ -250,12 +250,15 @@ def cmd_validate(args):
 	#    harness steers Claude with deterministic rails at each lifecycle point — a wired event
 	#    whose script is missing is a silent dead rail, so the check is event -> script presence.
 	settings = os.path.join(_ROOT, ".claude", "settings.json")
+	# Lean wiring: four hooks at the four points where determinism earns its cost — session
+	# start (fail-loud self-check), prompt arrival (JIT action nudge), post-analyze (identity
+	# tripwire), and the answer's end (the verdict-gate contract). web_number_guard (PreToolUse)
+	# and subagent_discipline (SubagentStart) were retired: each only re-stated context already
+	# in CLAUDE.md / the serenity-filings agent's own system prompt at the same lifecycle point.
 	expected = {
 		"SessionStart": "session_status.py",
 		"UserPromptSubmit": "evidence_discipline.py",
-		"PreToolUse": "web_number_guard.py",
 		"PostToolUse": "data_integrity_guard.py",
-		"SubagentStart": "subagent_discipline.py",
 		"Stop": "verdict_gate.py",
 	}
 	if not os.path.isfile(settings):

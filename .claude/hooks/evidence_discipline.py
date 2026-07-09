@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""UserPromptSubmit hook — reinforce the evidence discipline on equity/macro questions.
+"""UserPromptSubmit hook — the just-in-time ACTION nudge on an equity/macro question.
 
-The non-negotiables already live in CLAUDE.md; this hook is the deterministic nudge at
-the exact moment a market question arrives: run the pipeline first, never cite numbers (or
-a regime) from memory, route to the right lens, and reach for the serenity-filings subagent
-for the filing's words. It only fires on a detected equity/macro intent — a coding or
-unrelated prompt passes through silently (no noise). It never blocks: exit 0, and on intent
-it prints a short reminder that the harness adds to the turn's context.
+The doctrine (archetype -> lens, run both legs, the funnel order) already lives in CLAUDE.md and
+is always in context, so re-teaching it here would only dilute the three things that are genuinely
+time-sensitive at the moment a market question arrives: run the pipeline first (before reasoning
+from memory), scan for a dated catalyst (so an event isn't mis-read as a standalone single-name
+call), and pick the lens at intake (not at the verdict). This hook carries ONLY those actions and
+points at the in-context doctrine for the rest. It fires on a detected equity/macro intent, stays
+silent on a coding/harness-dev prompt, and never blocks: exit 0, print the reminder as context.
 """
 
 import json
 import re
 import sys
 
-# Equity/macro intent — kept specific enough to NOT fire on this repo's own coding prompts
-# ("fix the API", "refactor analyze()"). Cashtags, finance nouns, and the user's Korean
-# market phrasings; deliberately omits bare ALL-CAPS and generic "analyze/buy".
+# Equity/macro intent — specific enough to NOT fire on this repo's own coding prompts.
+# Cashtags, finance nouns, and the user's Korean market phrasings; omits bare ALL-CAPS.
 _INTENT = re.compile(
 	r"(\$[A-Za-z]{1,5}\b)"
 	r"|stock|ticker|equit|\bshares?\b|valuation|price target|\bP/?E\b|\bPEG\b|fair value"
@@ -28,14 +28,29 @@ _INTENT = re.compile(
 	re.IGNORECASE,
 )
 
-_REMINDER = """[evidence-discipline] This reads as an equity/macro question — before answering:
-- Run scripts/serenity_pipeline.py FIRST (macro | analyze TICKER [--skip-macro] | discover) and reason from its JSON. Never cite MC / price / multiples / margins from memory, and never vibe the regime — it's YOUR read of the raw gauges, not a quoted label.
-- Walk the funnel in dependency order: serenity-macro (regime / catalyst) -> serenity-discovery (find a US-listed name) -> serenity-analysis (gate, value, time, rate one name).
-- Archetype FORCES the lens (pick it at intake, don't improvise at the verdict): margin-inversion -> EV/FCF on BRIDGED (pro-forma) FCF, not EV/Rev on the trailing-negative print; asset-value turnaround -> replacement-cost-per-unit on the SUBJECT, not EV/Rev on its customer; macro fear-fade -> input% x scare% -> OP-vs-margin run SYMMETRICALLY (the bull leg too), not a price-percentile; a raise on an Evolution name -> resolve funded-vs-dilution as a SIGN (de-risking vs overhang), don't default to overhang; a US-only footprint -> run the JURISDICTION chokepoint test before the component test.
-- yfinance ships the financials (incl. balance sheet); invoke the serenity-filings subagent (Task tool) for the filing's words AND its disclosure numbers (customer % / geographic % / inventory / purchase obligations, CLI-cited).
-- Scan for a DATED catalyst in the window (war/conflict, earnings, policy date, anomalous print) before any single-name read — a known ticker arriving WITH a selloff / crash / cost-scare / conflict-date is an EVENT first (macro catalyst test + cost-shock margin math; a crisis/conflict name is a forward-revenue BENEFICIARY candidate first, a fear-dip second). Run the data-integrity identity (Total Assets >= Cash + Inventory + ...) before tagging an archetype — a phantom/stale number is itself the mispricing.
-- Don't print priced / cheap / WATCH until the named valuation lens is RUN — show the bottom-up arithmetic (content x volume / MC, $/MW levered IRR, replacement-cost / unit, pro-forma FCF), each input traced; a standalone top-down multiple (the subject's own EV/Rev or PEG) is the consensus lens, not the verdict. RUN BOTH LEGS of a forked lens — show the UPSIDE figure beside the floor/discount one and let them fight (a bear-leg-only call inverts a power-law long into a pass; this is "run both legs," NOT "resolve bullish"). On a comparable name, run `discover SUBJECT PEERS...` and rank.
-- Carry a 3+-hop causal chain, a priced-in decomposition, an explicit bear case + falsifier; close with a rating + vehicle and sign off NFI/NFA."""
+# Meta / harness-development guard. A prompt ABOUT this repo (hooks, skills, the pipeline code, a
+# plan) can trip _INTENT on words like "analyze" / "invest" / "valuation" without being a market
+# question — observed firing on this session's own planning prompts. Suppress ONLY when the prompt
+# reads as harness dev AND carries no concrete market anchor (a cashtag or a buy/sell/valuation ask).
+# The bias is deliberate: an extra fire is cheap context, a suppressed real market question is not,
+# so the anchor list stays generous and only unambiguous dev prompts get skipped.
+_META = re.compile(
+	r"harness|하네스|\bhook\b|\bhooks\b|훅\b|\bskill\b|스킬|SKILL\.md|CLAUDE\.md|settings\.json"
+	r"|\.py\b|pipeline code|subagent|verdict[_\s-]?gate|evidence[_\s-]?discipline|exec-form"
+	r"|refactor|리팩터|\beval\b|workflow|워크플로|commit|커밋|\b계획\b|구현|스펙|spec\b",
+	re.IGNORECASE,
+)
+_MARKET_ANCHOR = re.compile(
+	r"\$[A-Za-z]{1,5}\b"
+	r"|매수|매도|사도|살까|팔까|종목|장\s*어때|물타|존버|목표가|밸류|벨류|배당"
+	r"|should i (buy|sell|own|short|add|hold)|buy the dip|price target|\bPT\b|valuation|dividend|earnings",
+	re.IGNORECASE,
+)
+
+_REMINDER = """[evidence-discipline] Reads as an equity/macro question — before answering:
+- Run scripts/serenity_pipeline.py FIRST (macro | analyze TICKER [--skip-macro] | discover) and reason from its JSON — never MC / price / multiples / margins / the regime from memory. For the filing's words AND its disclosure numbers (customer % / country % / inventory / obligations), invoke the serenity-filings subagent.
+- Scan the prompt for a DATED catalyst (selloff / crash / cost-scare / conflict / earnings / policy date) FIRST — a known ticker arriving with one is an EVENT (macro catalyst test + cost-shock margin math), not a standalone single-name read.
+- Pick the archetype's valuation lens at INTAKE, not at the verdict — the archetype forces it. Which lens, and running BOTH legs of a fork, is already in context (N10 / analysis §6); this is the reminder to actually RUN it, arithmetic shown."""
 
 
 def main() -> None:
@@ -44,7 +59,12 @@ def main() -> None:
 	except Exception:  # noqa: BLE001 — never let a hook crash the turn
 		return
 	prompt = str(data.get("prompt") or "")
-	if prompt.strip() and _INTENT.search(prompt):
+	if not prompt.strip():
+		return
+	# Harness-dev prompt with no market anchor -> not a market question, stay silent.
+	if _META.search(prompt) and not _MARKET_ANCHOR.search(prompt):
+		return
+	if _INTENT.search(prompt):
 		print(_REMINDER)
 
 
