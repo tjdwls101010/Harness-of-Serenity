@@ -19,12 +19,45 @@ export const meta = {
 // reproduction (which is most of the method). For a full-harness run incl. hooks, use the
 // high-fidelity `claude -p` mode in the README instead. Either way the JUDGE scores the same rubric.
 
-const payload = (args && args.cases) ? args : { cases: args }
-const cases = Array.isArray(payload.cases) ? payload.cases : []
-if (!cases.length) {
-  log('No cases in args — run `serenity_eval.py sample` first and pass its JSON as args.')
-  return { error: 'no cases', hint: 'args must be the sampler output (an object with a `cases` array).' }
+// Cases come either directly in args (args.cases), or are SAMPLED here via the deterministic CLI.
+// Workflow scripts can't read files, so the one-button path is: pass {n, seed} and let a phase-0
+// agent run `serenity_eval.py sample` and return the cases (schema-validated so thesis_text survives).
+const CASES_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['cases'],
+  properties: {
+    cases: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: true,
+        required: ['ticker', 'date', 'entry_type', 'blind_prompt', 'thesis_text'],
+        properties: {
+          id: { type: 'string' }, ticker: { type: 'string' }, date: { type: 'string' },
+          entry_type: { type: 'string' }, blind_prompt: { type: 'string' }, thesis_text: { type: 'string' },
+        },
+      },
+    },
+  },
 }
+
+let cases = (args && Array.isArray(args.cases)) ? args.cases : []
+if (!cases.length) {
+  const n = (args && args.n) || 6
+  const seed = (args && args.seed) || 7
+  log(`Sampling ${n} cases (seed ${seed}) via serenity_eval.py …`)
+  const sampled = await agent(
+    `Run this EXACT Bash command and return its stdout as structured data. The JSON it prints has a ` +
+    `"cases" array; return every case's id, ticker, date, entry_type, blind_prompt, and thesis_text ` +
+    `VERBATIM — do NOT summarize, truncate, or reword thesis_text (it is the answer key):\n\n` +
+    `scripts/.venv/bin/python scripts/serenity_eval.py sample --n ${n} --seed ${seed}`,
+    { label: 'sample', phase: 'Blind run', schema: CASES_SCHEMA },
+  )
+  cases = (sampled && Array.isArray(sampled.cases)) ? sampled.cases : []
+}
+if (!cases.length) {
+  log('No cases — pass {n, seed} or {cases:[…]} as args.')
+  return { error: 'no cases' }
+}
+const payload = { meta: (args && args.meta) || null, cases }
 log(`Blind-running ${cases.length} cases through the harness, then judging vs the answer key.`)
 
 // Judge output shape — mirrors scripts/serenity_eval.py RUBRIC exactly so `report` can aggregate it.
@@ -61,11 +94,19 @@ pipeline loads CURRENT data, so figures will differ from the thesis date — tha
 
 const scored = await pipeline(
   cases,
-  // Stage 1 — the harness answers BLIND (the thesis is never shown to it).
+  // Stage 1 — the harness answers BLIND (the thesis is never shown to it). We load the doctrine
+  // EXPLICITLY (Read ./CLAUDE.md + the matching skill, run the pipeline) rather than trust subagent
+  // auto-injection — that's what makes a before/after dedup difference actually register in the score.
   (c) => agent(
-    `You are the Serenity harness answering a user, in-character and by the full doctrine (run the ` +
-    `pipeline first, name the archetype, run the lens with arithmetic, carry a bear case + falsifier, ` +
-    `sign off NFI/NFA). Question:\n\n${c.blind_prompt}`,
+    `You are the Serenity harness. Reproduce its method FAITHFULLY on the question below:\n` +
+    `1. Read ./CLAUDE.md — that is your operating doctrine (voice, funnel, roots, non-negotiables).\n` +
+    `2. Name the question type, then load the matching skill from .claude/skills/ (serenity-macro / ` +
+    `serenity-discovery / serenity-analysis) and follow it.\n` +
+    `3. Run \`scripts/.venv/bin/python scripts/serenity_pipeline.py analyze <TICKER>\` (add macro if the ` +
+    `question needs regime) and reason from its JSON — never numbers from memory.\n` +
+    `4. Answer fully in-character: TLDR, archetype, the lens RUN with arithmetic (both legs if it forks), ` +
+    `winner-gate, cycle stage, a Downsides block + falsifier, rating + vehicle, NFI/NFA.\n\n` +
+    `Question:\n${c.blind_prompt}`,
     { label: `run:${c.ticker}`, phase: 'Blind run' },
   ),
   // Stage 2 — judge the answer against the hidden answer-key thesis.
