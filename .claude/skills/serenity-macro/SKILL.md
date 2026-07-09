@@ -165,4 +165,5 @@ Every load-bearing macro number — a cut probability, a net-liquidity reading, 
 4. **Classify before sizing.** Fundamental change = size to it; entry-only = trade the dip, don't re-rate.
 5. **The rate angle is never vibed and never deleted.** Quote a gauge to dismiss a regime; always complete the move in one direction.
 6. **YOUR bearishness only on a real forward-revenue change — never on noise volume.**
-7. **Every macro number traces to code or a named gauge.** No figure from memory.
+
+(The number-discipline invariant — every macro number traces to code or a named gauge — is the MACRO NUMBER-DISCIPLINE BRIDGE above; not restated here.)
