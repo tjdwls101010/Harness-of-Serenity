@@ -75,7 +75,7 @@ for d in xb.disclosures(): d.title                       # concentration / disag
 c.latest("10-K").text(); tk.to_context(detail="standard")
 ```
 
-**Four edgartools traps (5.35.1) — code around them:**
+**Four edgartools traps (pinned to edgartools 5.35.1 — on an upgrade, re-verify this whole section against the new API before trusting it; these are silent-corruption traps, not import errors) — code around them:**
 1. `EightK.get()` does not exist → `ek['8.01'] if 'Item 8.01' in ek.items else None`.
 2. `FactQuery.by_value` takes a CALLABLE (`by_value(lambda v: v>1e9)`); period filtering is `by_date_range`/`by_period_key`.
 3. No top-level `get_company`; `find(form=,ticker=)` is invalid → `Company(t).get_filings(form=…)`.

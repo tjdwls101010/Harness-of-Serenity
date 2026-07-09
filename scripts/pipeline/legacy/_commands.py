@@ -9,9 +9,7 @@ from utils import output_json, safe_run
 from .._runner import _run_script
 from ._health import _extract_health_gates
 from .._bottleneck import _build_l3_bottleneck
-from .._postprocess import (
-	_merge_earnings, _clean_analyst_revisions,
-)
+from .._postprocess import _clean_analyst_revisions
 from ._macro import _classify_macro_regime
 from ._control import (
 	_build_materiality_signals, _build_causal_bridge,
@@ -20,6 +18,86 @@ from ._control import (
 from ._signals import (
 	derive_core_signals, _classify_dilution,
 )
+
+# _merge_earnings lives here (not in the live _postprocess.py): it is called ONLY by this
+# legacy command path — its `cockroach_effect` classification is a judgment label, so it has no
+# place in a live pipeline module. Moved intact; behavior unchanged.
+
+def _merge_earnings(earnings_dates, earnings_surprise):
+	"""Merge earnings_dates and earnings_surprise into unified earnings object.
+
+	Restructures flat surprise entries from cmd_surprise into nested schema:
+	- eps sub-object: estimate, actual, surprise_pct, pct_skipped_reason, beat, yoy_pct, qoq_pct
+	- revenue sub-object: actual, yoy_pct, qoq_pct
+	- post_er_* fields remain at top level
+
+	Returns:
+		dict with next_report, surprise_history (nested), consecutive_beats,
+		avg_surprise_pct, cockroach_effect
+	"""
+	result = {}
+
+	# Next report from earnings_dates
+	if isinstance(earnings_dates, dict) and not earnings_dates.get("error"):
+		dates_col = earnings_dates.get("Earnings Date", {})
+		eps_est_col = earnings_dates.get("EPS Estimate", {})
+		if isinstance(dates_col, dict) and dates_col:
+			first_key = next(iter(dates_col), None)
+			if first_key is not None:
+				result["next_report"] = {
+					"date": dates_col.get(first_key),
+					"eps_estimate": eps_est_col.get(first_key) if isinstance(eps_est_col, dict) else None,
+				}
+
+	# Surprise history from earnings_surprise — restructure flat → nested
+	surprise = earnings_surprise if isinstance(earnings_surprise, dict) and not earnings_surprise.get("error") else {}
+	history = surprise.get("history") or surprise.get("surprise_history") or []
+
+	nested_history = []
+	if isinstance(history, list):
+		for entry in history[:8]:
+			if not isinstance(entry, dict):
+				continue
+			nested_entry = {
+				"date": entry.get("date"),
+				"eps": {
+					"estimate": entry.get("estimate"),
+					"actual": entry.get("actual"),
+					"surprise_pct": entry.get("surprise_pct"),
+					"pct_skipped_reason": entry.get("pct_skipped_reason"),
+					"beat": entry.get("beat"),
+					"yoy_pct": entry.get("eps_yoy_pct"),
+					"qoq_pct": entry.get("eps_qoq_pct"),
+				},
+				"revenue": {
+					"actual": entry.get("revenue"),
+					"yoy_pct": entry.get("revenue_yoy_pct"),
+					"qoq_pct": entry.get("revenue_qoq_pct"),
+				},
+				"post_er_gap": entry.get("post_er_gap"),
+				"post_er_return_1d": entry.get("post_er_return_1d"),
+				"post_er_return_5d": entry.get("post_er_return_5d"),
+			}
+			nested_history.append(nested_entry)
+
+	result["surprise_history"] = nested_history
+	result["consecutive_beats"] = surprise.get("consecutive_beats")
+	result["avg_surprise_pct"] = surprise.get("avg_surprise_pct")
+
+	# Cockroach effect classification
+	beats = surprise.get("consecutive_beats")
+	if isinstance(beats, (int, float)):
+		if beats >= 4:
+			result["cockroach_effect"] = "strong"
+		elif beats >= 2:
+			result["cockroach_effect"] = "moderate"
+		else:
+			result["cockroach_effect"] = "weak"
+	else:
+		result["cockroach_effect"] = "unknown"
+
+	return result
+
 
 def _extract_sec_supply_chain(ticker):
 	"""Extract the enum-first supply-chain classification via sec-analyzer,
