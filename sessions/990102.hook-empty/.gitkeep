@@ -1,0 +1,5 @@
+# NOT a real session. Committed test scaffolding for verdict_gate.py's Saved:-mark branch —
+# the "folder exists but holds NO .md artifact" (claimed-but-empty) case resolves against this
+# folder. It deliberately contains only this .gitkeep (a non-.md file) so the folder is tracked
+# in git yet has zero .md files. Do not add a .md here or the empty-folder fixture stops testing
+# what it claims. Never listed in sessions/INDEX.md.
