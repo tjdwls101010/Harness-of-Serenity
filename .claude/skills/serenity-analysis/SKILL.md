@@ -142,7 +142,7 @@ A recent (<6mo), significant (>5% of MC) strategic investment priced ABOVE marke
 
 ---
 
-## 3 — Cycle stage (an evaluation lens — how early & de-risked — never a sizing one)
+## 3 — Cycle stage (on ONE name an evaluation lens — how early & de-risked; on a basket the ladder below is also the sizing spine)
 
 Read cycle stage from the name's OWN revenue/margin evidence, not the category label you filed it under, and re-read each quarter since names migrate. The two reads that matter most:
 
@@ -164,6 +164,24 @@ The two reads above are what you carry on ONE name. But when the ask is a **bask
 5. **End / structural** — decelerating, or a dated revenue cliff. Trim/exit regardless of how good the story was.
 
 **Allocation is sized by stage, NOT gate-strength:** the stage-4 proven-ramp name carries the most weight, the stage-1 name gets the <2% sliver. Reaching a same-direction *ranking* via gate-strength is the right answer for the wrong reason — **stage-drives-size** is the signature meta-move, and it's what a "where in the cycle" / rank-a-basket ask is really asking for.
+
+### Rank-N protocol — the fixed procedure for "rank these N names"
+
+A ranking improvised per-session is a different ranking per-session — the criteria, precedence, tie-breaks, and even what a "tier" means silently re-invent themselves, and the output reads as random. So on any rank/basket ask the DECOMPOSITION is fixed; every judgment inside it stays yours. Fixed: the scorecard fields (pinned in the serenity-scorecard agent — read its body for the schema when filling scorecards inline), the precedence, the tie-breaks, the tier form, the output contract. Never fixed: thresholds, weights, or any formula that would assign a tier for you — a composite score is the deleted legacy screen reborn, and you'd defer to it and stop reasoning.
+
+**Step 1 — one scorecard per name, identical procedure.** For N ≥ 5 names, fan out one agent per name — an Agent call with `subagent_type: 'serenity-scorecard'` (or, where dynamic workflows are available, `agent()` with `agentType`), each writing `sessions/{folder}/TICKER.md`. Run `macro` ONCE, write the exact regime summary you will hand the agents to `sessions/{folder}/_macro.md` (with the run's as-of time), and pass that text verbatim to every agent — per-name macro re-reads would let the regime drift mid-cohort. **The launch message is part of the pinned surface** — exactly this template, nothing more: `ticker: {T} | folder: sessions/{folder}/ | peers: {cohort tickers} | regime: {verbatim _macro.md text}`. No per-name color ("the obvious Tier 1") — an editorialized launch biases the fresh context the fan-out exists to create. Under 5 names, fill the same scorecards inline, same schema, same blindness-to-priors until Step 4.
+
+**Step 2 — the fixed precedence.** Rank from the scorecard FRONTMATTER blocks (open a body only to resolve a declared tie — 30 full bodies in one context recreates the compaction problem the fan-out just solved):
+1. **Gate = membership.** A binary disqualifier (no real revenue, dishonest mgmt, no economic anchor — V2) excludes the name to a listed "EXCLUDED, failed <gate>" row. `conditional:` gates rank within their rung below all clean passes and cap the name out of Tier 1 until the named condition resolves. `blocked:` (an N9 data-integrity hard-block the scorecard couldn't reconcile) goes to a separate "UNRESOLVED — needs main-thread filings read" row: never silently tiered, never counted as a failed gate. Gates are a filter, never rank #1-vs-#2 fuel.
+2. **Stage rung = the spine.** Survivors order and size by their rung — stage-drives-size is the meta-move, and it is also what discovery's "rank by de-risk, not by cheapness" demands. A stage-5 name cannot enter Tier 1/2 regardless of gates: it lands in the named "EXIT/TRIM" row (the ladder already says so; the row makes it reproducible).
+3. **Within a rung: gate-strength first, conviction breaks what's left.** (One combinator, fixed — two axes with no order is the doctrine-fork this protocol exists to kill.)
+4. **Still tied: explicit tie-breaks, in order** — (a) the FLOOR leg's valuation gap as a fraction of current price, read off each name's own `Lens:` line (normalized, cross-lens comparable, still your arithmetic — never a content threshold); (b) vehicle practicality (liquidity, US-listing rung, IV tier — from the `vehicle:` field, sourced per N2 or marked unavailable). Never invent a new criterion mid-ranking; if the four steps can't separate two names, SAY they're tied.
+
+**Step 3 — draft tiers, cohort-independent.** A tier is a function of the name's OWN scorecard (stage, gates, conviction) — cohort composition may never move a tier; adding five strong names to the ask must not demote a name whose own evidence didn't change. Tiers: 1 (core) / 2 / 3 (watch) / EXIT / EXCLUDED / UNRESOLVED. State the cut you used in one visible line (`Tier cut: …`) — the cut stays your judgment, but an unstated cut is unauditable and a changed cut is invisible.
+
+**Step 4 — reconcile against the prior, ONLY NOW.** If a prior ranking overlaps this cohort (INDEX is verdict-free by design — a ticker grep tells you priors exist without showing you their calls), open it after your tiers are set. Diff the REGIME first: if `_macro.md` texts differ materially, a cohort-wide tier shift has one named cause — attribute it before touching per-name lines. Then reconcile the intersection only (list additions/departures explicitly; carry prior EXCLUDED verdicts forward for re-check). Every name whose tier moved gets one line with one of three labels: **evidence delta** (the named number, prior value quoted as-of-then), **judgment revision** (owned explicitly), or **cohort delta** (within-rung order / tie-break effects — legitimate, but if a cohort delta moved a TIER, your tiers weren't cohort-independent; fix the tiers, not the label). Also diff the `Tier cut:` line — a changed cut rule is itself a named delta. A tier that moved with no label is the failure this whole protocol exists to prevent; say so and re-check.
+
+**Step 5 — archive, then answer.** Finalize `_ranking.md`: the tier table in the fixed format `| ticker | tier | rung | gates | one-line why |` (tiers from the list above — the table is what `serenity_harness.py rankdiff` parses, so keep the columns exact), the `Tier cut:` line, and a `## Deltas vs {prior-folder}` section carrying Step 4's lines (deltas live HERE, not in per-name scorecards — the scorecard agents can't see priors and shouldn't). Update `sessions/INDEX.md`, close the answer with `Saved:`.
 
 ---
 

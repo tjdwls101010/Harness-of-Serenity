@@ -275,3 +275,20 @@ Three independent reviewers (doctrine-consistency, implementation-feasibility, g
 ## 17. Implementation log
 
 <!-- The implementation session appends dated entries here. -->
+
+**2026-07-18 (implementation session)** — D1–D9 implemented in order; harness green.
+
+- **§3 pre-verification (run FIRST, both cleared):**
+  1. *Custom-agent CLAUDE.md context* — CONFIRMED. Spawned the existing `serenity-filings` custom agent with a no-tools diagnostic; it quoted two distinctive spine lines verbatim (the `V7 > V2 > …` precedence and the `A > D > B > C > E` tie-break) with zero file reads. So custom agents DO receive project CLAUDE.md → the D5 body references N2/N7/N9/N10 by name rather than inlining compressed copies.
+  2. *Launcher params* — CONFIRMED from the environment: Agent tool uses `subagent_type`; a dynamic-workflow `agent()` uses `agentType`. D3's text (Agent-call form primary) was already correct; no change.
+- **D1** — CLAUDE.md E-type lines (funnel entry + answer-reads template) replaced against the verbatim anchors; both matched exactly (no drift).
+- **D2** — "The session archive" section appended after "How the answer reads". Spine now ~156 lines (under the 200 bar).
+- **D3** — serenity-analysis §3 header reconciled; Rank-N protocol subsection inserted after the 5-stage ladder. Anchors matched exactly.
+- **D4** — `sessions/INDEX.md` created (verdict-free header).
+- **D5** — `.claude/agents/serenity-scorecard.md` created (tools: Bash, Read, Grep, Write); carries the schema verbatim as its single source of truth.
+- **D6** — `verdict_gate.py` gained the soft `Saved:`-mark branch (shape regex tolerant of markdown + trailing junk; folder must exist AND hold ≥1 `.md`; resolves `$CLAUDE_PROJECT_DIR` else cwd — verified `$CLAUDE_PROJECT_DIR` is unset in a bare shell, so the cwd fallback is what tests exercise, matching production where Claude Code sets it to the repo root). 13 fixtures committed under `.claude/hooks/tests/verdict_gate/` (7 legacy reconstructed + 6 new). Note: `verdict_gate.py` had lost its exec bit; restored via `chmod +x` so `test_hook.py --command` can exec it. Committed test scaffolding: `sessions/990101.hook-fixture/FIXT.md` (has a `.md`) and `sessions/990102.hook-empty/.gitkeep` (has none) — obviously-fake 99xxxx dates, never listed in INDEX.
+- **D7** — `evidence_discipline.py` gained the retrieval-reconcile line in the equity action list; 9 fixtures committed under `.claude/hooks/tests/evidence_discipline/`.
+- **D6+D7 tests** — all 22 fixtures pass via both `test_hook.py` (canonical, per-file) and a committed dependency-free re-runner `.claude/hooks/tests/run_fixtures.py` (`22/22`), documented in `.claude/hooks/tests/README.md`.
+- **D8** — `serenity_harness.py`: +3 validate checks (scorecard agent frontmatter+sentinels / session-archive doctrine / verdict-free INDEX) → **15/15 green**; new deterministic `rankdiff A B` subcommand (per-ticker tier A→B, agreement %, only-in-A/B, tier-cut delta) smoke-tested on two hand-made rankings.
+- **D9** — `.claude/harness-spec.md` updated (layer table + components + validation + a dated Change-history entry); Codex mirror `.codex/agents/serenity-scorecard.toml` created (default choice — its format was obvious from `serenity-filings.toml`, so no user ask needed) and parses via `tomllib`.
+- **Not done in v1 (per §14, unchanged):** B5 LLM consistency-eval axis, a fixed `.claude/workflows/rank.js`, PreToolUse blindness enforcement for the scorecard agent (escalation path only). The optional two-live-run smoke test (§15) spends real tokens and awaits the user's go-ahead.

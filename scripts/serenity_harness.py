@@ -194,6 +194,50 @@ def _check_sec_consolidation(checks):
 		else f"active_xbrl_leak={leaked} xbrl_empty={xbrl_empty} classification_empty={classification_empty}"))
 
 
+def _check_reproducibility(checks):
+	"""The decision-reproducibility layer's wiring (plan 2026-07-18): the scorecard agent that
+	pins the per-name schema, the session-archive doctrine in the spine, and the retrieval index.
+	Structure only — never sessions/ CONTENT, which is runtime data, not harness wiring."""
+	# (a) serenity-scorecard agent: present, frontmatter name/tools, body carries the schema sentinels.
+	agent = os.path.join(_ROOT, ".claude", "agents", "serenity-scorecard.md")
+	if not os.path.isfile(agent):
+		checks.append(("agent:serenity-scorecard", "fail", "missing"))
+	else:
+		text = open(agent, encoding="utf-8").read()
+		m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+		block = m.group(1) if m else ""
+		name_ok = bool(re.search(r"^name:\s*serenity-scorecard\s*$", block, re.MULTILINE))
+		tools_m = re.search(r"^tools:\s*(.+)$", block, re.MULTILINE)
+		tools = tools_m.group(1) if tools_m else ""
+		tools_ok = all(t in tools for t in ("Bash", "Read", "Grep", "Write"))
+		sentinels = "gate_strength:" in text and "conviction:" in text
+		ok = name_ok and tools_ok and sentinels
+		checks.append(("agent:serenity-scorecard", "pass" if ok else "fail",
+			"name+tools+schema sentinels present" if ok
+			else f"name_ok={name_ok} tools_ok={tools_ok} schema_sentinels={sentinels}"))
+
+	# (b) CLAUDE.md carries the session-archive doctrine (the heading + the Saved: mark token).
+	try:
+		cm = open(os.path.join(_ROOT, "CLAUDE.md"), encoding="utf-8").read()
+	except OSError:
+		cm = ""
+	archive_ok = "The session archive" in cm and "Saved:" in cm
+	checks.append(("session_archive_doctrine", "pass" if archive_ok else "fail",
+		"CLAUDE.md carries the archive heading + Saved: token" if archive_ok
+		else "CLAUDE.md missing the 'The session archive' heading or the Saved: token"))
+
+	# (c) sessions/INDEX.md present with the verdict-free retrieval rule.
+	index = os.path.join(_ROOT, "sessions", "INDEX.md")
+	if not os.path.isfile(index):
+		checks.append(("sessions_index", "fail", "sessions/INDEX.md missing"))
+	else:
+		idx = open(index, encoding="utf-8").read()
+		verdict_free = "verdict-free" in idx or "NO verdicts" in idx
+		checks.append(("sessions_index", "pass" if verdict_free else "fail",
+			"present with the verdict-free rule" if verdict_free
+			else "present but missing the verdict-free rule"))
+
+
 def cmd_validate(args):
 	checks = []  # (name, status, detail)
 
@@ -279,6 +323,9 @@ def cmd_validate(args):
 		except Exception as e:  # noqa: BLE001
 			checks.append(("hooks", "fail", f"settings.json invalid: {e}"))
 
+	# 8. Decision-reproducibility layer wiring (scorecard agent, archive doctrine, retrieval index)
+	_check_reproducibility(checks)
+
 	hard_fail = [c for c in checks if c[1] == "fail"]
 	report = {
 		"harness": "serenity",
@@ -298,12 +345,70 @@ def cmd_validate(args):
 	sys.exit(0 if not hard_fail else 1)
 
 
+def _parse_ranking(path):
+	"""Parse a `_ranking.md`'s fixed tier table (`| ticker | tier | rung | gates | why |`) and its
+	`Tier cut:` line. Pure fact-loading — diffing two files the analyst already wrote — so it lives
+	on the code side of the fact/judge seam and renders NO judgment about which ranking is right."""
+	tiers, order, tier_cut = {}, [], None
+	for raw in open(path, encoding="utf-8"):
+		s = raw.strip()
+		if s.lower().startswith("tier cut:"):
+			tier_cut = s.split(":", 1)[1].strip()
+			continue
+		if not s.startswith("|"):
+			continue
+		cells = [c.strip() for c in s.strip("|").split("|")]
+		if len(cells) < 2:
+			continue
+		tkr, tier = cells[0], cells[1]
+		if tkr.lower() == "ticker" or not tkr or set(tkr) <= set("-: "):  # header / separator row
+			continue
+		key = tkr.upper()
+		if key not in tiers:
+			order.append(key)
+		tiers[key] = tier
+	return tiers, order, tier_cut
+
+
+def cmd_rankdiff(args):
+	a_tiers, _a_order, a_cut = _parse_ranking(args.a)
+	b_tiers, _b_order, b_cut = _parse_ranking(args.b)
+	a_keys, b_keys = set(a_tiers), set(b_tiers)
+	common = sorted(a_keys & b_keys)
+	agree = sum(1 for t in common if a_tiers[t] == b_tiers[t])
+	per_ticker = [
+		{"ticker": t, "a": a_tiers[t], "b": b_tiers[t], "changed": a_tiers[t] != b_tiers[t]}
+		for t in common
+	]
+	report = {
+		"a": args.a,
+		"b": args.b,
+		"intersection": len(common),
+		"agree": agree,
+		"agreement_pct": round(100.0 * agree / len(common), 1) if common else None,
+		"changed": [c for c in per_ticker if c["changed"]],
+		"per_ticker": per_ticker,
+		"only_in_a": sorted(a_keys - b_keys),
+		"only_in_b": sorted(b_keys - a_keys),
+		"tier_cut_a": a_cut,
+		"tier_cut_b": b_cut,
+		"tier_cut_differs": (a_cut or "") != (b_cut or ""),
+	}
+	json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
+	print()
+	sys.exit(0)
+
+
 def main():
 	parser = argparse.ArgumentParser(prog="serenity_harness.py", description="Serenity harness self-check")
 	sub = parser.add_subparsers(dest="command", required=True)
 	sp = sub.add_parser("validate", help="Structural + evidence-boundary self-check")
 	sp.add_argument("--verbose", action="store_true", default=False, help="Include detail for passing checks too")
 	sp.set_defaults(func=cmd_validate)
+	rd = sub.add_parser("rankdiff", help="Deterministic tier-table diff of two _ranking.md files (no judgment)")
+	rd.add_argument("a", help="prior _ranking.md (A)")
+	rd.add_argument("b", help="current _ranking.md (B)")
+	rd.set_defaults(func=cmd_rankdiff)
 	args = parser.parse_args()
 	args.func(args)
 

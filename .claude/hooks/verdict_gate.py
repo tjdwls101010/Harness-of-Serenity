@@ -17,9 +17,19 @@ promoted. The one HARD block is the near-universal, unambiguous miss: a formatte
 TLDR *and* a finance signal) with no NFI/NFA sign-off, whose absence doctrine says "reads as fake."
 A non-market turn (a coding answer that happens to say "TL;DR") is not a finance answer, so it is
 never hard-blocked. stop_hook_active guards the loop: one corrective round, then the turn ends.
+
+The `Saved:` branch (the session-archive contract, CLAUDE.md "The session archive") is the same
+structural philosophy: a finance VERDICT (single_name or a strong market verdict — NOT a bare
+cashtag or a casual macro aside) should carry a visible `Saved: sessions/{yymmdd}.{slug}/` mark, and
+the archive folder it names must really exist AND hold at least one `.md` artifact. Checking the
+mark's SHAPE + the folder's non-emptiness (never its content quality) keeps this a structural check,
+and it stays SOFT — a costless empty `mkdir` or a `Saved: sessions/INDEX.md` token would otherwise
+be a compliance token that falsely certifies archiving, which is exactly why the shape/non-empty
+checks exist before this could ever be promoted to hard.
 """
 
 import json
+import os
 import re
 import sys
 
@@ -134,6 +144,44 @@ def main():
 				"FIGHT. A bear-leg-only call silently inverts a power-law long into a pass — run both "
 				"legs, NOT 'resolve bullish'."
 			)
+
+	# --- Session-archive Saved: mark (soft; CLAUDE.md "The session archive") ---
+	# Gate on a real finance VERDICT (single_name or a strong market verdict), never a bare cashtag
+	# or a casual macro aside — a verdict is what doctrine says gets archived. Check the mark's SHAPE
+	# and the folder's non-emptiness, never its content: a structural check, like the Lens branch.
+	if single_name or strong_verdict:
+		mark = re.search(r"Saved:\s*`?(sessions/\d{6}\.[a-z0-9-]+(?:-\d+)?/?)", msg, re.IGNORECASE)
+		if not mark:
+			if _has(r"Saved:", msg):
+				soft.append(
+					"a `Saved:` line is present but not a valid session path — it must read "
+					"`Saved: sessions/{yymmdd}.{topic-slug}/` (CLAUDE.md, 'The session archive')."
+				)
+			else:
+				soft.append(
+					"this verdict isn't archived — write the scorecard/synthesis to "
+					"sessions/{yymmdd}.{topic}/, update INDEX.md, and add the `Saved:` line "
+					"(CLAUDE.md, 'The session archive')."
+				)
+		else:
+			rel = mark.group(1).rstrip("`.,; ").rstrip("/")
+			base = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+			folder = os.path.join(base, rel)
+			try:
+				is_dir = os.path.isdir(folder)
+				has_md = is_dir and any(f.endswith(".md") for f in os.listdir(folder))
+			except OSError:
+				is_dir, has_md = False, False
+			if not is_dir:
+				soft.append(
+					f"the `Saved:` mark claims `{rel}/` but no such session folder exists — create it "
+					"and write the scorecard/synthesis before the answer claims it's archived."
+				)
+			elif not has_md:
+				soft.append(
+					f"the `Saved:` folder `{rel}/` exists but holds no `.md` scorecard/synthesis — an "
+					"empty folder isn't an archive; write the TICKER.md / _ranking.md into it."
+				)
 
 	if hard:
 		reason = "Your answer is a serenity market verdict (TLDR + a finance signal) but is missing " + " ".join(hard)

@@ -50,7 +50,8 @@ _MARKET_ANCHOR = re.compile(
 _REMINDER = """[evidence-discipline] Reads as an equity/macro question — before answering:
 - Run scripts/serenity_pipeline.py FIRST (macro | analyze TICKER [--skip-macro] | discover) and reason from its JSON — never MC / price / multiples / margins / the regime from memory. For the filing's words AND its disclosure numbers (customer % / country % / inventory / obligations), invoke the serenity-filings subagent.
 - Scan the prompt for a DATED catalyst (selloff / crash / cost-scare / conflict / earnings / policy date) FIRST — a known ticker arriving with one is an EVENT (macro catalyst test + cost-shock margin math), not a standalone single-name read.
-- Pick the archetype's valuation lens at INTAKE, not at the verdict — the archetype forces it. Which lens, and running BOTH legs of a fork, is already in context (N10 / analysis §6); this is the reminder to actually RUN it, arithmetic shown."""
+- Pick the archetype's valuation lens at INTAKE, not at the verdict — the archetype forces it. Which lens, and running BOTH legs of a fork, is already in context (N10 / analysis §6); this is the reminder to actually RUN it, arithmetic shown.
+- If sessions/INDEX.md lists these tickers, plan to reconcile deltas AFTER fresh scorecards — never re-derive blind, never read the old ranking first (the index is verdict-free; a ticker grep is safe)."""
 
 
 def main() -> None:

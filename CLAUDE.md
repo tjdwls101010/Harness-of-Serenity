@@ -92,7 +92,7 @@ Hardware/materials is a chokepoint by default; relabel to disruption/evolution o
 - **B — One stock** (a named ticker): enters at `analyze`, names the archetype, walks the rest on that name.
 - **C — Discovery** ("뭐 사", a theme, "X vs Y"): enters one step earlier, then analyzes each candidate.
 - **D — Supply-chain / what-if**: map the chain (WebSearch) *before* discovery — you can't gate nodes you haven't drawn.
-- **E — Theme / rank**: fan the same winner-gate across names, sort by gate-strength + conviction.
+- **E — Theme / rank**: run the fixed rank-N protocol (analysis skill, "Rank-N protocol") — gates filter membership, stage rung is the ordering spine, gate-strength + conviction order within a rung.
 
 Most real questions are several at once — walk the union in dependency order (broad context first, then the names inside it). When a lone question is genuinely ambiguous about which shape it is, let the wider frame win: **A > D > B > C > E.**
 
@@ -119,9 +119,17 @@ Open with a one-to-two-line **`TLDR:`** carrying the verdict and directional bia
 - **B:** structural position (by archetype) → forward-revenue trajectory → valuation *with the lens named* → winner-gates verdict → cycle stage → rating (PT + timeframe + vehicle).
 - **C:** comparator across candidates → standout metric each → which to analyze deeper and why (flag any foreign-only).
 - **D:** bottleneck map → smallest-MC / most-leverage node → investability → US-listed expression.
-- **E:** names by archetype → ranked by gate-strength + conviction → per name a standout metric, PT + timeframe, key risk → grouped into conviction tiers.
+- **E:** gate-filter first (excluded names listed with the failed gate) → survivors placed on stage rungs (the ordering + sizing spine) → within a rung, gate-strength + conviction → conviction tiers as the output, within-tier order explicitly flagged low-confidence; per name a standout metric, PT + timeframe, key risk; close with deltas vs the prior ranking when one exists in sessions/.
 
 Every single-name answer carries: the structural position, the forward-revenue trajectory, the valuation **with its lens named and RUN on one visible `Lens:` line** — `Lens: <name> — <input>×<input>÷<input> = <result>` (a forked lens shows two: a floor line and an upside line), the machine-checkable proof the driver math actually ran rather than a bare top-down multiple — a priced-in read, a short `Downsides:` block (2–4 casual bullets, each tagged priced-in / addressed), and a rating with conviction + vehicle. And close comparatively even on a single-ticker ask — rank it against its alternatives ("strong, but X in the same chain is faster") so the power-law instinct is audible.
+
+## The session archive — analysis survives the session
+
+Every substantive analysis (a B/C/E verdict, a macro regime read worth keeping) is SAVED, in English, to `sessions/{yymmdd}.{topic-slug}/` — created lazily on the first artifact, never pre-created, and **never write into a session folder this session didn't create** (on a name collision, suffix `-2`). One file per name (`TICKER.md`, the fixed scorecard pinned in the serenity-scorecard agent), `_ranking.md` for a rank/basket synthesis, `_macro.md` for the regime read the analysis leaned on. After writing, add one line to `sessions/INDEX.md` — date · type · tickers · folder, **no verdicts in the index** (an index line that carries the old call anchors the next read before fresh judgment has formed). Close a saved answer with a visible `Saved: sessions/{folder}/` line — the Stop-gate checks the mark and that the folder really holds artifacts.
+
+Two rules make the archive safe to reuse:
+- **Numbers expire, structure doesn't.** Never use a number from a prior session file as a current input — re-run the pipeline; what carries over is the judgment structure (tier, thesis, falsifier). The one exception: inside a delta line, the prior number may be quoted tagged as-of-then ("fwd P/E 34 (as-of 260711) → 39").
+- **Fresh judgment first, comparison second.** On a repeat question, finish the new scorecards/tiers from fresh evidence BEFORE opening the prior session's ranking, then explain every tier delta (evidence delta / owned judgment revision / cohort delta). Reading the old ranking first anchors you; skipping the comparison hides drift — both failure modes are the point of the rule.
 
 ## The thesis DB is an answer key, not a source
 
