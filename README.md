@@ -1,42 +1,81 @@
-# Harness of Serenity
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tjdwls101010/tjdwls101010/main/Images/Harness%20of%20Serenity.png" alt="Harness of Serenity" width="640">
+</p>
 
-![Harness of Serenity brand image](https://raw.githubusercontent.com/tjdwls101010/tjdwls101010/refs/heads/main/Images/ChatGPT%20Image%202026%E1%84%82%E1%85%A7%E1%86%AB%207%E1%84%8B%E1%85%AF%E1%86%AF%209%E1%84%8B%E1%85%B5%E1%86%AF%20%E1%84%8B%E1%85%A9%E1%84%92%E1%85%AE%2001_33_21.png)
+<h1 align="center">Harness of Serenity</h1>
 
-Harness of Serenity is an open-source evidence harness for supply-chain-first equity analysis. It separates the work into two clean layers:
+<p align="center">
+  <em>A research harness that makes deterministic code load the facts and leaves every judgment to the analyst.</em>
+</p>
 
-- **Code loads facts**: deterministic scripts pull market data, macro gauges, filings data, and regression evidence as JSON.
-- **The analyst judges**: `CLAUDE.md`, the Serenity skills, hooks, and filing subagent enforce the reasoning method without baking verdicts into code.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+">
+  <img src="https://img.shields.io/badge/status-personal%20research%20tool-orange.svg" alt="Status: personal research tool">
+</p>
 
-The project is built for people who want a repeatable way to ask: where does economic power structurally concentrate, who depends on whom, and what has the market not priced yet?
+---
 
-> This project is research tooling. It is not financial advice. Use it to structure analysis, not to outsource judgment.
+## What this is
 
-## What It Does
+Ask a language model "is $NVDA a buy?" and it will happily quote you a market cap. The number
+might be last quarter's. It might belong to a different company that shares the ticker prefix.
+Nothing downstream will catch it, because a wrong number that *looks* right reads exactly like a
+right one — and it inverts the conclusion silently.
 
-Harness of Serenity helps an agent or analyst reconstruct decision-grade evidence before making a market call:
+Harness of Serenity fixes that by drawing one hard line through the middle of equity research:
 
-- Runs a deterministic evidence pipeline with `scripts/serenity_pipeline.py`.
-- Keeps judgment out of the data layer with `scripts/serenity_harness.py validate`.
-- Routes the analyst into focused skills for macro, discovery, and single-name analysis.
-- Uses a `serenity-filings` subagent to read SEC filings for objective relationship facts.
-- Preserves an explicit discipline: pipeline numbers first, web/search for narrative gaps only, thesis DB only on explicit cross-validation.
+- **Code loads facts.** A deterministic Python pipeline pulls market data, macro gauges, and SEC
+  filing disclosures and emits them as JSON. Same inputs, same bytes, every run. Identity pinned:
+  the right ticker, the right period.
+- **The analyst judges.** Whether a company owns a real chokepoint, which valuation lens its
+  capital structure demands, what the price already reflects — none of that lives in code, ever.
 
-## Repository Map
+The split is enforced mechanically, not by convention. A validator replays sixteen frozen
+fixtures and fails if a single verdict-shaped key (`rating`, `risk_score`, `regime`,
+`objective_screen`) leaks into the evidence layer. That is the whole idea: a judgment baked into
+code drifts silently run to run, and one stale criterion among a hundred can invert a call
+without anyone noticing.
 
-| Path | Purpose |
+> **This is research tooling, not financial advice.** It structures analysis; it does not
+> outsource it. See [Disclaimer](#disclaimer).
+
+## Why the boundary is the point
+
+Most analysis tools blur three separate jobs into one stream of output: gathering numbers,
+interpreting structure, and deciding what the price already reflects. Blur them and you cannot
+tell which step was wrong when the call misses.
+
+This repository splits them and keeps them split:
+
+| The code may emit | The code must never emit |
 | --- | --- |
-| `CLAUDE.md` | Always-on reasoning spine, answer contract, routing rules, and non-negotiables. |
-| `.claude/skills/serenity-analysis/` | Single-name analysis: archetype, winner gates, valuation lens, cycle stage, rating. |
-| `.claude/skills/serenity-discovery/` | Discovery: find the under-priced US-listed node before a ticker is obvious. |
-| `.claude/skills/serenity-macro/` | Macro/catalyst regime read and aggression dial. |
-| `.claude/agents/serenity-filings.md` | Filing reader that extracts facts from SEC filings without rendering judgment. |
-| `scripts/serenity_pipeline.py` | Main JSON evidence CLI: `macro`, `analyze`, `discover`, `evidence`. |
-| `scripts/serenity_filings.py` | Deterministic edgartools wrapper for SEC company, filing, XBRL, and text reads. |
-| `scripts/serenity_harness.py` | Structural validator for the harness and evidence/judgment boundary. |
-| `scripts/tests/golden/` | Frozen inputs and expected evidence fixtures. |
-| `docs/wiki/` | User-facing wiki pages for setup, architecture, and operating workflows. |
+| market cap, price, multiples, margins | a buy/sell rating |
+| cash, debt, total assets, inventory | an archetype tag ("this is a chokepoint") |
+| raw macro gauges (VIX, net liquidity, ERP) | a regime label ("risk-on") |
+| SEC filing facts, quoted and cited | a conviction score or price target |
+| side-by-side comparison metrics | a ranking verdict |
 
-## Quick Start
+## Highlights
+
+- **One JSON evidence surface** — `macro`, `analyze TICKER`, `discover A B C`, and an offline
+  `evidence --fixture` replay, all from a single CLI.
+- **27 data modules** behind it, each a standalone subprocess that fails into structured JSON
+  rather than a traceback, so one dead upstream never takes down a whole dossier.
+- **A separate SEC layer** (`serenity_filings.py`) that reproduces filing numbers byte-stably via
+  edgartools XBRL with the concept cited — no LLM anywhere in the extraction path.
+- **A self-check that actually runs** — `serenity_harness.py validate` performs 15 structural
+  checks including a full replay of every golden fixture against the judgment-free contract.
+- **An agent harness on top** — an always-on reasoning spine, three focused skills, two
+  subagents, and four lifecycle hooks that enforce evidence discipline at runtime.
+- **Reproducibility measurement** — a seeded, stratified eval that scores whether the harness
+  reproduces the *method* on real past cases, deliberately grading moves rather than numbers.
+
+## Quick start
+
+**Prerequisites:** Python 3.12 or newer (the evidence layer uses PEP 695 type aliases), Git, and
+network access. A free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) unlocks
+the macro gauges; everything else works without a key.
 
 ```bash
 git clone https://github.com/tjdwls101010/Harness-of-Serenity.git
@@ -44,77 +83,87 @@ cd Harness-of-Serenity
 
 python3 -m venv scripts/.venv
 scripts/.venv/bin/pip install -r scripts/requirements.txt
-cp .env.example .env
+cp .env.example .env          # then add FRED_API_KEY and EDGAR_IDENTITY
 ```
 
-Fill in any API keys you need in `.env`. Live macro evidence uses `FRED_API_KEY`; SEC commands use `EDGAR_IDENTITY` when present and otherwise fall back to the neutral identity configured in `scripts/serenity_filings.py`.
-
-Validate the harness:
+Confirm the harness is wired correctly — this needs no network and no keys:
 
 ```bash
 scripts/.venv/bin/python scripts/serenity_harness.py validate
 ```
 
-Run evidence commands:
+A healthy run reports `"ok": true` with 15 passing checks. Now pull a real evidence dossier:
 
 ```bash
-scripts/.venv/bin/python scripts/serenity_pipeline.py macro
 scripts/.venv/bin/python scripts/serenity_pipeline.py analyze TSM
-scripts/.venv/bin/python scripts/serenity_pipeline.py analyze TSM --skip-macro
-scripts/.venv/bin/python scripts/serenity_pipeline.py discover TSM ASML ARM
-scripts/.venv/bin/python scripts/serenity_pipeline.py evidence --fixture scripts/tests/golden/AXTI.inputs.json --ticker AXTI
 ```
 
-All pipeline output is JSON. Do not truncate it when using it as evidence for a thesis.
+You get one JSON object: `key_facts` (market cap, price, margins, float, short interest),
+`fundamental_inputs`, `valuation_inputs`, `market_structure_inputs`, `catalyst_inputs`, and
+`filing_evidence` — plus an `evidence_contract` block declaring in-band that judgment belongs to
+you, not to the code that produced the payload.
 
-## Core Workflow
+**Do not truncate that output.** The fields most tempting to cut — financing terms, country
+revenue share, inventory composition — are usually the ones a thesis turns on.
 
-1. **Start with the shape of value capture.** Is this a physical chokepoint, a profit pool being drained, or an emerging standard?
-2. **Run the pipeline first.** Use `macro`, `analyze`, or `discover` before reasoning from numbers.
-3. **Pull filings when relationships matter.** Use the `serenity-filings` subagent or `scripts/serenity_filings.py` when the thesis depends on named customers, suppliers, financing, country exposure, or critical inputs.
-4. **Run the valuation lens, not just the label.** Show the arithmetic and tie each input back to evidence.
-5. **Separate thesis, timing, vehicle, and kill condition.** A good business thesis is not automatically a good entry.
-
-## Common Commands
+## Usage overview
 
 ```bash
-# Validate harness structure and evidence invariants
-scripts/.venv/bin/python scripts/serenity_harness.py validate
+PY=scripts/.venv/bin/python
 
-# Raw macro gauges only, no regime label
-scripts/.venv/bin/python scripts/serenity_pipeline.py macro
+# Raw macro gauges — no regime label, deliberately
+$PY scripts/serenity_pipeline.py macro
 
-# Full single-name evidence dossier
-scripts/.venv/bin/python scripts/serenity_pipeline.py analyze TICKER
+# Full single-name dossier
+$PY scripts/serenity_pipeline.py analyze NVDA
 
-# Side-by-side comparator across tickers
-scripts/.venv/bin/python scripts/serenity_pipeline.py discover TKR1 TKR2 TKR3
+# Batch: run macro once, then reuse it across names
+$PY scripts/serenity_pipeline.py analyze AVGO --skip-macro
 
-# Filing numbers and text through edgartools
-scripts/.venv/bin/python scripts/serenity_filings.py company TICKER
-scripts/.venv/bin/python scripts/serenity_filings.py filings TICKER --form 10-K --limit 3
-scripts/.venv/bin/python scripts/serenity_filings.py section TICKER --form 10-K --named business
+# Side-by-side comparator (routing, not a ranking verdict)
+$PY scripts/serenity_pipeline.py discover TSM ASML ARM
+
+# SEC filings: numbers and text, deterministically
+$PY scripts/serenity_filings.py segments TSM --axis StatementGeographicalAxis
+$PY scripts/serenity_filings.py section TSM --form 10-K --named business
 ```
+
+Flag-by-flag detail lives in the [Pipeline Reference](docs/wiki/Pipeline-Reference.md) and
+[Filings and SEC](docs/wiki/Filings-and-SEC.md) pages.
 
 ## Documentation
 
-- [Wiki home](docs/wiki/README.md)
-- [Getting started](docs/wiki/Getting-Started.md)
-- [Architecture](docs/wiki/Architecture.md)
-- [Pipeline reference](docs/wiki/Pipeline-Reference.md)
-- [Release process](docs/wiki/Release-Process.md)
+The full documentation lives in **[docs/wiki](docs/wiki/README.md)**. Start here:
+
+| Page | For |
+| --- | --- |
+| [Overview](docs/wiki/Overview.md) | The problem, the approach, and the non-goals |
+| [Getting Started](docs/wiki/Getting-Started.md) | Install → configure → first dossier, end to end |
+| [Concepts](docs/wiki/Concepts.md) | The vocabulary: evidence contract, archetype, lens, gates |
+| [Architecture](docs/wiki/Architecture.md) | How the layers fit and how a run flows through them |
+| [Pipeline Reference](docs/wiki/Pipeline-Reference.md) | Every subcommand, flag, and output field |
+| [Known Limitations](docs/wiki/Known-Limitations.md) | Verified defects and rough edges, stated plainly |
+
+## Project status
+
+A working personal research harness, published because the pattern it demonstrates — a
+mechanically enforced boundary between deterministic evidence and model judgment — generalizes
+well beyond equities.
+
+**What that means for you:** it works and it is used, but there is no CI, no stability guarantee,
+no release cadence, and no support commitment. Interfaces may change without a deprecation
+period. Fork it freely; pin a commit if you depend on it.
+
+Pull requests are welcome. There is exactly one rule a contribution must not break: deterministic
+code may load, normalize, and verify facts, but it may never emit a verdict, score, archetype
+tag, regime label, or rating.
 
 ## Contributing
 
-Contributions should preserve the central boundary: deterministic code may load facts, normalize evidence, and verify contracts, but it must not emit investment verdicts, archetypes, scores, or ratings.
-
-Before opening a pull request:
-
-```bash
-scripts/.venv/bin/python scripts/serenity_harness.py validate
-```
-
-For code changes, add or update focused tests only where the behavior boundary needs protection. For doctrine or docs changes, make the operating rule more general rather than adding one-off case patches.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the test commands, and the boundary rule every
+PR is checked against. By participating you agree to the
+[Code of Conduct](CODE_OF_CONDUCT.md). To report a security issue, follow
+[SECURITY.md](SECURITY.md) rather than opening a public issue.
 
 ## License
 
@@ -122,4 +171,8 @@ Released under the MIT License. See [LICENSE](LICENSE).
 
 ## Disclaimer
 
-Harness of Serenity is educational and research infrastructure. It does not provide investment, legal, tax, or financial advice, and it does not guarantee data availability, data accuracy, or investment outcomes.
+Harness of Serenity is educational and research infrastructure. It does not provide investment,
+legal, tax, or financial advice, and it makes no guarantee of data availability, data accuracy,
+or investment outcomes. Market data comes from third-party sources that can be delayed,
+incomplete, or wrong. Every output is an input to your own judgment — verify anything you would
+act on.
