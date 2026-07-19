@@ -1,82 +1,163 @@
 # Release Process
 
-This page describes the release process used for the open-source documentation package.
+How a version gets cut, what a release must satisfy, and the change-history conventions this
+repository uses.
+
+Scaled to what this project is: a personal research harness with no CI and no release cadence.
+The process is a checklist, not a pipeline.
 
 ## Versioning
 
-Use semantic version tags:
+Semantic versioning, interpreted for a project whose "API" is a set of CLIs and a JSON schema:
 
-```text
-vMAJOR.MINOR.PATCH
-```
+| Bump | Triggered by |
+| --- | --- |
+| **Major** | A change to the evidence-contract shape, or a removed or renamed top-level output key |
+| **Minor** | A new subcommand, a new output field, a new data module, a new hook or skill |
+| **Patch** | Bug fixes, documentation, dependency bumps, fixture re-blessing |
 
-The first public documentation release is `v0.1.0`.
+Version tags are `vX.Y.Z`. The current release is `v0.1.0` (2026-07-09).
 
-## Pre-Release Checklist
+**A caution stated plainly:** while the project is pre-1.0, interfaces change without a
+deprecation period. Pin a commit if you depend on one.
 
-1. Confirm the worktree is clean except for intended release files.
-2. Run the harness validator:
+### What counts as a breaking change here
 
-   ```bash
-   scripts/.venv/bin/python scripts/serenity_harness.py validate
-   ```
+The user-visible surface is JSON, so the compatibility question is about payload shape:
 
-3. Verify documentation paths and required references:
+**Breaking** — removing or renaming a top-level key, changing a field's type, changing
+`evidence_contract.kind`, or removing a subcommand or a flag.
 
-   ```bash
-   test -s README.md
-   test -s LICENSE
-   test -s CHANGELOG.md
-   test -s docs/wiki/README.md
-   rg "serenity_pipeline.py" README.md docs/wiki
-   ```
+**Not breaking** — adding a field (consumers should tolerate unknown keys), a value changing
+because upstream data changed, or a field becoming absent because its source returned nothing.
+That last one is normal operation: `_pick` omits null-valued keys by design, so **every consumer
+must treat any field as potentially absent.**
 
-4. Review the staged diff and confirm only release-scope files changed.
+## The release checklist
 
-## Commit
-
-Follow the repository's existing Conventional Commit style:
+### 1. All three suites green
 
 ```bash
-git add README.md LICENSE CHANGELOG.md docs/wiki docs/releases
-git commit -m "docs(release): publish open-source project docs"
+PY=scripts/.venv/bin/python
+
+$PY scripts/serenity_harness.py validate        # → "ok": true, pass: 15, fail: 0
+$PY .claude/hooks/tests/run_fixtures.py         # → 22/22 fixtures passed
+python3 -m pytest scripts/tests/ -q             # see Known Limitations
 ```
 
-## Push
+`validate` must be green. It is the only check that verifies the boundary rule across all 16
+fixtures, and a release that ships a judgment leak defeats the project's purpose.
+
+### 2. A live smoke test
+
+Fixtures are frozen, so they cannot catch an upstream break. Run at least one real ticker:
 
 ```bash
-git push origin main
+$PY scripts/serenity_pipeline.py analyze AAPL | jq '.key_facts | keys | length'
+$PY scripts/serenity_pipeline.py macro | jq '.macro_inputs | keys'
+$PY scripts/serenity_filings.py company AAPL | jq '.cik'
 ```
 
-## Create The GitHub Release
+Check that `key_facts` is populated, that macro gauges are present (with `FRED_API_KEY`
+exported — see [Known Limitations](Known-Limitations.md#env-is-not-loaded-for-macro-modules)),
+and that EDGAR responds.
+
+### 3. Documentation matches the code
+
+If the release changes a command, a flag, or an output field, the corresponding wiki page changes
+in the same commit. Specifically:
+
+- New or changed CLI surface → [Pipeline Reference](Pipeline-Reference.md) or
+  [Filings and SEC](Filings-and-SEC.md)
+- New module → [Data Modules](Data-Modules.md)
+- New hook, skill, or agent → [Agent Harness](Agent-Harness.md) or
+  [Hooks Reference](Hooks-Reference.md)
+- A fixed defect → remove its entry from [Known Limitations](Known-Limitations.md)
+- Any structural change → `.claude/harness-spec.md`
+
+### 4. No placeholders or broken links
 
 ```bash
-gh release create v0.1.0 \
-  --title "Harness of Serenity v0.1.0" \
-  --notes-file docs/releases/v0.1.0.md
+grep -rnE 'TODO|FIXME|XXX|\{\{|<your ' README.md CONTRIBUTING.md SECURITY.md docs/
 ```
 
-Verify it:
+### 5. Update the changelog
+
+Add a dated entry to `CHANGELOG.md` under a new version heading. Format follows Keep a Changelog:
+`Added`, `Changed`, `Fixed`, `Removed`, plus a `Verification` note recording what was actually run.
+
+### 6. Tag and publish
 
 ```bash
-gh release view v0.1.0 --json tagName,name,url,isDraft,isPrerelease,targetCommitish
+git tag -a v0.2.0 -m "v0.2.0"
+git push origin v0.2.0
 ```
 
-The release is valid when:
+Then add release notes at `docs/releases/vX.Y.Z.md` and, if publishing on GitHub, a release
+pointing at the tag.
 
-- `tagName` is `v0.1.0`
-- `isDraft` is `false`
-- `isPrerelease` is `false`
-- `url` points to the repository release page
+## Release notes
 
-## Rollback
+One file per version at `docs/releases/vX.Y.Z.md`, covering:
 
-If a release was created with the wrong notes or target commit:
+- **What changed**, grouped by area, written for someone deciding whether to upgrade.
+- **Breaking changes** with migration steps — never omitted, never softened.
+- **Known issues** shipping with the release, linked to
+  [Known Limitations](Known-Limitations.md).
+- **Verification**: which suites were run and what they returned.
 
-```bash
-gh release delete v0.1.0
-git tag -d v0.1.0
-git push origin :refs/tags/v0.1.0
-```
+The changelog is the index; release notes are the detail. Do not duplicate one into the other.
 
-Only run rollback commands when the release is actually wrong and the repository owner accepts the history impact.
+## The design record
+
+`.claude/harness-spec.md` is the audit anchor for the harness layer — what each component is and
+**why it lives in the layer it lives in** — plus a dated change history.
+
+Its conventions are worth preserving because they are unusually honest:
+
+- Each entry lists per-file changes **and what was deliberately not done, with the reason.**
+- Where a change was measured, the measurement is recorded even when unflattering. One entry notes
+  an eval moving from 72% to 70% and states that this is inside the noise floor at n = 6 — neither
+  claimed as an improvement nor hidden as a regression.
+
+Update it whenever a component changes, so the next audit has something to compare against.
+
+## Planning documents
+
+Substantial changes get a plan at `docs/plans/YYYY-MM-DD-{topic}-plan.md` **before**
+implementation. The convention, visible in the one shipped example, is a plan written to be
+executed by a different session than the one that wrote it:
+
+| Section | Purpose |
+| --- | --- |
+| Status | Provenance — who approved it, when, and what review it survived |
+| Goal | What success means, plus explicitly rejected targets |
+| Decisions log | A table of settled decisions, frozen — not to be re-litigated |
+| Deliverables | Numbered, in implementation order, mapped to files touched |
+| Per-deliverable sections | One each, with verbatim anchors for text being replaced |
+| Risks and honest limits | What could go wrong and what the plan does not solve |
+| Deferred | Explicitly out of scope |
+| Acceptance checklist | Checkboxes the implementing session works through |
+| Adversarial review log | Findings from reviewing the plan before finalizing |
+| Implementation log | Appended during implementation — deviations and what was skipped |
+
+Two features carry most of the value. **Decisions are frozen** — but the plan explicitly instructs
+the implementing session to surface anything that turns out to be technically impossible rather
+than silently improvising around it. And **pre-verification items run first**: assumptions the
+design leans on get checked before any code is written.
+
+After implementation, the implementation log is compressed into `harness-spec.md`'s change
+history.
+
+## What a release is not
+
+- **Not a promise of stability.** Pre-1.0, and there is no support commitment.
+- **Not automated.** No CI, no release workflow. Every step above is manual.
+- **Not a performance claim.** Nothing in a release asserts that the method produces returns. The
+  [eval](Eval-Harness.md) measures method reproduction only, and no backtest exists anywhere in
+  this repository.
+
+---
+
+**Next:** [Testing and Validation](Testing-and-Validation.md) ·
+[Contributing](../../CONTRIBUTING.md) · [Back to index](README.md)
