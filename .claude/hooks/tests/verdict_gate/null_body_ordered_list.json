@@ -1,0 +1,8 @@
+{
+  "last_assistant_message": "TLDR: $NVDA cheap here, overweight. NFI/NFA.\n\nLens: EV/Rev — 18 × $4B ÷ $3.2T = 2%\n**Downsides:**\n\n1. None identified.\n\n**Falsifier:**\n\n1. N/A.\nRating: overweight, shares. NFI/NFA.\n\nSaved: sessions/990101.hook-fixture/",
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": "Downsides/bear block"
+  },
+  "_why": "The null normalizer only peeled dash/bullet decoration, so every other shape a model actually emits — an ordered list, a task-list checkbox, a table cell, a code span — carried the same compliance token straight past the check that exists to catch it. Every fixture here happened to be written in the one shape that worked."
+}
