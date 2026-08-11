@@ -16,7 +16,10 @@ finviz>=2.0.0
 
 # SEC EDGAR
 sec-edgar-downloader>=5.0.0
-sec-analyzer>=0.2.0
+# sec-analyzer is NOT listed: its only importer is scripts/pipeline/legacy/_commands.py,
+# and serenity_harness.py validate asserts pipeline.legacy never enters sys.modules.
+# The pin here was unsatisfiable from PyPI anyway (the installed build was an editable
+# checkout at a path that died when this repo moved).
 
 # RS Rating (IBD-style relative strength)
 ibd-rs-rating
@@ -27,3 +30,9 @@ requests>=2.31.0
 # Macro/sentiment libraries (modules/fear_greed.py, modules/fedwatch.py)
 fear-greed>=0.1.1
 cme-fedwatch>=0.1.2
+
+# Test runner. Install into scripts/.venv, not system python: the tests shell out to
+# serenity_pipeline.py with sys.executable, so a runner outside the venv resolves an
+# interpreter that has no yfinance. Invoke as `scripts/.venv/bin/python -m pytest`
+# (the venv's own bin/pip and bin/pytest console scripts carry a stale shebang).
+pytest>=8.0.0

@@ -313,12 +313,6 @@ Lens: content×volume÷MC — $180/unit × 4.2M units ÷ $12.4B = 6.1% of MC
 `EV/Rev = 12x` does not satisfy it, deliberately — that bare top-down multiple is the exact miss
 the check was built to catch.
 
-### Codex hooks do not run
-
-`.codex/hooks.json` points at an absolute path that does not exist. The Codex hook bindings are
-currently inert; the Claude Code bindings in `.claude/settings.json` are unaffected. See
-[Known Limitations](Known-Limitations.md#codex-hook-layer-is-dead).
-
 ---
 
 ## Still stuck?

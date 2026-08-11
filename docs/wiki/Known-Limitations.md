@@ -154,73 +154,6 @@ behavior, not current behavior.
 
 ---
 
-## Contract tests fail on a path bug
-
-**Severity:** 🟡 Feature broken
-
-**What happens.** `python3 -m pytest scripts/tests/ -q` fails both tests with
-`subprocess.CalledProcessError`.
-
-**Root cause.** `scripts/tests/test_evidence_contract.py:9`:
-
-```python
-SCRIPTS_DIR = Path(__file__).resolve().parents[1]   # → <repo>/scripts        ✅
-ROOT = SCRIPTS_DIR.parents[3]                       # → /Users/seongjin       ❌
-```
-
-`SCRIPTS_DIR.parents` is indexed from `scripts/`, so `[0]` is already the repository root; `[3]`
-walks three levels too far. Every `ROOT / "scripts" / "serenity_pipeline.py"` resolves to a
-nonexistent path, and the subprocess call is made with `check=True`.
-
-**Verified on this checkout:**
-
-```
-SCRIPTS_DIR = /Users/seongjin/Coding/Invest/Harness of Serenity/scripts
-parents[3]  = /Users/seongjin                                          ← used
-parents[0]  = /Users/seongjin/Coding/Invest/Harness of Serenity        ← correct
-```
-
-**Note the sharp edge:** the breakage is depth-dependent. A checkout sitting exactly three levels
-deeper would pass by coincidence. `.pytest_cache` records both tests as failing, so this has been
-broken for some time unnoticed — partly because `serenity_harness.py validate` does not invoke
-pytest, and pytest is not installed in `scripts/.venv` by default.
-
-**The code under test is fine.** `validate` exercises the same invariants across all 16 fixtures
-and passes 15/15, so coverage of the boundary rule is not actually lost.
-
-**Fix.** `ROOT = SCRIPTS_DIR.parent`.
-
----
-
-## Codex hook layer is dead
-
-**Severity:** 🟡 Feature broken
-
-**What happens.** None of the four hooks fire under the Codex convention. Claude Code is
-unaffected.
-
-**Root cause.** All four bindings in `.codex/hooks.json` (lines 9, 20, 31, 42) point at a
-hardcoded absolute path that does not exist:
-
-```
-/Users/seongjin/Documents/Coding/Invest/Harness of Serenity/.codex/hooks/…
-```
-
-The repository is at `/Users/seongjin/Coding/Invest/Harness of Serenity` — no `Documents/`
-segment. **Verified:** `ls` on that path returns "No such file or directory".
-
-Two secondary problems in the same file:
-
-- It mixes forms — `"$CLAUDE_PROJECT_DIR"` for the interpreter, an absolute literal for the script.
-- It uses **shell-form** commands, which is the exact failure mode `.claude/settings.json`
-  deliberately avoids: a shell-profile banner can corrupt a JSON-emitting hook's stdout and
-  silently no-op it.
-
-**Fix.** Use `$CLAUDE_PROJECT_DIR` for both halves. Since `.codex/hooks` is a symlink to
-`.claude/hooks`, the scripts themselves are already correct — only the bindings are wrong.
-
----
-
 ## The session archive has no committed worked example
 
 **Severity:** ⚪ Cosmetic / accepted
@@ -250,14 +183,13 @@ in [Session Archive](Session-Archive.md) is not mistaken for something demonstra
 
 **Severity:** ⚪ Cosmetic / accepted
 
-Four listed dependencies have **zero imports** anywhere under `scripts/`:
+Three listed dependencies have **zero imports** anywhere under `scripts/`:
 
 | Listed | Reality |
 | --- | --- |
 | `finvizfinance>=0.14.6` | No import |
 | `finviz>=2.0.0` | No import |
 | `sec-edgar-downloader>=5.0.0` | No import |
-| `sec-analyzer>=0.2.0` | Imported only by quarantined legacy code |
 
 A comment also mentions a "CFTC direct API" that no module contacts.
 
@@ -265,7 +197,11 @@ A comment also mentions a "CFTC direct API" that no module contacts.
 as a list of what the project actually talks to — the real external surfaces are yfinance (14
 modules), FRED (4), CBOE (2), SEC EDGAR (2), plus three wrapper libraries and one scraped page.
 
-`pytest` is *not* listed, though the repository has tests. Install it separately.
+**Resolved 2026-08-11.** `sec-analyzer>=0.2.0` is no longer listed: its only importer is
+quarantined legacy code, and the pin was never satisfiable from PyPI — the installed build was an
+editable checkout under `~/Documents/`, a path that died when this repository moved. `pytest` is
+now listed, and must be installed into `scripts/.venv` rather than system-wide, because the tests
+shell out to the pipeline with `sys.executable`.
 
 ---
 

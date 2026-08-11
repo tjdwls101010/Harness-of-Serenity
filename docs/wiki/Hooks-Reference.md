@@ -288,8 +288,7 @@ resolves session paths relative to it.
 2. Wire it in `.claude/settings.json` in exec-form with the venv interpreter path.
 3. **Add fixtures** for both the firing case and the near-miss case. Every existing hook has a
    false-fire guard, because the failure mode of a noisy hook is that people disable it.
-4. Update `.codex/hooks.json` if Codex parity matters to you.
-5. Run `serenity_harness.py validate` — the `hooks` check asserts the exact event-to-script map,
+4. Run `serenity_harness.py validate` — the `hooks` check asserts the exact event-to-script map,
    so it will fail until settings and files agree.
 
 ---
