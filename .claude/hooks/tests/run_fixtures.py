@@ -42,6 +42,7 @@ the working tree, three fixtures went red, and validate reported green throughou
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -112,7 +113,34 @@ def discover():
             yield f"{d}/{f[:-5]}", hook, payload.get("_expect")
 
 
+def _absolute_path_offenders():
+    """Fixtures carrying a machine-specific absolute path instead of {{SANDBOX}}.
+
+    Checked rather than trusted to convention, because the failure is invisible on the machine that
+    introduced it: the fixture passes here and fails — or worse, passes for the wrong reason — on
+    every other checkout. That is precisely the shape of defect this suite exists to catch, so it
+    would be strange to leave the suite itself open to it."""
+    bad = []
+    for d in sorted(os.listdir(TESTS_DIR)):
+        p = os.path.join(TESTS_DIR, d)
+        if d in NOT_A_HOOK_DIR or not os.path.isdir(p):
+            continue
+        for f in sorted(os.listdir(p)):
+            if not f.endswith(".json"):
+                continue
+            text = open(os.path.join(p, f), encoding="utf-8").read()
+            # A path anchored at the filesystem root is machine-specific by construction.
+            if re.search(r'"(?:/Users/|/home/|[A-Za-z]:\\\\)', text):
+                bad.append(f"{d}/{f[:-5]}")
+    return bad
+
+
 def main():
+    offenders = _absolute_path_offenders()
+    if offenders:
+        print("FAIL  absolute machine-specific paths in fixtures: " + ", ".join(offenders))
+        print("      use {{SANDBOX}} — the runner substitutes this checkout's fixtures/ directory.")
+        sys.exit(1)
     fails = total = 0
     for name, hook, expect in discover():
         total += 1
@@ -126,6 +154,18 @@ def main():
             fails += 1
             continue
         payload = open(os.path.join(TESTS_DIR, name + ".json"), encoding="utf-8").read()
+        # {{SANDBOX}} -> this checkout's fixtures/ directory. A hook that inspects a FILE PATH gets
+        # an absolute one in production, so its fixtures must carry an absolute one too — but an
+        # absolute path baked into a committed fixture is only absolute on the machine that wrote it.
+        # Substituting at run time keeps both properties.
+        #
+        # This is not hypothetical: the scorecard_guard fixtures shipped with a hardcoded
+        # /Users/... path and scored 54/57 on any other checkout, which made `validate` red on a
+        # fresh clone. Two of them still "passed" there — they expect silence, and got silence
+        # because the path fell out of scope rather than because the file conformed. A fixture that
+        # passes for the wrong reason is the failure this suite exists to prevent, so prefer
+        # {{SANDBOX}} over a literal path in any new fixture.
+        payload = payload.replace("{{SANDBOX}}", SANDBOX)
         p = subprocess.run([sys.executable, hook], input=payload, cwd=ROOT,
                            env={**os.environ, "CLAUDE_PROJECT_DIR": SANDBOX},
                            capture_output=True, text=True)
