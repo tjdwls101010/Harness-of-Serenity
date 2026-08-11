@@ -6,7 +6,7 @@ from typing import Iterable
 
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
-ROOT = SCRIPTS_DIR.parents[3]
+ROOT = SCRIPTS_DIR.parent
 FIXTURE = SCRIPTS_DIR / "tests" / "golden" / "AAOI.inputs.json"
 FORBIDDEN_KEYS = {
 	"objective_screen",

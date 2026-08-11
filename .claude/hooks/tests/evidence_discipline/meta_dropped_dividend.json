@@ -1,0 +1,6 @@
+{
+  "prompt": "there's a bug in evidence_discipline.py - the dividend field regex needs a fix, can you refactor it",
+  "_expect": {
+    "silent": true
+  }
+}

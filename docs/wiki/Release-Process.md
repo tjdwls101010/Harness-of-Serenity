@@ -41,7 +41,7 @@ must treat any field as potentially absent.**
 PY=scripts/.venv/bin/python
 
 $PY scripts/serenity_harness.py validate        # → "ok": true, pass: 15, fail: 0
-$PY .claude/hooks/tests/run_fixtures.py         # → 22/22 fixtures passed
+$PY .claude/hooks/tests/run_fixtures.py         # → all fixtures passed (exit 0)
 python3 -m pytest scripts/tests/ -q             # see Known Limitations
 ```
 

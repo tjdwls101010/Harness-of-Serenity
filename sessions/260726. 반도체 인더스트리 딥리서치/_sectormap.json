@@ -1,0 +1,554 @@
+{
+  "schema": "serenity_sectormap/1",
+  "industry": "Semiconductors — AI buildout chain",
+  "as_of": "2026-07-26",
+  "session": "260726. 반도체 인더스트리 딥리서치",
+  "source_notes": [
+    "Scaffold: Kiwoom Securities '병목의 확산' bottleneck-propagation chart (11 rungs), transcribed in _reference_kiwoom_bottleneck_map.md. Used for layer completeness, NOT as evidence.",
+    "Layers absent from the Kiwoom chart were added by chain-tracing: EDA/IP, wafers & compound substrates, photomask, probe cards & sockets, subfab components, process chemicals, package-level thermal, specialty foundry, and the jurisdiction layer.",
+    "All tickers here are pipeline-verified as priceable via serenity_pipeline.py discover on 2026-07-26. NO financial figures are stored in this file — numbers expire; run the pipeline.",
+    "SEC EDGAR returned HTTP 403 for every request from this environment on 2026-07-26 (retried with explicit identity, and outside the sandbox). Filing-derived facts — customer concentration %, country revenue %, financing structure — were therefore UNAVAILABLE this session. Any 'link' marked CONFIRMED below rests on a company press release, conference disclosure, or a cited third-party source, never on a filing read this session.",
+    "Foreign winners are named honestly and resolved down the US-listed ladder. OTC lines (SIVEF, SLOIF, LPKFF, IQEPF, XFABF) were confirmed to price on 2026-07-26, but OTC liquidity and spreads are a real execution constraint, not a footnote."
+  ],
+  "layers": [
+    {
+      "id": "ai-accelerator",
+      "name": "AI accelerators — merchant GPU and custom ASIC/XPU",
+      "parent": null,
+      "position": 1,
+      "bottleneck_mechanism": "Not the die itself any more. Supply is gated by simultaneous access to leading-edge wafer starts, HBM stacks, and advanced packaging slots — a system-level allocation problem, not a lithography one.",
+      "limitation_class": "constraint",
+      "concentration": "Merchant accelerators highly concentrated in one vendor; custom-ASIC design partners concentrated in two US-listed houses. The scarcity has migrated downstream of the design layer.",
+      "candidates": [
+        {"ticker": "NVDA", "role": "merchant accelerator incumbent; the demand signal the whole chain reads off", "listing": "us", "link": "CONFIRMED", "note": "End-node. Attention pools here, so it is the least mispriced point on the chain — held as a reference, not a discovery."},
+        {"ticker": "AMD", "role": "second merchant accelerator; also the server-CPU side of the same rack", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "AVGO", "role": "custom XPU design partner + networking silicon; captures ASIC economics without fab risk", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "MRVL", "role": "the other custom-ASIC house; optical DSP and interconnect silicon", "listing": "us", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [],
+      "watch_signal": "Hyperscaler capex direction (pipeline `macro`), and whether accelerator lead times compress while packaging lead times do not — that divergence is the tell that the bottleneck has fully migrated."
+    },
+    {
+      "id": "server-cpu",
+      "name": "Server CPU",
+      "parent": null,
+      "position": 2,
+      "bottleneck_mechanism": "Inference and agentic workloads raise CPU-per-rack demand while advanced process and packaging capacity is allocated to accelerators first, extending CPU lead times.",
+      "limitation_class": "constraint",
+      "concentration": "Effectively a duopoly in x86 plus an emerging Arm-based custom tier at the hyperscalers.",
+      "candidates": [
+        {"ticker": "INTC", "role": "x86 server CPU + a US-located leading-edge fab footprint", "listing": "us", "link": "CONFIRMED", "note": "Spans two layers — read the fab-jurisdiction layer too."},
+        {"ticker": "AMD", "role": "x86 server CPU share gainer", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "ARM", "role": "the IP the hyperscalers' custom server CPUs are built on", "listing": "us", "link": "CONFIRMED", "note": "Royalty model — captures the shift to custom CPUs regardless of who wins it."}
+      ],
+      "foreign_only": [],
+      "watch_signal": "Published server-CPU lead times and allocation commentary; a lengthening CPU lead time while GPU lead times shorten confirms the Kiwoom rung-3 claim."
+    },
+    {
+      "id": "memory-hbm",
+      "name": "HBM / high-bandwidth memory",
+      "parent": null,
+      "position": 3,
+      "bottleneck_mechanism": "HBM consumes materially more wafer area per bit than commodity DRAM, and each stack adds TSV and bonding steps whose yield falls with stack height. Adding capacity means a fab construction cycle, not a line reconfiguration.",
+      "limitation_class": "bottleneck",
+      "concentration": "Three suppliers worldwide, two of them Korean, one US-listed. Geographically concentrated in Korea and the US.",
+      "candidates": [
+        {"ticker": "MU", "role": "US-listed HBM producer; also commodity DRAM and NAND. 2026 HBM sold out under 3-5yr LTAs backed by ~$22B of customer prepayments — the sold-out book passes the funded test", "listing": "us", "link": "CONFIRMED", "note": "Cycle caveat: from 3Q26 the same CSP LTAs contractually CAP realised pricing. Margins are at a cycle extreme."},
+        {"ticker": "SKHY", "role": "SK Hynix ADS on NASDAQ — the HBM share leader, now directly US-listed", "listing": "adr", "link": "CONFIRMED", "note": "Listed 2026-07-10 (424B4, CIK 0002120882; 177.9M ADSs at $149.00). CORRECTION: an earlier version of this map said no US line existed, because only SKHYY/HXSCL/SKHYF were tested. **1 ADS = 1/10 common share** — a sizing trap. Adds NO diversification to a holder of the KRX line."},
+        {"ticker": "TSM", "role": "HBM4/4E BASE DIE — HBM3E used in-house base dies, HBM4E moves to TSMC N12/N3P, so three rival memory makers converge on ONE foundry for the differentiating layer", "listing": "adr", "link": "DEDUCED", "note": "The bottleneck-within-the-bottleneck of the memory cluster, but heavily exposure-diluted inside TSM."}
+      ],
+      "foreign_only": [
+        {"name": "SK Hynix (Korea) — HBM share leader; 2026 fully sold out, heavily into 2027", "us_route": "RUNG 1 — SKHY ADS on NASDAQ since 2026-07-10. See the candidate entry above. Superseded the earlier (wrong) rung-2 ETF routing.", "ladder_rung": 1},
+        {"name": "Samsung Electronics (Korea)", "us_route": "Rung 2 via EWY; no clean US line.", "ladder_rung": 2}
+      ],
+      "watch_signal": "TrendForce / DRAMeXchange contract and spot direction. An expanding margin alone is NOT late-cycle; the sell trigger is the contract index rolling over."
+    },
+    {
+      "id": "memory-nand-essd",
+      "name": "NAND, enterprise SSD and storage",
+      "parent": null,
+      "position": 3,
+      "bottleneck_mechanism": "AI inference pulls high-capacity eSSD demand forward while NAND capacity additions were deferred through the prior downcycle; QLC high-capacity drives qualify slowly.",
+      "limitation_class": "constraint",
+      "concentration": "Five-ish suppliers, two US-listed after the storage separations.",
+      "candidates": [
+        {"ticker": "SNDK", "role": "NAND pure-play", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "WDC", "role": "HDD for nearline AI storage tiers", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "STX", "role": "HDD; the cheapest $/TB tier the AI data lake actually sits on", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "SIMO", "role": "SSD and eSSD controller silicon — content per drive, not capacity", "listing": "us", "link": "CONFIRMED", "note": "Small-cap; a controller sells into every NAND maker rather than competing with them."}
+      ],
+      "foreign_only": [
+        {"name": "Kioxia (Japan)", "us_route": "No usable US line; rung 4 — route capital to SNDK or the controller tier.", "ladder_rung": 4}
+      ],
+      "watch_signal": "NAND contract price direction and any dated sold-out horizon, checked for whether the demand behind it is customer-funded rather than company-issued stock."
+    },
+    {
+      "id": "memory-interface",
+      "name": "Memory interface silicon — RCD/DB buffers, CXL controllers, HBM PHY/controller IP",
+      "parent": "memory-hbm",
+      "position": 3,
+      "bottleneck_mechanism": "Every server memory generation needs a standards-qualified interface chipset; qualification is slow and the standard itself limits how many implementations exist. The toll repeats on every platform regardless of which memory maker wins the socket.",
+      "limitation_class": "constraint",
+      "concentration": "A very short merchant list — effectively one US-listed name plus Chinese and Korean suppliers Western platforms partly avoid.",
+      "candidates": [
+        {"ticker": "RMBS", "role": "merchant memory-interface chipsets plus HBM controller and PHY IP — a royalty-and-content toll on server memory rather than a bet on memory pricing", "listing": "us", "link": "CONFIRMED", "note": "Surfaced by the independent Codex map as a layer the first pass missed. High gross margin, and it was among the most drawn-down names in the cohort at the pipeline run — worth resolving why."},
+        {"ticker": "MRVL", "role": "adjacent memory and interconnect silicon", "listing": "us", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "Montage Technology (China) — the other large merchant RCD supplier", "us_route": "No usable US line; rung 4.", "ladder_rung": 4}
+      ],
+      "watch_signal": "The bill of materials of the next server memory platform — the falsifier is the merchant interface being displaced by internal silicon."
+    },
+    {
+      "id": "yield-analytics",
+      "name": "Yield analytics and manufacturing-data orchestration",
+      "parent": null,
+      "position": 6,
+      "bottleneck_mechanism": "Chiplet and multi-die assembly fragments manufacturing data across fab, OSAT and test houses; correlating it becomes a yield constraint in its own right. Software scales without the capital intensity of another inspection tool.",
+      "limitation_class": "constraint",
+      "concentration": "A thin merchant layer competing against tool-OEM bundled analytics and in-house teams.",
+      "candidates": [
+        {"ticker": "PDFS", "role": "PDF Solutions — semiconductor-native data layer spanning fab, test, assembly and package", "listing": "us", "link": "CONFIRMED", "note": "Added from the independent Codex map. The bear case is a fab or OSAT standardising on bundled tool-OEM analytics instead."}
+      ],
+      "foreign_only": [],
+      "watch_signal": "Named OSAT or fab standardisation decisions — this layer is won by becoming the default workflow, and lost the same way."
+    },
+    {
+      "id": "optical-connect-attach",
+      "name": "Fibre, FAUs, optical connectors and precision attach",
+      "parent": "optics-transceiver",
+      "position": 6,
+      "bottleneck_mechanism": "Coupling light into a package at production yield is a precision-alignment problem with a lot of private know-how; connector density per rack rises with every fabric generation.",
+      "limitation_class": "constraint",
+      "concentration": "Concentrated in a few private and foreign specialists, with the large US connector houses as the broad public route.",
+      "candidates": [
+        {"ticker": "APH", "role": "high-density interconnect and cable assemblies", "listing": "us", "link": "CONFIRMED", "note": "Broad route only — the scarce private attach know-how is not inside it."},
+        {"ticker": "FN", "role": "precision optical assembly at contract scale", "listing": "us", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "SENKO, US Conec and other private FAU / precision-attach specialists", "us_route": "Private — no vehicle exists. Rung 4; APH is the nearest broad analog and is explicitly NOT the same economics.", "ladder_rung": 4}
+      ],
+      "watch_signal": "Whether optical-engine yield commentary blames alignment/attach rather than the laser — that would move this layer from constraint toward bottleneck."
+    },
+    {
+      "id": "advanced-packaging",
+      "name": "Advanced packaging — CoWoS, SoIC, EMIB, FOPLP and OSAT",
+      "parent": null,
+      "position": 4,
+      "bottleneck_mechanism": "Interposer area grows faster than reticle economics allow, so effective yield per wafer falls as GPU packages grow; 2.5D/3D capacity is added in discrete, long-lead increments.",
+      "limitation_class": "constraint",
+      "concentration": "RECLASSIFIED bottleneck -> constraint on sourced evidence: the CoWoS supply/demand gap is CLOSING, from ~20% to ~10% by end-2026, as capacity goes from ~35k wpm (late-2024) to 120-140k wpm, with TSMC deliberately outsourcing ~240-270k wafers/yr to Amkor and SPIL. Capacity quadrupling and being outsourced is a fundable constraint, not physics. The durable chokepoints sit two layers below, in substrate-materials.",
+      "candidates": [
+        {"ticker": "AMKR", "role": "the largest US-listed OSAT; advanced packaging capacity including a US-located footprint", "listing": "us", "link": "CONFIRMED", "note": "Thin gross margin is structural for OSAT — do not read it as a quality verdict."},
+        {"ticker": "TSM", "role": "owns the dominant CoWoS capacity; ADR makes it US-accessible", "listing": "adr", "link": "CONFIRMED", "note": null},
+        {"ticker": "ASX", "role": "ASE ADR — the other large OSAT", "listing": "adr", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [],
+      "watch_signal": "CoWoS capacity-expansion announcements versus accelerator unit forecasts; the shortfall percentage is the binding test."
+    },
+    {
+      "id": "packaging-equipment",
+      "name": "Advanced-packaging equipment — bonders, die attach, panel-level tools",
+      "parent": "advanced-packaging",
+      "position": 5,
+      "bottleneck_mechanism": "Thermocompression and hybrid bonders are high-precision, long-lead tools with long customer qualification cycles; a packaging capacity add cannot outrun bonder delivery.",
+      "limitation_class": "bottleneck",
+      "concentration": "A handful of suppliers globally, weighted to Japan, the Netherlands and Singapore. IMPORTANT — concentration here is FALLING, not rising: AMAT has invested in Besi, ASML is reportedly evaluating entry, and Korean makers are pushing in. A layer being de-monopolised should not be tagged a bottleneck on the bonder hop alone. Disclosed advanced-packaging revenue share favours the INSPECTION names over the bonder names: CAMT ~70% of Q1'26 revenue and ONTO >50% of 2026, while KLIC's packaging share is undisclosed. Inspection captures the ramp without having to pick the bonder winner.",
+      "candidates": [
+        {"ticker": "KLIC", "role": "bonding equipment — wire, thermocompression and fluxless; the US-listed pure-play on the packaging tool cycle", "listing": "us", "link": "CONFIRMED", "note": "Revenue and margin were both inflecting sharply as of the latest pipeline run — the clearest stage-inflection in the equipment layer."},
+        {"ticker": "VECO", "role": "MOCVD, ion-beam deposition and anneal — the tools that CREATE InP laser and compound-semi capacity, one hop below the laser vendors", "listing": "us", "link": "CONFIRMED", "note": "The independent Codex map reports a PENDING VECO/ACLS combination — NEEDS VERIFICATION, including which ticker survives. Do not size this name without resolving that first."},
+        {"ticker": "ONTO", "role": "panel-level and packaging inspection/metrology — the tool that gates whether a packaging line can be qualified at all", "listing": "us", "link": "CONFIRMED", "note": "Held by the investor. Also the named partner in glass-core LIDE work — see substrate-glass-core."},
+        {"ticker": "CAMT", "role": "packaging and advanced-node inspection", "listing": "us", "link": "CONFIRMED", "note": "Revenue was flat across the last five quarters in the pipeline run — the stage read separates it sharply from KLIC."}
+      ],
+      "foreign_only": [
+        {"name": "BE Semiconductor (Netherlands) — hybrid bonding, the bottleneck-within-the-bottleneck for HBM4-class 3D stacking", "us_route": "BESIY ADR — VERIFIED priceable via the pipeline on 2026-07-26. Rung 1. On the raw metrics it was growing faster and at a far higher gross margin than the US-listed packaging-equipment names, and it was drawn down comparably. This is the single most important ladder correction on the map: the best hybrid-bonding expression is accessible, and it is not a US company.", "ladder_rung": 1},
+        {"name": "ASMPT (Hong Kong) — the TCB bonder leader", "us_route": "CORRECTED to RUNG 1: ASMVY ADR is live and prices ($61.57, MC $8.61B, revenue +34.2%, −34.2% from its 52-week high, verified 2026-07-26). The earlier 'thin OTC, rung 3' call was wrong. Q1'26 bookings +71.6% to $727.0M against revenue +32% to $507.9M — a book-to-bill well above 1 in the exact TCB layer.", "ladder_rung": 1},
+        {"name": "Towa (Japan) — molding for advanced packaging", "us_route": "No usable US line; rung 4.", "ladder_rung": 4},
+        {"name": "Disco (Japan) — grinding and dicing; close to a monopoly in its step", "us_route": "DSCSY ADR — VERIFIED priceable on 2026-07-26. Rung 1. Carried the highest gross margin of any tool name checked in this session, consistent with genuine monopoly economics. Verify ADR liquidity before sizing.", "ladder_rung": 1}
+      ],
+      "watch_signal": "Bonder lead-time and backlog commentary from the tool vendors; a packaging capacity announcement is only real once the bonder order is placed."
+    },
+    {
+      "id": "substrate-fcbga",
+      "name": "Package substrate — FC-BGA and high-layer-count MLB",
+      "parent": null,
+      "position": 6,
+      "bottleneck_mechanism": "AI package area and I/O count force more layers and larger panels; process time and yield loss both scale with layer count, so effective capacity falls even as nominal capacity rises.",
+      "limitation_class": "bottleneck",
+      "concentration": "FC-BGA is overwhelmingly Japanese, Korean and Taiwanese; there is no US-listed FC-BGA pure-play. High-layer MLB has one significant US-listed player.",
+      "candidates": [
+        {"ticker": "TTMI", "role": "high-layer-count PCB/MLB for AI compute and networking; the closest US-listed expression of the substrate squeeze", "listing": "us", "link": "CONFIRMED", "note": "MLB, not FC-BGA — an adjacent layer, not the same node. Do not let the ticker stand in for FC-BGA exposure."}
+      ],
+      "foreign_only": [
+        {"name": "Ibiden, Shinko Electric (Japan), AT&S (Austria), Unimicron (Taiwan) — the actual FC-BGA suppliers", "us_route": "No usable US lines of adequate liquidity. Rung 4: leave as a map node and route capital to the equipment and materials layers that gate their expansion instead.", "ladder_rung": 4}
+      ],
+      "watch_signal": "FC-BGA lead times and any announced capacity expansion, which reads through to substrate-equipment and upstream-materials orders before it reads through to the substrate makers themselves."
+    },
+    {
+      "id": "substrate-glass-core",
+      "name": "Glass-core substrate and glass interposer",
+      "parent": "substrate-fcbga",
+      "position": 6,
+      "bottleneck_mechanism": "Glass cores need through-glass vias drilled without micro-cracking, which is a distinct process (laser-induced deep etching) with essentially one credible tool owner, plus metrology able to inspect the vias at volume.",
+      "limitation_class": "bottleneck",
+      "concentration": "Very high at the tool layer — a single small German company is the recognised LIDE owner; glass supply itself concentrates in a few large glassmakers.",
+      "candidates": [
+        {"ticker": "ONTO", "role": "metrology partner for glass-core mass production", "listing": "us", "link": "DEDUCED", "note": "The ONTO–LPKF LIDE partnership is asserted in the Serenity thesis DB, not verified against a filing this session (EDGAR blocked). Treat as DEDUCED until a company source confirms."},
+        {"ticker": "GLW", "role": "glass substrate and optical glass supply", "listing": "us", "link": "DEDUCED", "note": "Corning's glass-substrate role in semiconductor packaging is directionally established but the AI-package revenue share is unquantified here."},
+        {"ticker": "LPKFF", "role": "LPKF Laser & Electronics US OTC line — the LIDE tool owner", "listing": "otc", "link": "CONFIRMED", "note": "Micro-cap OTC. Priced on 2026-07-26 but liquidity is the binding practical constraint, not the thesis."}
+      ],
+      "foreign_only": [
+        {"name": "LPKF Laser & Electronics (Germany) — LIDE glass processing", "us_route": "LPKFF OTC line exists and prices; rung 1, with a hard liquidity caveat.", "ladder_rung": 1},
+        {"name": "AGC, Nippon Electric Glass (Japan) — glass supply", "us_route": "ASGLY ADR for AGC; rung 1 but very thin. Rung 3 analog is GLW.", "ladder_rung": 3}
+      ],
+      "watch_signal": "Any named customer qualifying glass-core substrates for a production part, versus continued prototype-stage announcements — the prototype-to-production gap is where this layer's design wins historically die."
+    },
+    {
+      "id": "substrate-materials",
+      "name": "Upstream substrate materials — CCL, T-glass, HVLP copper foil, ABF, drill bits",
+      "parent": "substrate-fcbga",
+      "position": 7,
+      "bottleneck_mechanism": "High-speed, low-loss signalling forces a thin high-spec cut of otherwise ordinary materials — low-Dk glass yarn, very-low-profile copper foil — whose qualified supplier set is far narrower than the commodity tier beneath it.",
+      "limitation_class": "bottleneck",
+      "concentration": "SOURCED 2026-07-26: Ajinomoto Fine-Techno holds >95% of ABF film, notified a ~30% price increase for Q3-2026, and its expansion adds only ~+50% output with a third plant not producing until the 2030s. Nittobo holds ~90% of certified low-Dk T-glass cloth (~60-70% of NE-glass) with no new capacity before mid-2027. Mitsui Kinzoku holds >40% of AI-server HVLP copper foil against an industry shortfall of roughly 28%/39%/38% in 2026/27/28. Micro drills are a two-supplier duopoly (Union Tool, Topoint) where Unimicron and GCE took strategic stakes in Topoint in May-2026 — customers funding their own supplier's capacity, the replication-funding tell. This is where the high-grade-cut test bites hardest.",
+      "candidates": [
+        {"ticker": "ESI", "role": "Element Solutions / MacDermid Alpha — IC-substrate and RDL via-fill copper plating chemistry, incl. seedless alkaline Cu for fine-pitch interposers; the cleanest US pick-and-shovel on the substrate layer", "listing": "us", "link": "DEDUCED", "note": "Surfaced by the packaging research agent. Not scored this session — AI-linked revenue materiality unverified."},
+        {"ticker": "PKE", "role": "Park Aerospace — low-loss laminate and dielectric materials; a partial, small-cap US-listed expression", "listing": "us", "link": "DEDUCED", "note": "WARNING: the 2026 laminate/CCL price spike is NOT purely AI demand. An April-2026 strike at SABIC's Jubail complex took offline the line supplying ~70% of electronic-grade PPE/PPO resin, with a 6-9 month recovery. Any CCL/PCB margin re-rate read as structural AI pull is partly a repairable-plant artifact that mean-reverts. Applies equally to ROG and TTMI."},
+        {"ticker": "ROG", "role": "Rogers — high-frequency laminate materials", "listing": "us", "link": "DEDUCED", "note": "Growth was low single-digit in the pipeline run; exposure to the AI substrate cut is unproven."}
+      ],
+      "foreign_only": [
+        {"name": "Ajinomoto (Japan) — ABF build-up film, effectively the standard for high-performance package substrates", "us_route": "AJNMY ADR — VERIFIED priceable on 2026-07-26. Rung 1 for ACCESS, but read the dilution honestly: consolidated revenue growth was mid-single-digit at the pipeline run because ABF sits inside a food-and-amino-acid conglomerate. Owning the exact ABF monopoly and owning an equity that moves on it are not the same thing.", "ladder_rung": 1},
+        {"name": "Nittobo (T-glass yarn), Mitsui Mining & Smelting (HVLP copper foil), Union Tool (micro drill bits)", "us_route": "No usable, liquidity-verified US lines. Rung 4 — this remains the honest answer for the single tightest layer on the Kiwoom chart, and saying so is more useful than forcing a proxy.", "ladder_rung": 4}
+      ],
+      "watch_signal": "T-glass and HVLP copper-foil lead times and announced price increases. This layer is where a genuine shortage shows up first and where no US-listed vehicle captures it."
+    },
+    {
+      "id": "optics-transceiver",
+      "name": "Optical transceivers — 800G / 1.6T pluggables",
+      "parent": null,
+      "position": 5,
+      "bottleneck_mechanism": "Scale-out bandwidth per accelerator rises faster than module output; each speed step re-qualifies the whole supply chain, and laser and DSP inputs gate module assembly.",
+      "limitation_class": "constraint",
+      "concentration": "A handful of Western suppliers plus a large Chinese tier that Western hyperscalers partly exclude; the binding constraint sits upstream of assembly.",
+      "candidates": [
+        {"ticker": "LITE", "role": "transceiver and laser supplier; vertically integrated into its own laser chips", "listing": "us", "link": "CONFIRMED", "note": "Held by the investor. Integration into the laser layer is what separates it from pure assemblers."},
+        {"ticker": "COHR", "role": "the other integrated transceiver and laser house", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "AAOI", "role": "transceiver supplier with in-house laser fab and a US-located manufacturing footprint", "listing": "us", "link": "CONFIRMED", "note": "Held by the investor. The US-fab attribute is a jurisdiction moat, not only a capacity one."},
+        {"ticker": "FN", "role": "Fabrinet — contract optical manufacturing; the assembly capacity nearly everyone else rents", "listing": "us", "link": "CONFIRMED", "note": "Low gross margin is the contract-manufacturing model, not distress."},
+        {"ticker": "POET", "role": "optical interposer platform; pre-scale", "listing": "us", "link": "DEDUCED", "note": "Story-stage. Belongs in a lottery-sliver bucket at most, if at all."}
+      ],
+      "foreign_only": [],
+      "watch_signal": "1.6T qualification announcements by named hyperscalers, and whether CPO commitments displace or merely supplement pluggable volume."
+    },
+    {
+      "id": "optics-laser",
+      "name": "Laser chips — CW, DFB, EML and external laser sources for CPO",
+      "parent": "optics-transceiver",
+      "position": 6,
+      "bottleneck_mechanism": "CPO moves the laser off the module and onto a separately-qualified external source, and laser die output is limited by epitaxy and qualification, not by assembly capacity.",
+      "limitation_class": "bottleneck",
+      "concentration": "SOURCED 2026-07-26: EML top-3 (Lumentum, Broadcom, Mitsubishi Electric) ~72% of revenue, top-5 ~79.5%; CW-DFB top-4 ~74% of capacity. The 1.6T shortfall in 2026 is ~10M units, attributed to EML AND optical-isolator scarcity. SECOND-ORDER ALLOCATION ACTOR, CONFIRMED: on 2026-03-02 NVIDIA invested $4B — $2B each into Lumentum and Coherent — with multi-billion purchase commitments plus future capacity-access rights, reportedly pushing non-NVDA EML lead times past 2027. Also Meta-Corning up to $6B multiyear on fibre/connectivity, and Jabil locking Sivers laser supply. NOTE: the laser layer is CPO-branch-invariant — CPO needs MORE external CW lasers, at higher power and reliability.",
+      "candidates": [
+        {"ticker": "LITE", "role": "internal laser capacity plus merchant supply", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "COHR", "role": "internal laser capacity", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "SIVEF", "role": "Sivers Semiconductors US OTC line — CW laser supplier positioned for CPO", "listing": "otc", "link": "CONFIRMED", "note": "The single most-discussed name in the Serenity thesis DB. Foreign small-cap; OTC liquidity is the practical constraint. Pre-scale economics — treat as an option, not a core position."},
+        {"ticker": "MTSI", "role": "laser drivers, TIAs and RF/analog content in the optical link", "listing": "us", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "Sivers Semiconductors (Sweden, Nasdaq Stockholm)", "us_route": "SIVEF OTC line prices; rung 1 with a hard liquidity caveat.", "ladder_rung": 1}
+      ],
+      "watch_signal": "A named accelerator vendor committing to a CPO scale-up architecture and disclosing who supplies the optical engine and its external laser — that disclosure is the moment the DEDUCED links in this layer become CONFIRMED."
+    },
+    {
+      "id": "optics-substrate",
+      "name": "Compound substrates and epiwafers — InP, GaAs, SOI, engineered substrates",
+      "parent": "optics-laser",
+      "position": 7,
+      "bottleneck_mechanism": "Laser and photonic die need InP or GaAs crystal of a purity and diameter that only a few crystal-growth houses produce; capacity is a multi-year crystal-growth and qualification problem, not a capital one.",
+      "limitation_class": "bottleneck",
+      "concentration": "Very high, and partly inside an export-control-sensitive jurisdiction for the underlying gallium, indium and germanium feedstock.",
+      "candidates": [
+        {"ticker": "AXTI", "role": "InP, GaAs and Ge substrates — the recursive bottom hop under the laser layer", "listing": "us", "link": "CONFIRMED", "note": "MOAT-VS-HOSTAGE RESOLVED, toward HOSTAGE: AXT's China plants require MOFCOM export permits on a ~60-business-day cycle, and those permits directly capped Q4'25 revenue. That is positive evidence of a state lever over the name's OWN shipments — the bar the doctrine sets before demoting a merchant chokepoint. Scarcity you cannot reliably ship is not monetisable. Also 31.8x EV/Rev and heavy insider selling."},
+        {"ticker": "IQEPF", "role": "IQE plc US OTC line — compound-semiconductor epiwafers", "listing": "otc", "link": "CONFIRMED", "note": "The epi layer sits between substrate and laser die; a distinct hop, not a duplicate of AXTI."},
+        {"ticker": "SLOIY", "role": "Soitec ADR — engineered substrates including the photonics-SOI wafers silicon photonics is built on; the preferred US route over the SLOIF ordinary line", "listing": "adr", "link": "CONFIRMED", "note": "Both SLOIY (ADR) and SLOIF (ordinary) price; the ADR is the cleaner rung-1 vehicle. Soitec sits one hop BELOW the silicon-photonics foundry, so it participates across whichever foundry wins."},
+        {"ticker": "SLOIF", "role": "Soitec ordinary US OTC line — same underlying as SLOIY", "listing": "otc", "link": "CONFIRMED", "note": "Redundant with SLOIY; listed so the two are not mistaken for different companies."}
+      ],
+      "foreign_only": [
+        {"name": "Soitec (France)", "us_route": "SLOIF OTC, rung 1.", "ladder_rung": 1},
+        {"name": "IQE plc (UK AIM)", "us_route": "IQEPF OTC, rung 1.", "ladder_rung": 1},
+        {"name": "Sumitomo Electric, JX Metals (Japan) — InP and high-purity metals", "us_route": "Rung 4; route to AXTI as the listed analog.", "ladder_rung": 3}
+      ],
+      "watch_signal": "Gallium, indium and germanium export-licence flow and spot direction, plus any qualification of a second InP source by a named laser maker."
+    },
+    {
+      "id": "silicon-photonics-foundry",
+      "name": "Silicon photonics and specialty foundry",
+      "parent": null,
+      "position": 6,
+      "bottleneck_mechanism": "Photonic integrated circuits need a mature-node process with photonics-specific device libraries and qualification; leading-edge logic fabs are neither cheap nor suitable for it, so the capacity sits in a small specialty tier.",
+      "limitation_class": "bottleneck",
+      "concentration": "A short list of specialty foundries worldwide, with capacity qualification measured in years.",
+      "candidates": [
+        {"ticker": "TSEM", "role": "Tower Semiconductor — supplies BOTH halves of the optical chipset: the photonic IC (200mm PH18/PH18DA in HVM, 300mm SiPho since Nov-2024, CPO PIC+EIC 3D wafer bonding) AND the SiGe BiCMOS electronic IC beside it (SBC18H5 to 1.6Tb/s: TIAs, laser drivers, CDRs)", "listing": "us", "link": "CONFIRMED", "note": "Held by the investor. CUSTOMERS NOW CONFIRMED via press release: Marvell (joint PR 2026-06-18, >5M coherent PICs shipped), NVIDIA (2026-02-05, SiPho for 1.6T modules), Coherent, OpenLight, Xscape. CONTRACTED BOOK (PR 2026-05-13): $1.3B of 2027 SiPho revenue under contract + $290M CUSTOMER PREPAYMENTS for capacity reservation, >50 active SiPho customers, 2028 'substantially larger'. Prepayment = funded-gate cleared with third-party cash and revealed unportability. Sole-source status still NOT proven — Tower redirected stranded Intel-NM customers to Fab 7 Japan, proving portability within its own network. CORRECTION: the Intel New Mexico 300mm corridor is dead/in mediation (Tower disclosure 2026-02-11); most published capacity tables still wrongly credit it."},
+        {"ticker": "GFS", "role": "GlobalFoundries — silicon photonics platform plus a US-located footprint", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "XFABF", "role": "X-FAB US OTC line — specialty foundry with photonics and MEMS", "listing": "otc", "link": "CONFIRMED", "note": null},
+        {"ticker": "SKYT", "role": "SkyWater — US trusted foundry; jurisdiction is the scarce attribute here, not the node", "listing": "us", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [],
+      "watch_signal": "Photonics capacity reservations or prepayments by named optical customers — a prepayment is the revealed-preference tell that the shortage is structural rather than cyclical."
+    },
+    {
+      "id": "interconnect-electrical",
+      "name": "Electrical interconnect — retimers, active copper, switch and connector",
+      "parent": null,
+      "position": 5,
+      "bottleneck_mechanism": "Copper reach shrinks with every speed doubling, so retimers and active cables extend it; this layer competes directly with optics for the same scale-up links and wins on cost inside the rack.",
+      "limitation_class": "constraint",
+      "concentration": "Two US-listed connectivity-silicon specialists plus the large connector houses.",
+      "candidates": [
+        {"ticker": "CRDO", "role": "retimers and active electrical cables for scale-up links", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "ALAB", "role": "connectivity silicon — retimers, smart fabric, PCIe/CXL", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "APH", "role": "Amphenol — high-speed connectors and cable assemblies; content per rack rising", "listing": "us", "link": "CONFIRMED", "note": "Mega-cap; the AI slice is real but diluted by the rest of the portfolio."},
+        {"ticker": "SMTC", "role": "Semtech — active copper and signal-integrity content", "listing": "us", "link": "DEDUCED", "note": null}
+      ],
+      "foreign_only": [],
+      "watch_signal": "Whether the next-generation scale-up fabric specification is copper or optical — this layer and optics-transceiver are the two branches of one fork, and both legs must be priced, not just the one that fits the story."
+    },
+    {
+      "id": "wfe-frontend",
+      "name": "Front-end wafer fab equipment",
+      "parent": null,
+      "position": 6,
+      "bottleneck_mechanism": "Litho, etch and deposition tools have multi-quarter build times and long qualification; a fab cannot outrun tool delivery, which is why the tool P&L inflects years before the volume producer's.",
+      "limitation_class": "constraint",
+      "concentration": "An oligopoly of four to five global suppliers, with EUV a genuine single-source monopoly.",
+      "candidates": [
+        {"ticker": "AMAT", "role": "deposition, etch, and the broadest tool portfolio", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "LRCX", "role": "etch and deposition; heavily levered to memory capacity adds", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "ASML", "role": "EUV monopoly; US-listed ADR", "listing": "adr", "link": "CONFIRMED", "note": "The cleanest genuine monopoly on the whole map — and priced accordingly."},
+        {"ticker": "ACLS", "role": "ion implant; a narrower, more cyclical slice", "listing": "us", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "Tokyo Electron, Kokusai, Screen (Japan)", "us_route": "Thin ADRs / OTC; rung 3 analog is AMAT or LRCX.", "ladder_rung": 3}
+      ],
+      "watch_signal": "Book-to-bill and lead-time direction by tool type; memory-levered tool orders lead memory capacity by roughly a fab cycle."
+    },
+    {
+      "id": "metrology-inspection",
+      "name": "Metrology, inspection and process control",
+      "parent": null,
+      "position": 6,
+      "bottleneck_mechanism": "Every new packaging or node architecture needs a qualified inspection recipe before it can ramp; inspection is therefore a gate on qualification, not merely a cost line.",
+      "limitation_class": "bottleneck",
+      "concentration": "One dominant front-end player plus a small specialist tier in packaging and panel-level inspection.",
+      "candidates": [
+        {"ticker": "KLAC", "role": "front-end process control incumbent", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "ONTO", "role": "packaging, panel-level and advanced-node inspection and metrology", "listing": "us", "link": "CONFIRMED", "note": "Held by the investor."},
+        {"ticker": "CAMT", "role": "packaging and advanced-node inspection", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "PDFS", "role": "PDF Solutions — yield analytics software layer over the same problem", "listing": "us", "link": "DEDUCED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "Nova (Israel) — NVMI is US-listed", "us_route": "NVMI trades in the US directly; not a foreign-access problem.", "ladder_rung": 1}
+      ],
+      "watch_signal": "Packaging-inspection tool orders tied to named CoWoS, panel-level or glass-core capacity adds."
+    },
+    {
+      "id": "test-burnin",
+      "name": "Test — ATE, burn-in, probe cards and sockets",
+      "parent": null,
+      "position": 6,
+      "bottleneck_mechanism": "Test time per die rises with HBM stack count and accelerator complexity, so tester and probe-card demand grows faster than unit volume; probe cards are custom per design and consumable.",
+      "limitation_class": "constraint",
+      "concentration": "Two global ATE suppliers; probe cards concentrated in one US-listed and one Japanese supplier.",
+      "candidates": [
+        {"ticker": "TER", "role": "ATE — tester demand scales with test time, not just units", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "FORM", "role": "FormFactor — probe cards; a consumable that recurs with every design", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "AEHR", "role": "wafer-level burn-in; small-cap, high beta", "listing": "us", "link": "CONFIRMED", "note": "Heavily discussed in the Serenity thesis DB. Its end-market mix has historically swung hard between SiC and AI — verify which is driving the current ramp before extrapolating."},
+        {"ticker": "COHU", "role": "test handlers and contactors", "listing": "us", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "Advantest (Japan) — the ATE share leader in HBM test", "us_route": "ATEYY ADR — VERIFIED priceable on 2026-07-26. Rung 1. It is the HBM-test leader, which TER is not; treating TER as the HBM-test expression is a layer error.", "ladder_rung": 1},
+        {"name": "MJC / Micronics Japan — probe cards", "us_route": "Rung 3 analog is FORM.", "ladder_rung": 3}
+      ],
+      "watch_signal": "Test-time-per-device commentary from HBM and accelerator makers; rising test time is a direct multiplier on this layer's TAM."
+    },
+    {
+      "id": "subfab-components",
+      "name": "Subfab and critical tool components",
+      "parent": "wfe-frontend",
+      "position": 7,
+      "bottleneck_mechanism": "Toolmakers outsource RF generators, gas and liquid delivery, vacuum and precision-machined chambers; when tool output ramps, these suppliers become the constraint on the toolmaker itself.",
+      "limitation_class": "constraint",
+      "concentration": "Moderately concentrated; several US-listed specialists, mostly thin-margin build-to-print.",
+      "candidates": [
+        {"ticker": "MKSI", "role": "RF power, vacuum, and photonics subsystems into the toolmakers", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "AEIS", "role": "Advanced Energy — precision power for plasma processes", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "UCTT", "role": "Ultra Clean — gas delivery and subsystem assembly", "listing": "us", "link": "CONFIRMED", "note": "Very thin gross margin — it is a build-to-print assembler, so a low margin is the model, but it also means no pricing power."},
+        {"ticker": "ICHR", "role": "Ichor — fluid delivery subsystems", "listing": "us", "link": "CONFIRMED", "note": "Same margin caveat as UCTT."}
+      ],
+      "foreign_only": [],
+      "watch_signal": "Toolmaker order growth reads through here with roughly a quarter's lag; margin, not revenue, is where this layer's thesis lives or dies."
+    },
+    {
+      "id": "process-materials",
+      "name": "Process materials and consumables — resist, slurry, gases, precursors, targets, filtration",
+      "parent": null,
+      "position": 7,
+      "bottleneck_mechanism": "Qualification per fab per process is slow and sticky, so the qualified supplier set is far narrower than the chemistry would suggest; several inputs also sit under single-country processing concentration.",
+      "limitation_class": "bottleneck",
+      "concentration": "Photoresist is a Japanese oligopoly; specialty gases and several refined metals concentrate in one or two countries and sit under active export-control regimes.",
+      "candidates": [
+        {"ticker": "ENTG", "role": "Entegris — filtration, materials handling and advanced materials; the broadest US-listed consumables exposure", "listing": "us", "link": "CONFIRMED", "note": "Consumable revenue scales with wafer starts rather than tool orders — a different, less cyclical shape than WFE."},
+        {"ticker": "MTRN", "role": "Materion — advanced materials, sputtering targets and precision optics materials", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "LIN", "role": "industrial and electronic gases", "listing": "us", "link": "CONFIRMED", "note": "The semiconductor slice is small relative to the whole — theme exposure, not bottleneck ownership."},
+        {"ticker": "APD", "role": "electronic specialty gases", "listing": "us", "link": "CONFIRMED", "note": "Same dilution caveat as LIN."}
+      ],
+      "foreign_only": [
+        {"name": "JSR, Tokyo Ohka, Shin-Etsu, Resonac (Japan) — photoresist and advanced materials", "us_route": "No adequate US lines; rung 4 for the resist tier specifically. Route to ENTG for the consumables shape without the resist monopoly.", "ladder_rung": 4}
+      ],
+      "watch_signal": "Named export-control actions on gallium, germanium, rare earths and specialty gases, and the spot response — plus which US-listed name gains pricing power versus which has its own shipments capped."
+    },
+    {
+      "id": "photomask",
+      "name": "Photomask and mask blanks",
+      "parent": "process-materials",
+      "position": 7,
+      "bottleneck_mechanism": "Leading-edge masks are made in captive mask shops at the logic and memory makers themselves; the merchant tier serves mature nodes. Mask blanks are a separate, far more concentrated node.",
+      "limitation_class": "risk",
+      "concentration": "Merchant photomask is a three-player market; blanks are a two-player Japanese duopoly.",
+      "candidates": [
+        {"ticker": "PLAB", "role": "Photronics — merchant photomask", "listing": "us", "link": "CONFIRMED", "note": "Included deliberately as the counter-example: a genuinely concentrated layer where the listed merchant player does NOT capture the AI economics. Revenue was flat and margins were compressing across the last five quarters in the pipeline run, with heavy insider selling. Cheap is not the same as mispriced."}
+      ],
+      "foreign_only": [
+        {"name": "Hoya, AGC (Japan) — EUV mask blanks", "us_route": "Rung 4 for blanks specifically; ASGLY exists for AGC but the blank business is a small slice of it.", "ladder_rung": 4}
+      ],
+      "watch_signal": "Merchant-versus-captive mask share commentary. Until merchant share at advanced nodes rises, this layer stays a map node."
+    },
+    {
+      "id": "power-semi",
+      "name": "Power semiconductors and power delivery silicon",
+      "parent": null,
+      "position": 4,
+      "bottleneck_mechanism": "Rack power density forces the 48V-to-800VDC transition, raising part count and spec per rack. The silicon itself is broadly available; the high-efficiency, high-reliability AI-datacenter cut is tight.",
+      "limitation_class": "constraint",
+      "concentration": "Fragmented at the commodity tier, materially tighter in the vertical-power-delivery and high-density module tier.",
+      "candidates": [
+        {"ticker": "MPWR", "role": "multi-phase controllers and power modules; high content per accelerator", "listing": "us", "link": "CONFIRMED", "note": "Carries a live designed-out risk — a single large customer's second-sourcing decision is the falsifier."},
+        {"ticker": "VICR", "role": "Vicor — vertical power delivery and power-on-package; a distinct architecture rather than a commodity part", "listing": "us", "link": "CONFIRMED", "note": "Run the architecture-identity check before accepting any commoditisation claim here."},
+        {"ticker": "NVTS", "role": "Navitas — GaN power; pre-scale, deeply drawn down", "listing": "us", "link": "CONFIRMED", "note": "Story-stage economics. Lottery-sliver at most."},
+        {"ticker": "POWI", "role": "Power Integrations — high-voltage power conversion", "listing": "us", "link": "DEDUCED", "note": null},
+        {"ticker": "WOLF", "role": "Wolfspeed — SiC substrate and device; distressed balance sheet", "listing": "us", "link": "CONFIRMED", "note": "Negative gross margin in the pipeline run. If it is a candidate at all it is an asset-value turnaround, valued on replacement cost per unit of capacity, not on EV/Rev — and the bear case is dilution, not demand."}
+      ],
+      "foreign_only": [
+        {"name": "Infineon, STMicro, Rohm — the volume power-semi tier", "us_route": "IFNNY ADR and STM's US listing; rung 1.", "ladder_rung": 1}
+      ],
+      "watch_signal": "SIGNAL ALREADY FIRED — this layer's step-change is DATABLE, and the earlier 'constraint' framing was wrong for the transition itself. NVIDIA published the 800VDC architecture (4->2 conversion stages, ~83%->92%+ efficiency, ~45% less copper); TI unveiled a complete reference architecture with NVIDIA at GTC 2026-03-16; Vertiv/Schneider/Eaton/Delta committed commercial product for H2-2026 timed to Kyber; named buyers designing for 800V include CoreWeave, Lambda, Nebius, Oracle Cloud and Together AI. BUT two reference designs fork — NVIDIA's own, and OCP 'Mt Diablo'/Diablo 400 co-authored by Google, Meta and Microsoft, which NVIDIA did NOT co-author. Nobody owns the standard alone, so this is an Evolution CONTENT-PER-RACK re-rate, not scarcity rent; suppliers qualified into BOTH capture the union. Tell that the device layer is not a chokepoint: NVIDIA's 800VDC silicon partner list has FOURTEEN names."
+    },
+    {
+      "id": "passives-mlcc",
+      "name": "MLCC and passives",
+      "parent": "power-semi",
+      "position": 5,
+      "bottleneck_mechanism": "GPU and CPU power density raises both the count and the capacitance of MLCCs per board, and the AI-server tier demands high-capacitance plus high-reliability parts that only a narrow qualified supplier set makes.",
+      "limitation_class": "constraint",
+      "concentration": "The commodity tier is broadly supplied; the high-spec AI-server cut is a tight Japanese and Korean oligopoly. This is a high-grade-cut case — but content value per board is small, so unit growth does not automatically become supplier pricing power.",
+      "candidates": [
+        {"ticker": "VSH", "role": "Vishay — broad passives; the widest US-listed passive exposure", "listing": "us", "link": "CONFIRMED", "note": "Broad and diluted; NOT an expression of the high-spec MLCC tier."},
+        {"ticker": "LFUS", "role": "Littelfuse — circuit protection and power components", "listing": "us", "link": "DEDUCED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "Murata (Japan) — the high-spec MLCC leader", "us_route": "MRAAY ADR — VERIFIED priceable on 2026-07-26. Rung 1. The honest expression of the MLCC tier is this ADR, not a US passives name.", "ladder_rung": 1},
+        {"name": "TDK (Japan)", "us_route": "TTDKY ADR — VERIFIED priceable on 2026-07-26. Rung 1.", "ladder_rung": 1},
+        {"name": "Samsung Electro-Mechanics (Korea), Taiyo Yuden (Japan)", "us_route": "No clean US lines; rung 4.", "ladder_rung": 4}
+      ],
+      "watch_signal": "HIGH-GRADE-CUT TEST PASSES, sourced 2026-07-26 — differential pricing is the proof: commodity high-cap MLCC +15-20% since Feb-2026 versus AI-specific grades +50-60%; Murata +15-35% effective 2026-04-01; lead times gone from 8 weeks to 20, some 26-40; high-end utilisation 90-95% with new capacity not ramping until 2027. Content is real: a GB300-class server takes ~30,000 MLCCs, a rack up to ~450,000. The commodity tier is NOT tight. DEEPEST STILL-RISING HOP sits one layer BELOW MLCC: heavy-rare-earth dopant + sub-micron BaTiO3 + high-end Ni electrode powder — heavy-RE doping is chemically required (pure BaTiO3 reacts with the Ni electrode during sintering) and >90% of high-purity heavy-RE refining is in China under active export restriction, with concentration RISING as content per rack rises ~10x. Honest US route for that hop: rung 4, map node only. MP-type light-RE/magnet names are the WRONG chain — do not substitute."
+    },
+    {
+      "id": "power-thermal-infrastructure",
+      "name": "Rack and facility power and cooling infrastructure",
+      "parent": null,
+      "position": 3,
+      "bottleneck_mechanism": "Grid interconnect, transformers, switchgear and liquid cooling are the physical envelope a datacenter cannot exceed; several of these have genuinely long manufacturing lead times.",
+      "limitation_class": "constraint",
+      "concentration": "Moderately concentrated; the tightest sub-nodes are large transformers and switchgear rather than the cooling equipment itself.",
+      "candidates": [
+        {"ticker": "VRT", "role": "Vertiv — power and thermal management at rack and room scale", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "NVT", "role": "nVent — liquid cooling and electrical connection", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "MOD", "role": "Modine — coolant distribution and heat rejection", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "POWL", "role": "Powell — switchgear; long lead times and a real backlog", "listing": "us", "link": "DEDUCED", "note": null},
+        {"ticker": "DOV", "role": "Dover — owns CPC/Colder Products, ONE OF ONLY FOUR certified liquid-cooling quick-disconnect suppliers (with Staubli, Eaton, Parker-Hannifin). Launched Everis DC full-flow connectors 2026-07-22", "listing": "us", "link": "CONFIRMED", "note": "QDCs are certification-gated and are the TIGHTEST node in the cooling stack, while CDUs and cold plates around them visibly commoditise (Ecolab/CoolIT at ~29x EBITDA; Google naming Envicool ~25% of 2026 CDU orders). Buried inside a diversified industrial, which is why it is under-covered — and also why the exposure is diluted."},
+        {"ticker": "PH", "role": "Parker-Hannifin — the second listed certified QDC supplier", "listing": "us", "link": "CONFIRMED", "note": "Same certification moat, same dilution caveat as DOV."}
+      ],
+      "foreign_only": [
+        {"name": "Delta Electronics (Taiwan) — power supplies and cooling", "us_route": "Thin OTC; rung 3 analog is VRT.", "ladder_rung": 3}
+      ],
+      "watch_signal": "Transformer and switchgear lead times, and utility interconnect queue lengths — the binding physical constraint on datacenter buildout is increasingly here, not in silicon."
+    },
+    {
+      "id": "thermal-package",
+      "name": "Package-level thermal — heat spreaders, AlSiC, TIM, vapour chambers",
+      "parent": "advanced-packaging",
+      "position": 6,
+      "bottleneck_mechanism": "2000W-plus packages need spreaders whose thermal expansion matches the die stack; the qualified material set is narrow and the qualification cycle long.",
+      "limitation_class": "bottleneck",
+      "concentration": "Small qualified supplier set, with a meaningful share of Western capacity in very small hands.",
+      "candidates": [
+        {"ticker": "CPSH", "role": "CPS Technologies — AlSiC baseplates, disclosed end markets are IGBT power modules for rail, subway, EV/HEV, wind and HVDC grid", "listing": "us", "link": "DEDUCED", "note": "DOWNGRADED on evidence: its filings contain NO AI-package or 2000W-class datacenter disclosure. This is a STORY on the AI link, weaker than DEDUCED implied. At most a sliver on the indirect path (800VDC pulls IGBT/SiC baseplate volume), never an AI-package pure-play. Depth players in AI package thermal are Indium Corporation (private) and T-Global (Taiwan) — no US pure-play exists, and TIM1/TIM2 is reported as the most stubborn remaining bottleneck in 3D IC packages. Real bottleneck, no vehicle."},
+        {"ticker": "MTRN", "role": "advanced thermal and beryllium-based materials", "listing": "us", "link": "DEDUCED", "note": null}
+      ],
+      "foreign_only": [],
+      "watch_signal": "A named accelerator or packaging house qualifying an AlSiC or advanced-spreader part for a production package — until then this layer is a deduction, not a thesis."
+    },
+    {
+      "id": "eda-ip",
+      "name": "EDA, semiconductor IP and ASIC design services",
+      "parent": null,
+      "position": 2,
+      "bottleneck_mechanism": "No accelerator gets taped out without the tool flow and the IP; the layer is a toll on every design regardless of who wins the silicon.",
+      "limitation_class": "bottleneck",
+      "concentration": "An effective triopoly in EDA and a near-monopoly in CPU instruction-set IP.",
+      "candidates": [
+        {"ticker": "SNPS", "role": "EDA and IP; the broadest flow", "listing": "us", "link": "CONFIRMED", "note": "Was among the weakest relative-strength names in the pipeline run despite the structural position — that divergence is worth resolving rather than assuming."},
+        {"ticker": "CDNS", "role": "EDA and IP", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "ARM", "role": "CPU and increasingly platform IP; royalty on the custom-silicon shift", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "AIP", "role": "Arteris — network-on-chip IP and tooling; the on-chip data-movement layer every chiplet design needs", "listing": "us", "link": "DEDUCED", "note": "Added from the independent Codex map, which cites a disclosed next-generation AMD AI-chiplet license — NOT verified this session (EDGAR blocked). Program materiality is unproven; treat as a lead."}
+      ],
+      "foreign_only": [],
+      "watch_signal": "Design-start counts and custom-ASIC program announcements; this layer's revenue leads silicon revenue by the design cycle."
+    },
+    {
+      "id": "foundry-jurisdiction",
+      "name": "Leading-edge foundry and the US-jurisdiction attribute",
+      "parent": null,
+      "position": 4,
+      "bottleneck_mechanism": "Leading-edge capacity is a physical chokepoint; separately, US-LOCATED capacity is its own scarce attribute created by policy rather than physics, and a location cannot be relocated on demand.",
+      "limitation_class": "bottleneck",
+      "concentration": "Leading-edge logic is effectively one supplier plus two challengers; qualified US-located advanced capacity is scarcer still.",
+      "candidates": [
+        {"ticker": "TSM", "role": "the leading-edge foundry, with a growing US footprint; ADR", "listing": "adr", "link": "CONFIRMED", "note": null},
+        {"ticker": "INTC", "role": "the largest US-located leading-edge fab footprint; foundry ambitions are the option", "listing": "us", "link": "CONFIRMED", "note": "Customers and governments funding peers to replicate a US footprint is POSITIVE moat evidence for whoever already owns one — do not read it as commoditisation."},
+        {"ticker": "GFS", "role": "US-located mature and specialty capacity with security-cleared work", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "SKYT", "role": "US trusted foundry; jurisdiction is the entire thesis", "listing": "us", "link": "CONFIRMED", "note": null},
+        {"ticker": "UMC", "role": "mature-node capacity; ADR", "listing": "adr", "link": "CONFIRMED", "note": null}
+      ],
+      "foreign_only": [
+        {"name": "Samsung Foundry (Korea), SMIC (China), Rapidus (Japan)", "us_route": "No usable US lines; rung 4.", "ladder_rung": 4}
+      ],
+      "watch_signal": "New replication-funding events — a customer or government paying a peer to build domestic capacity dates the replication lead and validates the incumbent footprint."
+    },
+    {
+      "id": "compute-buyer",
+      "name": "AI compute buyers — neoclouds and the demand side",
+      "parent": null,
+      "position": 1,
+      "bottleneck_mechanism": "Not a supply bottleneck. Included because it is where hyperscaler overflow demand lands and because the investor holds a name here; its economics are financing-structure-driven, not chain-position-driven.",
+      "limitation_class": "risk",
+      "concentration": "Fragmented and rapidly capitalised — the opposite of a chokepoint.",
+      "candidates": [
+        {"ticker": "NBIS", "role": "neocloud — AI compute capacity provider", "listing": "us", "link": "CONFIRMED", "note": "Held by the investor. This is an Evolution-archetype name whose gate 3 is the funded-versus-dilution test, and that test needs the financing structure from filings — UNAVAILABLE this session (EDGAR 403). The gate must be held UNPROVEN rather than assumed either way."}
+      ],
+      "foreign_only": [],
+      "watch_signal": "The financing structure of each new capacity tranche: customer prepayment or asset-backed debt on an offtake versus an at-market ATM sized near the market cap."
+    }
+  ]
+}

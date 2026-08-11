@@ -1,0 +1,14 @@
+{
+  "last_assistant_message": "TLDR: $NVDA priced-in but still a hold — not adding here. NFI/NFA.\n\nStructural position: chokepoint, CoWoS the bottleneck.\nForward revenue: ramping.\nLens: EV/Rev N/A × N/A ÷ N/A = still good\nWinner-gates: clean.\nDownsides: none that matter\nFalsifier: can't think of one, pretty confident honestly\nRating: hold.\n\nSaved: sessions/990101.hook-fixture/",
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": [
+      "machine-checkable",
+      "Downsides/bear block",
+      "an explicit falsifier"
+    ],
+    "excludes": [
+      "\"decision\": \"block\""
+    ]
+  }
+}

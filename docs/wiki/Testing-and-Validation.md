@@ -7,18 +7,18 @@ makes the code/judgment boundary an enforced invariant rather than a stated inte
 
 | Suite | Command | Count | Network |
 | --- | --- | --- | --- |
-| Structural validator | `serenity_harness.py validate` | 15 checks | No |
-| Hook fixtures | `.claude/hooks/tests/run_fixtures.py` | 22 fixtures | No |
-| Contract tests | `python3 -m pytest scripts/tests/ -q` | 2 tests | No |
+| Structural validator | `serenity_harness.py validate` | Wiring + the fact/judge seam | No |
+| Hook fixtures | `.claude/hooks/tests/run_fixtures.py` | Every committed hook scenario | No |
+| Contract tests | `scripts/.venv/bin/python -m pytest scripts/tests/ -q` | The fact/judge seam + the sector-map schema | No |
 
 Run all three before opening a pull request. There is no CI, so they are the only gate.
 
 ```bash
 PY=scripts/.venv/bin/python
 
-$PY scripts/serenity_harness.py validate        # → "ok": true, pass: 15
-$PY .claude/hooks/tests/run_fixtures.py         # → 22/22 fixtures passed
-python3 -m pytest scripts/tests/ -q             # currently fails — see Known Limitations
+$PY scripts/serenity_harness.py validate        # → "ok": true
+$PY .claude/hooks/tests/run_fixtures.py         # → all fixtures passed (exit 0)
+$PY -m pytest scripts/tests/ -q                 # → all pass
 ```
 
 ---
@@ -39,7 +39,7 @@ Output:
 {
   "harness": "serenity",
   "ok": true,
-  "summary": { "pass": 15, "warn": 0, "fail": 0 },
+  "summary": { "pass": 16, "warn": 0, "fail": 0 },
   "checks": [ { "check": "claude_md", "status": "pass" }, ... ]
 }
 ```
@@ -47,7 +47,7 @@ Output:
 `detail` appears only for non-passing checks unless `--verbose` is set. **Warnings never fail the
 run** — only hard failures exit non-zero.
 
-### The 15 checks
+### The checks
 
 | # | Check | Asserts |
 | --- | --- | --- |
@@ -56,13 +56,16 @@ run** — only hard failures exit non-zero.
 | 5 | `pipeline_entry` | `serenity_pipeline` imports and the three command functions are importable |
 | 6 | `evidence_invariants` | **The real regression** — see below |
 | 7 | `macro_sanitizer` | A synthetic poisoned macro payload comes out clean |
-| 8 | `sec_consolidation` | The retired XBRL parser stays unimported and the live SEC fetch ships no classification of its own |
+| 8 | `xbrl_module_boundary` | No `_sec_xbrl` module outside `legacy` has been imported into the active path. Renamed from `sec_consolidation`, which also asserted two things that were `True` by construction for every possible input |
 | 9 | `judgment_boundary` | No module matching `pipeline.legacy` appears in `sys.modules` |
 | 10–11 | `sec_layer:*` | `serenity_filings.py` and the filings agent exist (**soft** — warns, never fails) |
-| 12 | `hooks` | `.claude/settings.json` maps the exact four events to the exact four scripts, and each script file exists |
+| 12 | `hooks` | Every expected event is wired, every hook script exists, and every script is actually referenced in `settings.json` — a script present but unwired fires never, which looks exactly like a healthy silent hook |
 | 13 | `agent:serenity-scorecard` | The agent file exists, declares all four required tools, and its body contains the schema sentinels |
 | 14 | `session_archive_doctrine` | `CLAUDE.md` contains the archive section and the `Saved:` token |
 | 15 | `sessions_index` | `sessions/INDEX.md` exists and declares itself verdict-free |
+| 16 | `hook_fixtures` | **The hooks behave** — runs `run_fixtures.py` and adopts its exit code. Check 12 asserts the wiring exists; this asserts it works |
+| 17 | `scorecard_conformance` | Committed scorecards match the pinned schema. **Warn-only**, and grandfathered before a boundary date — a red that cannot be cleared is one people learn to dismiss |
+| 18 | `prose_growth` | Doctrine size vs. a recorded baseline. **Warn-only, never a cap** — it converts a hunch into a signal; growth is fine, *unexamined* growth is not |
 
 Frontmatter is parsed with a regex rather than a YAML library — a deliberate choice to keep the
 validator dependency-free so it can run before anything is installed.
@@ -241,11 +244,12 @@ Everything judgment-shaped stripped; the raw gauges preserved exactly.
 
 ## Hook fixtures
 
-22 fixtures covering the two hooks with behavioral logic.
+One fixture per scenario, covering the two hooks with branch logic. `run_fixtures.py` discovers them
+by directory, so the count is whatever is committed — it is printed, never asserted.
 
 ```bash
 scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py
-# → 22/22 fixtures passed
+# → all fixtures passed (exit 0)
 ```
 
 A fixture is the exact stdin payload the hook receives; the runner asserts on stdout using

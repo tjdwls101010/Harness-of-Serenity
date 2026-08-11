@@ -31,13 +31,11 @@ sessions/
 │   ├── NVDA.md                           one scorecard per name
 │   ├── AVGO.md
 │   └── …
-├── 990101.hook-fixture/                  test scaffolding — do not delete
-└── 990102.hook-empty/                    test scaffolding — do not add .md here
+└── 260726. 반도체 인더스트리 딥리서치/       ← the one committed real session
 ```
 
-Only `INDEX.md` and the two `9901xx` fixture folders are committed. Real session folders are
-produced locally as you use the harness; the dated folder above illustrates the shape rather than
-naming something you will find in a fresh clone.
+`sessions/` holds real archived analysis and nothing else. The hook suite's scaffolding used to
+live here too and no longer does — see [the test-scaffolding folders](#the-test-scaffolding-folders).
 
 **Folder naming:** `{yymmdd}.{topic-slug}` — created **lazily on the first artifact**, never
 pre-created. On a name collision, suffix `-2`.
@@ -133,8 +131,6 @@ grep is safe.
 
 `serenity_harness.py validate` asserts the index remains verdict-free.
 
-The fixture folders (`990101.*`, `990102.*`) are **never listed** — they are test scaffolding,
-not analysis.
 
 ## The two reuse rules
 
@@ -188,8 +184,8 @@ folder exists and contains at least one `.md` — because a costless `mkdir` or 
 
 ## The test-scaffolding folders
 
-Two committed folders exist solely so the `Stop` hook's `Saved:` check has a real filesystem to
-resolve against:
+The `Stop` hook's `Saved:` check needs a real filesystem to resolve against, so the suite keeps one
+under `.claude/hooks/tests/fixtures/sessions/`:
 
 | Folder | Contains | Tests |
 | --- | --- | --- |
@@ -197,23 +193,32 @@ resolve against:
 | `990102.hook-empty/` | `.gitkeep` only | The claimed-but-empty case |
 | `990199.hook-missing/` | *(deliberately absent)* | The nonexistent-folder case |
 
-Both self-document in their own contents. **Do not add a `.md` to `990102.hook-empty`** — that
-would silently stop the empty-folder fixture from testing what it claims, and the fixture would
-keep passing while checking nothing.
+`run_fixtures.py` points `CLAUDE_PROJECT_DIR` at that sandbox, which is how the fixtures' literal
+`Saved: sessions/990101.hook-fixture/` marks resolve without the scaffolding sitting in the real
+`sessions/`.
+
+**It used to sit in `sessions/`, and that is why it is here now.** Both folders were deleted in a
+working tree, three fixtures went red, and `validate` reported green the entire time. `sessions/` is
+documented as real archived analysis, so anything there that looks like debris invites exactly that
+tidy-up — and the "do not delete" comment guarding it was in a file nobody opens at the moment of
+deleting. Scaffolding that is structurally distinguishable from real output cannot be swept by
+someone doing the right thing.
+
+**Do not add a `.md` to `990102.hook-empty`** — that would silently stop the empty-folder fixture
+from testing what it claims, and the fixture would keep passing while checking nothing.
 
 ## Current state
 
-The archive convention is fully specified and has **no committed worked example.** A fresh clone
-contains `INDEX.md` with zero entries and the two fixture folders — nothing else. Session folders
-are generated locally as you use the harness and are not published with the repository.
+One real session is committed — `sessions/260726. 반도체 인더스트리 딥리서치/` — so the convention has a
+worked example: seven per-name scorecards, a `_ranking.md` carrying the tier table and `Tier cut:`
+line that `rankdiff` parses, a `_macro.md`, and a 30-layer `_sectormap.json`.
 
-Two consequences worth knowing:
-
-- There is no reference `_ranking.md` in the repository, so the tier table, the `Tier cut:` line,
-  and the deltas section described above have no example to copy from. The column contract in
-  [Agent Harness](Agent-Harness.md#the-rank-n-protocol) is the specification.
-- `serenity_harness.py rankdiff` parses `_ranking.md`, so it has nothing in a fresh clone to run
-  against. Point it at two of your own session folders.
+Read it as an example of the **convention**, not of the **schema**. All seven scorecards predate
+enforcement and fail `harness scorecard-lint` — see
+[Known Limitations](Known-Limitations.md#the-committed-session-archive-predates-the-pinned-scorecard-schema).
+Its folder name also shows the naming rule being broken on its first real use: a space and a Korean
+phrase, against an `INDEX.md` header that says English only. That is why `harness new-session`
+exists — the slug is validated at the argument boundary rather than checked after the fact.
 
 See [Known Limitations](Known-Limitations.md#the-session-archive-has-no-committed-worked-example).
 

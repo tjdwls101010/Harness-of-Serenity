@@ -1,3 +1,6 @@
 {
-  "prompt": "what's a good recipe for pasta carbonara?"
+  "prompt": "what's a good recipe for pasta carbonara?",
+  "_expect": {
+    "silent": true
+  }
 }

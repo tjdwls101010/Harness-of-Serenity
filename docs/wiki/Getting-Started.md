@@ -64,7 +64,7 @@ EDGAR_IDENTITY="Jane Doe jane@example.com"
 | `GOOGLE_API_KEY`, `GOOGLE_MODEL`, `GOOGLE_THINKING_LEVEL` | Nothing in the current tree | No effect. Reserved for optional narrative enrichment. |
 | `X_AUTH_TOKEN`, `X_CT0`, `X_TWID` | Nothing in this repository | No effect. Listed for an out-of-tree scraper that produced the thesis DB. Treat as account credentials if you ever populate them. |
 | `SERENITY_CAPTURE_DIR` | `pipeline/legacy/_commands.py` | Only used when regenerating golden fixtures. |
-| `CLAUDE_PROJECT_DIR` | All four hooks | Set by Claude Code automatically. Hooks fall back to the current working directory. |
+| `CLAUDE_PROJECT_DIR` | Every hook | Set by Claude Code automatically. Hooks fall back to the current working directory. |
 
 > ⚠️ **Known issue — `.env` is not auto-loaded for macro modules.** The macro data modules read
 > `os.environ` directly and never call `load_dotenv`, so a `FRED_API_KEY` sitting in `.env` is
@@ -248,7 +248,7 @@ Confirm the hooks behave correctly:
 
 ```bash
 scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py
-# → 22/22 fixtures passed
+# → all fixtures passed (exit 0)
 ```
 
 See [Agent Harness](Agent-Harness.md) and [Hooks Reference](Hooks-Reference.md). None of it is

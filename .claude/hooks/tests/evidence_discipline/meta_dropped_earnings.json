@@ -1,0 +1,6 @@
+{
+  "prompt": "refactor the serenity_pipeline.py function that parses the earnings date field",
+  "_expect": {
+    "silent": true
+  }
+}

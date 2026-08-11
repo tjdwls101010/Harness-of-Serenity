@@ -1,4 +1,7 @@
 {
   "last_assistant_message": "TL;DR: added the Saved: mark check to verdict_gate and committed the fixtures.\nThe hook now checks the session-archive contract structurally, and validate stays green.",
-  "stop_hook_active": false
+  "stop_hook_active": false,
+  "_expect": {
+    "silent": true
+  }
 }

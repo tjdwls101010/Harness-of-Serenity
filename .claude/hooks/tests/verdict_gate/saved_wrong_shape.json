@@ -1,4 +1,9 @@
 {
   "last_assistant_message": "TLDR: $NVDA cleanest chokepoint long — priced rich but not priced-in imo. NFI/NFA.\n\nStructural position: chokepoint -> CoWoS the bottleneck within a bottleneck.\nForward revenue: datacenter ramping, backlog sold out.\nLens: floor — EV/Rev 18 ÷ MC $3.2T = base; upside — content×volume ÷ MC = re-rate leg.\nWinner-gates: clean.\nDownsides:\n- valuation priced-in (addressed)\n- export overhang (priced-in)\nFalsifier: breaks if CoWoS supply doubles.\nRating: overweight, LEAPS.\n\nSaved: sessions/INDEX.md",
-  "stop_hook_active": false
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": [
+      "not a valid session path"
+    ]
+  }
 }

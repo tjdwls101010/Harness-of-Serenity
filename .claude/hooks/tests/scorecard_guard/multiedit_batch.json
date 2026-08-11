@@ -1,0 +1,15 @@
+{
+  "tool_name": "MultiEdit",
+  "tool_input": {
+    "edits": [
+      {
+        "file_path": "/Users/seongjin/Coding/Invest/Harness of Serenity/.claude/hooks/tests/fixtures/sessions/990104.scorecard-bad/NVDA.md"
+      }
+    ]
+  },
+  "_expect": {
+    "contains": [
+      "[scorecard-schema]"
+    ]
+  }
+}

@@ -300,24 +300,17 @@ one, and whether the tier cut moved. Pure fact-loading — it diffs two files a 
 
 ---
 
-## The Codex parity layer
+## The AGENTS mirror
 
-`.codex/` mirrors the harness for the Codex convention:
+`AGENTS.md` is a **symlink** to `CLAUDE.md`, so a CLI following the AGENTS convention loads the
+same spine with no drift. That is the entire mirror.
 
-| Path | Form |
-| --- | --- |
-| `.codex/skills` | **Symlink** to `.claude/skills` — content stays in sync automatically |
-| `.codex/hooks` | **Symlink** to `.claude/hooks` |
-| `.codex/agents/*.toml` | Manual translations of the `.md` agent definitions |
-| `.codex/hooks.json` | Manual translation of the hook bindings |
-| `AGENTS.md` | **Symlink** to `CLAUDE.md` |
-
-Symlinks where the format allows it, translations only where it does not — so drift is possible
-in exactly two files rather than across the whole tree.
-
-> ⚠️ `.codex/hooks.json` currently points at an absolute path that does not exist on this machine,
-> so the Codex hook bindings are inert. See
-> [Known Limitations](Known-Limitations.md#codex-hook-layer-is-dead).
+A larger `.codex/` parity layer — symlinked `skills`/`hooks` plus hand-written `.toml` agent
+translations and a `hooks.json` — existed until 2026-08-11. It was retired rather than repaired,
+and the reason generalizes: its `hooks.json` hardcoded an absolute path, so the layer went inert
+the moment the repository moved, and nothing noticed, because a hook that never fires looks
+exactly like a hook with nothing to say. Symlink what the format allows; for anything that needs
+a hand-maintained translation, first ask whether that surface is worth mirroring at all.
 
 ## The design record
 

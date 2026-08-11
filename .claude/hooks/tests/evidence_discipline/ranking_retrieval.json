@@ -1,3 +1,9 @@
 {
-  "prompt": "rank these for me by investment value: NVDA, AVGO, MU, TSM"
+  "prompt": "rank these for me by investment value: NVDA, AVGO, MU, TSM",
+  "_expect": {
+    "contains": [
+      "[evidence-discipline]",
+      "reconcile deltas AFTER fresh scorecards"
+    ]
+  }
 }

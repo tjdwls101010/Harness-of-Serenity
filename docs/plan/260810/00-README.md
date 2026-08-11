@@ -1,5 +1,7 @@
 # Harness of Serenity — remediation plan, 2026-08-10
 
+**The code layer (00–03, 07) was implemented 2026-08-11. Read `08-amendments-260811.md` alongside this file** — four items below are factually wrong or unimplementable as written (02.6's premise, 02.2's numeric bar, 03.3 layer 3, 03.5's schema field), and the phases as written omit a toolchain phase without which nothing could be verified at all.
+
 Read this file first. It carries the diagnosis, the binding constraints every downstream file inherits, and the phase order. Each phase file is self-contained enough to open alone in a fresh session; this file is what tells you which one to open.
 
 ## What this plan answers
@@ -87,3 +89,4 @@ Three specific risks, each with the constraint that neutralizes it. These come f
 | `06-doctrine.md` | RC4 + salience + interface wiring + 05's absorptions | 04 and 05 |
 | `07-residual-checks.md` | filings-subagent compliance; prose-growth tripwire | 01 |
 | `99-appendix-findings.md` | all 37 verified findings, verbatim | — |
+| `08-amendments-260811.md` | **READ WITH THIS.** Where implementation found the plan wrong or unimplementable | — |

@@ -1,6 +1,6 @@
 # Hooks Reference
 
-The four lifecycle hooks in `.claude/hooks/`, what each inspects, and exactly when it blocks,
+The lifecycle hooks in `.claude/hooks/`, what each inspects, and exactly when it blocks,
 warns, or stays silent.
 
 ## Why hooks exist
@@ -16,6 +16,7 @@ A hook fires regardless. These are the four points where that determinism is wor
 | `SessionStart` | `session_status.py` | The harness is structurally sound before any work begins |
 | `UserPromptSubmit` | `evidence_discipline.py` | Market questions start from the pipeline, not from memory |
 | `PostToolUse` (Bash) | `data_integrity_guard.py` | The numbers are arithmetically self-consistent |
+| `PostToolUse` (Write/Edit) | `scorecard_guard.py` | A written scorecard matches its pinned schema |
 | `Stop` | `verdict_gate.py` | The answer carries its required structural elements |
 
 ## Shared contract
@@ -32,7 +33,7 @@ All four:
 | **SOFT** | `additionalContext` in the JSON response | Guidance injected; the model may act on it |
 | **HARD** | `{"decision": "block", "reason": "..."}` | The answer is rejected and must be revised |
 
-There is exactly **one hard block** across all four hooks. Everything else nudges. That ratio is
+There is exactly **one hard block** across the whole layer. Everything else nudges. That ratio is
 deliberate — a hook that blocks often becomes a hook people disable.
 
 Hooks are wired in `.claude/settings.json` in **exec-form** (a `command` plus an `args` array,
@@ -235,7 +236,7 @@ Hooks are behavioral code, and behavioral code needs fixtures. There are 22:
 
 ```bash
 scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py
-# → 22/22 fixtures passed
+# → all fixtures passed (exit 0)
 ```
 
 A fixture is the exact stdin payload the hook receives, and the runner asserts on stdout:
@@ -245,7 +246,7 @@ A fixture is the exact stdin payload the hook receives, and the runner asserts o
 { "last_assistant_message": "TLDR: $AVGO ...", "stop_hook_active": false }
 ```
 
-### `verdict_gate` — 13 fixtures
+### `verdict_gate` fixtures
 
 | Fixture | Guards against |
 | --- | --- |
@@ -263,23 +264,26 @@ A fixture is the exact stdin payload the hook receives, and the runner asserts o
 | `saved_backtick_silent` | Markdown backticks around the path must be tolerated |
 | `false_fire_guard` | "the bottleneck was in the parser; all tests pass" must stay silent |
 
-### `evidence_discipline` — 9 fixtures
+### `evidence_discipline` fixtures
 
 Cover the cashtag, Korean, English-phrase, and macro firing cases; the meta suppression cases; the
 anchor override; a non-market control; and one pinning the session-retrieval line in the reminder.
 
-The last two `verdict_gate` fixtures depend on real committed directories:
+The `Saved:`-mark `verdict_gate` fixtures depend on real committed directories, which live in the
+suite's own sandbox at `.claude/hooks/tests/fixtures/sessions/`:
 
-- `sessions/990101.hook-fixture/FIXT.md` — a folder that **does** contain a `.md`
-- `sessions/990102.hook-empty/.gitkeep` — a folder that deliberately contains **no** `.md`
-- `sessions/990199.hook-missing/` — referenced but deliberately absent
+- `990101.hook-fixture/FIXT.md` — a folder that **does** contain a `.md`
+- `990102.hook-empty/.gitkeep` — a folder that deliberately contains **no** `.md`
+- `990199.hook-missing/` — referenced but deliberately absent
 
-The 9901xx dates (1999) make them obviously non-real and sort them out of the way. **Do not add a
-`.md` to `990102.hook-empty`** — that would silently stop the empty-folder fixture from testing
-what it claims.
+The 9901xx dates (1999) make them obviously non-real. **Do not add a `.md` to `990102.hook-empty`**
+— that would silently stop the empty-folder fixture from testing what it claims.
 
-The runner must execute with the repository root as its working directory, since `verdict_gate`
-resolves session paths relative to it.
+`run_fixtures.py` sets `CLAUDE_PROJECT_DIR` to that sandbox explicitly, rather than relying on
+`verdict_gate`'s `or os.getcwd()` fallback. The fallback only applies when the variable is unset, so
+depending on it would pass in a terminal and fail at every real SessionStart — where Claude Code
+sets the variable to the repo root. Verify any change to the runner with the variable both unset and
+set.
 
 ## Adding a hook
 
@@ -288,8 +292,7 @@ resolves session paths relative to it.
 2. Wire it in `.claude/settings.json` in exec-form with the venv interpreter path.
 3. **Add fixtures** for both the firing case and the near-miss case. Every existing hook has a
    false-fire guard, because the failure mode of a noisy hook is that people disable it.
-4. Update `.codex/hooks.json` if Codex parity matters to you.
-5. Run `serenity_harness.py validate` — the `hooks` check asserts the exact event-to-script map,
+4. Run `serenity_harness.py validate` — the `hooks` check asserts the exact event-to-script map,
    so it will fail until settings and files agree.
 
 ---

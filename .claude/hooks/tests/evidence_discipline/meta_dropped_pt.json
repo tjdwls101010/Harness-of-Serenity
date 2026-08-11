@@ -1,0 +1,6 @@
+{
+  "prompt": "refactor how the pipeline script rounds the PT field before it's written to the scorecard",
+  "_expect": {
+    "silent": true
+  }
+}

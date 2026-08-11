@@ -1,0 +1,7 @@
+{
+  "last_assistant_message": "Done with verdict_gate.py. The `no_tldr_hard` fixture uses the string \"Bottom line: PT $250, 12 months, LEAPS as the vehicle. Rating: overweight, high conviction.\" and now hard-blocks; `macro_overweight_silent` covers the overweight/underweight macro case, and the priced-in wording in soft_lens is unchanged. run_fixtures.py reports 21/21 for this hook.",
+  "stop_hook_active": false,
+  "_expect": {
+    "silent": true
+  }
+}

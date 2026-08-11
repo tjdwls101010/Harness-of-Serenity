@@ -262,10 +262,9 @@ judgment. The comparator normalizes and presents; ordering is yours.
 Shell form let a shell-profile banner corrupt the stdout of a JSON-emitting hook, silently
 no-oping it.
 
-**`CLAUDE.md` is symlinked to `AGENTS.md`** so both the Claude Code and Codex conventions load the
-same spine with no drift. `.codex/hooks` and `.codex/skills` are likewise symlinks;
-`.codex/agents/*.toml` are manual translations. (The Codex hook bindings currently point at a
-stale absolute path — see [Known Limitations](Known-Limitations.md#codex-hook-layer-is-dead).)
+**`CLAUDE.md` is symlinked to `AGENTS.md`** so both the Claude Code and AGENTS conventions load the
+same spine with no drift. A hand-translated `.codex/` parity layer was retired 2026-08-11 — see
+[Agent Harness](Agent-Harness.md#the-agents-mirror).
 
 ## Directory reference
 
@@ -276,8 +275,7 @@ CLAUDE.md                     reasoning spine (AGENTS.md → symlink)
   harness-spec.md             design record and change history
   skills/serenity-{macro,discovery,analysis}/SKILL.md
   agents/serenity-{filings,scorecard}.md
-  hooks/                      4 hooks + tests/ (22 fixtures)
-.codex/                       Codex parity layer (symlinks + .toml translations)
+  hooks/                      lifecycle hooks + tests/ (fixtures + run_fixtures.py)
 scripts/
   serenity_pipeline.py        main CLI (thin argparse shim)
   serenity_filings.py         SEC CLI

@@ -55,7 +55,7 @@ score.
 validate` replays all sixteen golden fixtures through the evidence builder and fails if any
 verdict-shaped key or value appears anywhere in the output. `rating`, `risk_score`,
 `objective_screen`, `regime`, a bare `"BUY"` string — all rejected, including in mixed case and
-namespaced forms. At runtime, four lifecycle hooks check that an answer actually ran its
+namespaced forms. At runtime, lifecycle hooks check that an answer actually ran its
 arithmetic and stated its bear case. This addresses problem 3.
 
 ## What "the code must not judge" means concretely

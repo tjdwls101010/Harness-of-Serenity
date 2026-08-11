@@ -1,0 +1,8 @@
+{
+  "prompt": "이 종목 배당 매력 있어서 살까 고민 중인데 하네스 스킬 파일도 손봐야 하나?",
+  "_expect": {
+    "contains": [
+      "[evidence-discipline]"
+    ]
+  }
+}

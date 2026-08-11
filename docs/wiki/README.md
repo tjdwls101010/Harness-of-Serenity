@@ -32,7 +32,7 @@ your first evidence dossier.
 | Page | What it covers |
 | --- | --- |
 | [Agent Harness](Agent-Harness.md) | The reasoning spine, three skills, two subagents, and the rank-N protocol |
-| [Hooks Reference](Hooks-Reference.md) | All four lifecycle hooks and their block/warn/silent contracts |
+| [Hooks Reference](Hooks-Reference.md) | Every lifecycle hook and its block/warn/silent contract |
 | [Session Archive](Session-Archive.md) | How analyses are persisted, the scorecard schema, and the two reuse rules |
 
 ### Verification and operations

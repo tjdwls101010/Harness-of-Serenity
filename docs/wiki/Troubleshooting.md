@@ -75,20 +75,25 @@ location.
 Verify the hooks themselves are healthy:
 
 ```bash
-scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py    # → 22/22
+scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py    # → all fixtures passed (exit 0)
 ```
 
 ### `pytest: command not found` / `No module named pytest`
 
-pytest is not in `requirements.txt` and is not installed in the venv. Install it separately:
+pytest is in `requirements.txt` but not installed in this venv:
 
 ```bash
-scripts/.venv/bin/pip install pytest
+scripts/.venv/bin/python -m pip install pytest
 scripts/.venv/bin/python -m pytest scripts/tests/ -q
 ```
 
-Note the contract tests currently fail for an unrelated reason — see
-[Known Limitations](Known-Limitations.md#contract-tests-fail-on-a-path-bug).
+Note `-m pip` rather than `scripts/.venv/bin/pip`: this venv has been relocated, so its console
+scripts (`bin/pip`, `bin/pytest`) carry a shebang pointing at an interpreter path that no longer
+exists. `bin/python` itself is fine, so route everything through `-m`.
+
+Install into the venv, never system-wide. The tests shell out to `serenity_pipeline.py` with
+`sys.executable`, so a runner outside the venv resolves an interpreter with no yfinance and the
+failure looks like a missing dependency rather than a wrong runner.
 
 ---
 
@@ -312,12 +317,6 @@ Lens: content×volume÷MC — $180/unit × 4.2M units ÷ $12.4B = 6.1% of MC
 
 `EV/Rev = 12x` does not satisfy it, deliberately — that bare top-down multiple is the exact miss
 the check was built to catch.
-
-### Codex hooks do not run
-
-`.codex/hooks.json` points at an absolute path that does not exist. The Codex hook bindings are
-currently inert; the Claude Code bindings in `.claude/settings.json` are unaffected. See
-[Known Limitations](Known-Limitations.md#codex-hook-layer-is-dead).
 
 ---
 

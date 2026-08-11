@@ -1,0 +1,6 @@
+{
+  "prompt": "serenity_pipeline.py 리팩터 하면서 밸류 필드 계산 로직도 손보려고 하는데",
+  "_expect": {
+    "silent": true
+  }
+}
