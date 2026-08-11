@@ -1,0 +1,8 @@
+{
+  "last_assistant_message": "TLDR: $AXTI is the InP chokepoint and it's mispriced imo. NFI/NFA.\n\nStructural position: chokepoint -> the hop under the substrate is high-purity feedstock.\nLens: floor — EV/Rev 8.5 ÷ MC $850M = defensible base; upside — content×volume ÷ MC = the re-rate leg.\n\n**Downsides:**\n\n- none\n\n**Falsifier:**\n\n- breaks if 6-inch InP yields close the supply gap inside a year.\n\nRating: overweight, shares.\n\nSaved: sessions/990101.hook-fixture/",
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": "Downsides/bear block"
+  },
+  "_why": "The paired guard for bold_header_blank_line_silent. Skipping leading blank lines must not also excuse a null body — `**Downsides:**\\n\\n- none` is the exact compliance token this check exists to catch, and it now has to survive the same formatting the fix permits."
+}

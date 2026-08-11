@@ -120,6 +120,15 @@ mark's SHAPE + the folder's non-emptiness (never its content quality) keeps this
 and it stays SOFT — a costless empty `mkdir` or a `Saved: sessions/INDEX.md` token would otherwise
 be a compliance token that falsely certifies archiving, which is exactly why the shape/non-empty
 checks exist before this could ever be promoted to hard.
+
+`--explain` mode: the same stdin payload, run through the exact `evaluate()` this hook itself calls,
+dumped as one JSON object (decision / signals / checks / hard / soft) instead of a hook decision. It
+exists so the reproduction eval (docs/plan/260810/04-measurement-instrument.md §4.5) can use this file
+as its structural oracle directly, rather than re-encoding these regexes a second time. The earlier
+plan for that (02.6: a shared module) hit two dead ends — `.claude` is not an importable identifier,
+and a module under `scripts/` breaks the hooks' zero-dependency, run-from-any-checkout property — so a
+second OUTPUT MODE of the one existing function is the shape that shares logic without a shared import.
+`evaluate()` is the only place these predicates are computed; `main()` only decides how to print it.
 """
 
 import json
@@ -161,6 +170,9 @@ def _has(pattern, text):
 #             ASCII `-` is deliberately NOT a separator: it is this doctrine's compound-word joiner
 #             ("asset-heavy") and its bullet marker, so accepting it would fire on ordinary prose.
 _DECOR = r"[ \t*_#>`~-]*"
+# The same character class as a plain string, for `str.strip()` rather than a regex — used to ask
+# "is this line anything but decoration?" One definition, so the two cannot drift apart.
+_DECOR_CHARS = " \t*_#>`~-"
 _AFTER = r"[ \t*_`~]*"
 _SEP = "[:：—–]"
 _LABELS = (r"Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structural position"
@@ -284,8 +296,25 @@ def _section_body(label, msg):
 		# the module's own motivating example (`Downsides: none that matter`) walked straight back in
 		# through a formatting variant. Structural checks have to survive the formatting the model
 		# actually produces, not the formatting the example was written in.
-		if not line.strip() or boundary.match(line):
+		if boundary.match(line):
 			break
+		if not line.strip():
+			# A blank line ends the body — but only once the body has actually STARTED. A blank
+			# line between a bolded header and its first bullet is ordinary markdown (arguably the
+			# more correct form), and treating it as the end meant `**Downsides:**\n\n- real bullet`
+			# measured a body of `**`, failed the length bar, and nudged a properly-formatted
+			# answer for having no Downsides block.
+			#
+			# Found by the reproduction eval on a real blind run, not by a fixture — which is the
+			# point of having the eval: the fixtures all happened to be written in the tight form,
+			# so every one of them passed while the shape a model actually emits was broken.
+			#
+			# "Started" ignores decoration, because the header's own line remainder is frequently
+			# just the closing `**` of a bolded label; counting that as content would defeat the
+			# whole fix on exactly the shape it exists for.
+			if any(l.strip(_DECOR_CHARS) for l in body_lines):
+				break
+			continue
 		body_lines.append(line)
 	return "\n".join(body_lines)
 
@@ -322,17 +351,42 @@ def _section_missing(label, broad_pattern, msg):
 	return not _has(broad_pattern, msg)
 
 
-def main():
-	try:
-		data = json.load(sys.stdin)
-	except Exception:  # noqa: BLE001 — never let a hook crash the turn
-		return
-	# One corrective round only — if we're already continuing from this hook, let it stop.
-	if data.get("stop_hook_active"):
-		return
-	msg = str(data.get("last_assistant_message") or "")
+def evaluate(msg, base):
+	"""Compute every structural signal this hook checks and the resulting decision, with no I/O. This
+	is THE definition of the contract: `main()` only decides how to PRINT whatever comes back — once
+	as the terse hook-mode signal, once as the full `--explain` JSON the reproduction eval scores
+	against. One function computing this means a second reimplementation elsewhere (e.g. inside an
+	eval script) can no longer silently drift from what the hook actually enforces.
+
+	`base` is the resolved `CLAUDE_PROJECT_DIR or os.getcwd()` the `Saved:` folder check resolves
+	against — taken as a parameter (rather than read from the environment in here) is what keeps this
+	function pure and independently testable.
+
+	Returns `decision` ("block" | "context" | "silent"), `signals` (every named predicate — always
+	populated, even when the entry gate never fires, so a caller can see WHY), `checks` (the per-rule
+	pass / fail / not-applicable verdict behind each hard/soft complaint below — `entered: false`
+	forces every other key to `None`, since an unentered message never reaches those questions), and
+	the raw `hard`/`soft` complaint strings, UNJOINED (`main()` joins them into the hook's
+	`reason`/`additionalContext` prose; the explain contract ships the list instead).
+	"""
+	msg = msg or ""
+	signal_keys = (
+		"has_tldr", "single_name", "strong_verdict", "other_finance_signal", "cashtag_signal",
+		"dev_context", "repo_artifact", "finance_signal", "signoff", "valuation_verdict",
+		"lens_named", "lens_marker",
+	)
+	empty_checks = {
+		"entered": False, "signoff": None, "tldr": None, "lens_line": None,
+		"downsides": None, "falsifier": None, "both_legs": None, "saved_mark": None,
+	}
 	if not msg.strip():
-		return
+		return {
+			"decision": "silent",
+			"signals": {k: False for k in signal_keys},
+			"checks": empty_checks,
+			"hard": [],
+			"soft": [],
+		}
 
 	has_tldr = _has(r"\bTL;?DR\b", msg)
 
@@ -401,8 +455,7 @@ def main():
 	# Entry gate (2.1): a formatted serenity answer OR any finance signal — never the TLDR token
 	# alone. Closes the 16th case: any opener that isn't the literal token ("Quick take:", a Korean
 	# equivalent, or an answer that simply forgets it) no longer kills every check below it.
-	if not (has_tldr or finance_signal):
-		return
+	entered = has_tldr or finance_signal
 
 	# Sign-off (EN + KO) — NFI/NFA is used verbatim even in Korean answers, but accept the
 	# spelled-out forms too so a complete Korean verdict is never false-blocked.
@@ -434,16 +487,61 @@ def main():
 	# merely has a dash and two unrelated numbers nearby. A bare ratio NAME ("EV/Rev = 12x", no real
 	# division shown) still correctly fails either way — that is the whole point. See the module
 	# docstring for the accepted limits on both the line-level numeric bar and the `/` bridge.
-	lens_line_match = re.search(r"Lens:[^\n]*", msg, re.IGNORECASE)
-	lens_line = lens_line_match.group(0) if lens_line_match else ""
-	lens_operator = _has(
+	# EVERY `Lens:` occurrence is tested, and the check passes if ANY of them carries a real driver
+	# computation. It used to test only the FIRST — the same unanchored-first-match defect already
+	# fixed in `_find_section_header`, but never applied here, to the most doctrine-central check in
+	# the harness (N10).
+	#
+	# Found by the reproduction eval, on two of twelve real blind runs. A model that runs the lens
+	# properly routinely writes a HEADER first — `**Lens: RUN, both legs — margin-inversion
+	# drop-through**` — or states the formula before substituting into it, and puts the arithmetic on
+	# the lines below. Measuring occurrence one scored both of those as "no lens run" while a fully
+	# computed forked lens sat three lines underneath.
+	#
+	# ANY, not LAST, and the difference is not arbitrary. A section header is matched to MEASURE the
+	# body underneath it, so exactly one occurrence has to be chosen as operative. This check asks a
+	# different question — "did the answer emit at least one machine-checkable driver line?" — which
+	# is existential. A forked lens legitimately emits two, and doctrine asks for both.
+	lens_lines = re.findall(r"Lens:[^\n]*", msg, re.IGNORECASE) or [""]
+	lens_operator_re = (
 		r"[×÷*]"
 		r"|\d[\d,.]*\s?[%TtBbMmKk]?[^/\n]{0,20}\s/\s[^\d$₩€£\n]{0,20}[$₩€£]?\d"
 		r"|\d[\d,.]*\s?[%TtBbMmKk]?/[$₩€£]?\d"
-		r"|[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?\s*[+\-−]\s*[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?",
-		lens_line,
+		r"|[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?\s*[+\-−]\s*[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?"
 	)
-	lens_marker = lens_operator and "=" in lens_line and _has(r"\d", lens_line)
+	# All three conditions must hold on the SAME line. Scanning them independently across the whole
+	# set would let a bare `**Lens: RUN, both legs**` header supply the `=`-free half while an
+	# unrelated line supplies the operator, which is a weaker bar than the one-line version this
+	# replaced — the point of widening to every occurrence is to stop missing a real driver line,
+	# never to let one be assembled from fragments.
+	lens_marker = any(
+		_has(lens_operator_re, line) and "=" in line and _has(r"\d", line)
+		for line in lens_lines
+	)
+
+	signals = {
+		"has_tldr": has_tldr,
+		"single_name": single_name,
+		"strong_verdict": strong_verdict,
+		"other_finance_signal": other_finance_signal,
+		"cashtag_signal": cashtag_signal,
+		"dev_context": dev_context,
+		"repo_artifact": repo_artifact,
+		"finance_signal": finance_signal,
+		"signoff": signoff,
+		"valuation_verdict": valuation_verdict,
+		"lens_named": lens_named,
+		"lens_marker": lens_marker,
+	}
+
+	if not entered:
+		return {
+			"decision": "silent",
+			"signals": signals,
+			"checks": empty_checks,
+			"hard": [],
+			"soft": [],
+		}
 
 	hard = []
 	if finance_signal and not signoff:
@@ -462,23 +560,30 @@ def main():
 	# (2.4c), not the broader valuation_verdict alone: a macro-only call ("overweight semis,
 	# underweight defensives") trips strong_verdict's vocabulary without naming any company to run a
 	# driver computation on, so nudging for a company-level Lens: line there is a false fire.
-	if single_name and (lens_named or valuation_verdict) and not lens_marker:
+	lens_line_applies = single_name and (lens_named or valuation_verdict)
+	if lens_line_applies and not lens_marker:
 		soft.append(
 			"you rendered a valuation verdict but no machine-checkable `Lens:` line appears — emit it: "
 			"`Lens: <name> — <input>×<input>÷<input> = <result>` (a forked lens shows two, floor and "
 			"upside), each input traced to key_facts. A named lens with no computed driver line is the "
 			"consensus top-down read, not the verdict (N10 / R5)."
 		)
+	downsides_ok = None
+	falsifier_ok = None
+	both_legs_applies = False
+	bull_leg = False
 	if single_name:
 		# Label-as-content (2.2): see _section_missing docstring — a header alone no longer satisfies
 		# these checks; the body must be non-null or carry a stated reason for being empty.
-		if _section_missing(r"Downsides?", r"\bDownside|\bbear case\b|리스크|하방|약점", msg):
+		downsides_ok = not _section_missing(r"Downsides?", r"\bDownside|\bbear case\b|리스크|하방|약점", msg)
+		if not downsides_ok:
 			soft.append("the short Downsides/bear block (2-4 casual bullets, each tagged priced-in / addressed).")
-		if _section_missing(
+		falsifier_ok = not _section_missing(
 			r"Falsifier",
 			r"breaks if|falsif|kill[\s-]*(signal|condition)|wrong if|thesis breaks|깨지면|틀리면|무효|아니라면",
 			msg,
-		):
+		)
+		if not falsifier_ok:
 			soft.append("an explicit falsifier ('breaks if ...') — V7/R6.")
 		# Both-legs: the dominant direction-miss is running ONLY the bear/floor/discount leg of a
 		# forked lens, which inverts a bull thesis. If a floor/discount figure is present but no
@@ -490,6 +595,7 @@ def main():
 			r"|\$/?MW|content[\s-]*(x|×)|supply[\s-]*shock|snapback|asymmetr|option leg|out-?multiple",
 			msg,
 		)
+		both_legs_applies = bear_leg
 		if bear_leg and not bull_leg:
 			soft.append(
 				"you ran the floor/discount/bear leg but the UPSIDE leg is qualitative — a forked lens "
@@ -503,9 +609,12 @@ def main():
 	# Gate on a real finance VERDICT (single_name or a strong market verdict), never a bare cashtag
 	# or a casual macro aside — a verdict is what doctrine says gets archived. Check the mark's SHAPE
 	# and the folder's non-emptiness, never its content: a structural check, like the Lens branch.
-	if single_name or strong_verdict:
+	saved_ok = None
+	saved_applies = single_name or strong_verdict
+	if saved_applies:
 		mark = re.search(r"Saved:\s*`?(sessions/\d{6}\.[a-z0-9-]+(?:-\d+)?/?)", msg, re.IGNORECASE)
 		if not mark:
+			saved_ok = False
 			if _has(r"Saved:", msg):
 				soft.append(
 					"a `Saved:` line is present but not a valid session path — it must read "
@@ -519,7 +628,6 @@ def main():
 				)
 		else:
 			rel = mark.group(1).rstrip("`.,; ").rstrip("/")
-			base = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 			folder = os.path.join(base, rel)
 			try:
 				is_dir = os.path.isdir(folder)
@@ -527,25 +635,70 @@ def main():
 			except OSError:
 				is_dir, has_md = False, False
 			if not is_dir:
+				saved_ok = False
 				soft.append(
 					f"the `Saved:` mark claims `{rel}/` but no such session folder exists — create it "
 					"and write the scorecard/synthesis before the answer claims it's archived."
 				)
 			elif not has_md:
+				saved_ok = False
 				soft.append(
 					f"the `Saved:` folder `{rel}/` exists but holds no `.md` scorecard/synthesis — an "
 					"empty folder isn't an archive; write the TICKER.md / _ranking.md into it."
 				)
+			else:
+				saved_ok = True
+
+	checks = {
+		"entered": True,
+		"signoff": signoff if finance_signal else None,
+		"tldr": has_tldr if finance_signal else None,
+		"lens_line": lens_marker if lens_line_applies else None,
+		"downsides": downsides_ok if single_name else None,
+		"falsifier": falsifier_ok if single_name else None,
+		"both_legs": bull_leg if both_legs_applies else None,
+		"saved_mark": saved_ok if saved_applies else None,
+	}
 
 	if hard:
-		reason = "Your answer is a serenity market verdict (TLDR + a finance signal) but is missing " + " ".join(hard)
-		if soft:
-			reason += " While revising, also confirm: " + " ".join(soft)
-		print(json.dumps({"decision": "block", "reason": reason}))
+		decision = "block"
+	elif soft:
+		decision = "context"
+	else:
+		decision = "silent"
+	return {"decision": decision, "signals": signals, "checks": checks, "hard": hard, "soft": soft}
+
+
+def main():
+	explain = "--explain" in sys.argv
+	try:
+		data = json.load(sys.stdin)
+	except Exception:  # noqa: BLE001 — never let a hook crash the turn
+		if explain:
+			print(json.dumps({"error": "malformed stdin: expected a JSON object"}))
+			sys.exit(1)
 		return
-	if soft:
-		ctx = "[verdict-gate] Before this answer stands, close the contract: " + " ".join(soft)
+	base = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+	# stop_hook_active guards the one-corrective-round loop (module docstring), and short-circuits
+	# BEFORE the message is even read. Folding that into evaluate()'s own empty-message path — rather
+	# than giving it a second "nothing to do here" shape to keep in sync — is what keeps this one
+	# function the only place that shape is defined.
+	msg = "" if data.get("stop_hook_active") else str(data.get("last_assistant_message") or "")
+	result = evaluate(msg, base)
+
+	if explain:
+		print(json.dumps(result))
+		return
+
+	if result["decision"] == "block":
+		reason = "Your answer is a serenity market verdict (TLDR + a finance signal) but is missing " + " ".join(result["hard"])
+		if result["soft"]:
+			reason += " While revising, also confirm: " + " ".join(result["soft"])
+		print(json.dumps({"decision": "block", "reason": reason}))
+	elif result["decision"] == "context":
+		ctx = "[verdict-gate] Before this answer stands, close the contract: " + " ".join(result["soft"])
 		print(json.dumps({"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": ctx}}))
+	# decision == "silent": print nothing, matching the hook's original early returns.
 
 
 if __name__ == "__main__":
