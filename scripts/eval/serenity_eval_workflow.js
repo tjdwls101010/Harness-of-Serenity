@@ -82,6 +82,18 @@ if (!cases.length) {
   )
   cases = (sampled && Array.isArray(sampled.cases)) ? sampled.cases : []
   if (sampled && sampled.meta) sampledMeta = sampled.meta
+  // Integrity check on the transcription step. The agent re-types the sampler's case list through a
+  // schema, and at n=100 that is ~35KB of structured output — a silently truncated list would just
+  // produce a smaller run whose report still looks entirely normal, which is the exact shape of
+  // every other bug this instrument was built to stop reporting. `meta.n` is the sampler's own
+  // count, so the two disagreeing means cases were lost in transit and the run must not proceed.
+  const declared = sampledMeta && sampledMeta.n
+  if (declared && declared !== cases.length) {
+    log(`ABORT: sampler reported n=${declared} but ${cases.length} cases came back — cases were `
+      + `lost in transcription. Re-run; do NOT score a truncated sample.`)
+    return { error: 'case count mismatch', declared, received: cases.length }
+  }
+  log(`Sampled ${cases.length} cases (sampler meta.n=${declared}).`)
 }
 if (!cases.length) {
   log('No cases — pass {n, seed} or {cases:[…]} as args.')
