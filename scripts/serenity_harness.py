@@ -434,10 +434,18 @@ def _check_hook_fixtures(checks):
 	if not os.path.isfile(runner):
 		checks.append(("hook_fixtures", "fail", "no .claude/hooks/tests/run_fixtures.py — the hook layer has no behavioral guard"))
 		return
+	# 20s, deliberately INSIDE session_status.py's 30s call and settings.json's 35s hook timeout.
+	# An inner timeout larger than the outer one can never fire on the SessionStart path — the outer
+	# kill lands first and reports a generic "validate timed out", which is true but says nothing
+	# about where. Fitting inside means the specific check names itself instead. The suite runs in
+	# well under a second today; if this ever fires, something in it has gone network-bound, and that
+	# is the bug rather than the limit.
 	try:
-		p = subprocess.run([sys.executable, runner], capture_output=True, text=True, timeout=120, cwd=_ROOT)
+		p = subprocess.run([sys.executable, runner], capture_output=True, text=True, timeout=20, cwd=_ROOT)
 	except subprocess.TimeoutExpired:
-		checks.append(("hook_fixtures", "fail", "fixture suite did not finish within 120s"))
+		checks.append(("hook_fixtures", "fail",
+			"the hook fixture suite did not finish within 20s — it is CPU-only by design, so this "
+			"means something in it started reaching the network. Run it directly to find which."))
 		return
 	except Exception as e:  # noqa: BLE001
 		checks.append(("hook_fixtures", "fail", f"could not run the fixture suite: {type(e).__name__}: {e}"))
