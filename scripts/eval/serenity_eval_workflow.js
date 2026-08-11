@@ -65,6 +65,13 @@ let sampledMeta = null
 if (!cases.length) {
   const n = (ARGS && ARGS.n) || 6
   const seed = (ARGS && ARGS.seed) || 7
+  // Default ON: a run meant to be compared against another run must draw from the STANDING
+  // sample, where every case carries a fixed archetype and the non-theses have been filtered
+  // out. Drawing from the raw pool gives a different case set each time the label file grows,
+  // and silently mixes in posts that are not single-name theses at all — both of which make a
+  // before/after comparison meaningless. Pass {standing:false} for an ad-hoc exploratory run.
+  const standing = (ARGS && ARGS.standing === false) ? '' : ' --only-labeled'
+
   log(`Sampling ${n} cases (seed ${seed}) via serenity_eval.py …`)
   // `thesis_text` is deliberately NOT requested here. It is the answer key, it runs to several KB
   // per case, and asking a model to reproduce ~55KB of it verbatim through a schema is a lossy step
@@ -77,7 +84,7 @@ if (!cases.length) {
     `blind_prompt VERBATIM, plus the top-level "meta" object verbatim (the seed lives there and a ` +
     `run whose seed is unrecorded cannot be compared against another). Do NOT return thesis_text — ` +
     `omit that field entirely:\n\n` +
-    `scripts/.venv/bin/python scripts/serenity_eval.py sample --n ${n} --seed ${seed}`,
+    `scripts/.venv/bin/python scripts/serenity_eval.py sample --n ${n} --seed ${seed}${standing}`,
     { label: 'sample', phase: 'Blind run', schema: CASES_SCHEMA },
   )
   cases = (sampled && Array.isArray(sampled.cases)) ? sampled.cases : []
