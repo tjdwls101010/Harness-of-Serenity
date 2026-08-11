@@ -46,6 +46,8 @@ Workflow({ scriptPath: "scripts/eval/serenity_eval_workflow.js", args: { n: 25, 
 
 It pipelines each case blind-run → judge and returns `{ meta: {...model}, cases: [...with .scores] }`. Write that to `scored.json`, then run step 4.
 
+Mode-A subagents run in the **real** project directory, so the blind-run prompt carries one explicit exception to CLAUDE.md's archive rule: write no files. Without it an n=12 pass leaves twelve junk folders in the live archive and twelve `INDEX.md` lines, with parallel cases racing on the same index. Nothing is lost by it — no hooks fire in mode A, so nothing scores the `Saved:` mark, and mode B measures the archive step properly in a disposable worktree.
+
 **Fidelity caveat:** a workflow `agent()` is a subagent — it reasons from CLAUDE.md + the skills but does **not** fire the `UserPromptSubmit`/`Stop` hooks. The blind-run stage therefore tells the agent to Read `./CLAUDE.md` and load the matching skill explicitly, so a change in that content actually registers in the score. This is the right mode for the four doctrine-content items (`archetype_named`, `recursive_bottom_hop`, `second_order_and_sibling`, `priced_in_decomposed`) — **no hook checks any of them**, so routing them through the expensive hooks-included mode buys exactly zero extra fidelity.
 
 ### Step 2, mode B — `claude -p` per case (full harness, incl. hooks)

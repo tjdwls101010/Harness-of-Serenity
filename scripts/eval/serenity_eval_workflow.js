@@ -129,7 +129,16 @@ const scored = await pipeline(
     `3. Run \`scripts/.venv/bin/python scripts/serenity_pipeline.py analyze <TICKER>\` (add macro if the ` +
     `question needs regime) and reason from its JSON — never numbers from memory.\n` +
     `4. Answer fully in-character: TLDR, archetype, the lens RUN with arithmetic (both legs if it forks), ` +
-    `winner-gate, cycle stage, a Downsides block + falsifier, rating + vehicle, NFI/NFA.\n\n` +
+    `winner-gate, cycle stage, a Downsides block + falsifier, rating + vehicle, NFI/NFA.\n` +
+    // CLAUDE.md's archive rule tells a real answer to write sessions/{yymmdd}.{slug}/ and append to
+    // INDEX.md. A mode-A subagent runs in the REAL project directory, so without this line an n=12
+    // pass leaves twelve junk folders in the live archive and twelve INDEX lines — and parallel
+    // cases race on the same index. Mode B is where the archive step is genuinely measured (it runs
+    // in a disposable worktree); here no hooks fire, so nothing scores the `Saved:` mark anyway.
+    `5. EXCEPTION to the archive rule, and only this one: do NOT create any session folder, write ` +
+    `any file, or edit INDEX.md. This is an evaluation run in the live project directory. Return ` +
+    `the full answer as your text — that IS the deliverable. Everything else in the doctrine applies ` +
+    `normally.\n\n` +
     `Question:\n${c.blind_prompt}`,
     { label: `run:${c.ticker}`, phase: 'Blind run', model: MODEL },
   ),
