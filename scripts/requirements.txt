@@ -31,6 +31,14 @@ requests>=2.31.0
 fear-greed>=0.1.1
 cme-fedwatch>=0.1.2
 
+# twikit is deliberately NOT here. scripts/serenity_scrape.py (the thesis-DB scraper)
+# declares it as a PEP 723 inline dependency and runs under `uv run`, so its tree —
+# a Js2Py fork, m3u8, webvtt-py, pyotp — stays out of this file. The point is
+# blast radius: that tree is scraping-only and pinned to an exact twikit version
+# (the script monkeypatches two of its private internals), and if it ever fails to
+# resolve, `pip install -r requirements.txt` must still bring up the analysis
+# pipeline. Nothing in scripts/.venv imports twikit, including its own tests.
+
 # Test runner. Install into scripts/.venv, not system python: the tests shell out to
 # serenity_pipeline.py with sys.executable, so a runner outside the venv resolves an
 # interpreter that has no yfinance. Invoke as `scripts/.venv/bin/python -m pytest`

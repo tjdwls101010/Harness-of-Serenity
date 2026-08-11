@@ -215,11 +215,16 @@ validator asserts the index is verdict-free. Full detail in
 
 ## The thesis DB
 
-`data/analysis_Serenity.db` is a committed 2.1 MB SQLite file holding 1,730 archived public posts
-(July 2025 – July 2026) written by one analyst — the practitioner whose method this harness
-reproduces. A single `tweets` table: `id`, `user`, `type` (`post` / `reply` / `subscriber`),
-`created_at`, `content`, `tickers`, `media`. Query it with `scripts/serenity_tweets.py`
-(`search`, `get`, `stats`).
+`data/analysis_Serenity.db` is a committed SQLite file archiving the posts of one analyst — the
+practitioner whose method this harness reproduces. A single `tweets` table: `id`, `user`, `type`
+(`post` / `reply` / `subscriber`), `created_at`, `content`, `tickers`, `media`. Query it with
+`scripts/serenity_tweets.py` (`search`, `get`, `stats`).
+
+It is refreshed twice daily by `.github/workflows/scheduled-scrape.yml`, which runs
+`scripts/serenity_scrape.py` on a self-hosted runner and commits the updated file to `main`. So
+**`main` is the source of truth and a local copy is only as fresh as your last `git pull`** — which
+is fine, because the rule below means you consult it rarely and deliberately. Run the scraper
+locally only if you know why; two writers produce divergent binaries that git cannot merge.
 
 **It is an answer key, not a data source**, and the usage rule is strict: consult it *only* on an
 explicit cross-validation request, never during routine analysis, and only after independently

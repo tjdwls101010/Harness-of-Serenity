@@ -280,7 +280,8 @@ scripts/
   serenity_pipeline.py        main CLI (thin argparse shim)
   serenity_filings.py         SEC CLI
   serenity_harness.py         validate + rankdiff
-  serenity_tweets.py          thesis DB query
+  serenity_tweets.py          thesis DB query (reader)
+  serenity_scrape.py          thesis DB refresh from X (writer; uv run, not .venv)
   serenity_eval.py            reproduction measurement
   pipeline/
     _fetch.py                 orchestration and I/O
