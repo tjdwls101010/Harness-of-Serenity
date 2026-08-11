@@ -50,11 +50,21 @@ const CASES_SCHEMA = {
   },
 }
 
-let cases = (args && Array.isArray(args.cases)) ? args.cases : []
+// `args` can arrive as a JSON-ENCODED STRING rather than a value. Verified the hard way: a run
+// passed {n: 12, seed: 7} and logged "Sampling 6 cases" — `args.n` was undefined and silently fell
+// through to the default, which is the worst shape of this bug because the workflow still runs and
+// still returns results, just not the ones asked for. Parse defensively and read from the result.
+function _args(a) {
+  if (typeof a === 'string') { try { return JSON.parse(a) } catch (e) { return null } }
+  return a
+}
+const ARGS = _args(args)
+
+let cases = (ARGS && Array.isArray(ARGS.cases)) ? ARGS.cases : []
 let sampledMeta = null
 if (!cases.length) {
-  const n = (args && args.n) || 6
-  const seed = (args && args.seed) || 7
+  const n = (ARGS && ARGS.n) || 6
+  const seed = (ARGS && ARGS.seed) || 7
   log(`Sampling ${n} cases (seed ${seed}) via serenity_eval.py …`)
   // `thesis_text` is deliberately NOT requested here. It is the answer key, it runs to several KB
   // per case, and asking a model to reproduce ~55KB of it verbatim through a schema is a lossy step
@@ -77,7 +87,7 @@ if (!cases.length) {
   log('No cases — pass {n, seed} or {cases:[…]} as args.')
   return { error: 'no cases' }
 }
-const payload = { meta: (args && args.meta) || sampledMeta || null, cases }
+const payload = { meta: (ARGS && ARGS.meta) || sampledMeta || null, cases }
 log(`Blind-running ${cases.length} cases through the harness, then judging vs the answer key.`)
 
 // Judge output shape — mirrors scripts/serenity_eval.py RUBRIC exactly so `report` can aggregate it.
@@ -132,7 +142,7 @@ THREE RULES THAT DECIDE MORE SCORES THAN THE ITEMS ABOVE DO:
 // unrecoverable after the fact: nothing in the scored JSON records which model produced an answer.
 // Default to the production model, not a cheap one — the eval measures the harness as it actually
 // runs, and scoring a weaker model's answers measures the model.
-const MODEL = (args && args.model) || 'opus'
+const MODEL = (ARGS && ARGS.model) || 'opus'
 
 const scored = await pipeline(
   cases,

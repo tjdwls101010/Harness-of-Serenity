@@ -62,6 +62,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _DEFAULT_DB = os.path.join(_HERE, os.pardir, "data", "analysis_Serenity.db")
 _DEFAULT_GOLD = os.path.join(_HERE, "eval", "gold_set.json")
 _DEFAULT_RESOLUTION_CACHE = os.path.join(_HERE, "eval", "ticker_resolution_cache.json")
+_DEFAULT_ARCHETYPE_LABELS = os.path.join(_HERE, "eval", "archetype_labels.json")
 _VERDICT_GATE = os.path.join(_HERE, os.pardir, ".claude", "hooks", "verdict_gate.py")
 
 # The two rubric items a non-chokepoint name legitimately has no answer for. Scoring a disruptor 0
@@ -236,6 +237,32 @@ def _load_gold_set(path: str) -> list[dict]:
 	return cases
 
 
+def _load_archetype_labels(path: str, vocab: set) -> dict:
+	"""id -> archetype, for the RANDOM remainder the gold set does not cover.
+
+	This is the "inspect once and freeze" step, kept as a cache rather than a frozen cases.json so
+	the sampler stays the single source of the case list and this file carries only the judgment
+	added on top. Without it, growing n buys statistical power for the four always-in-scope rows and
+	NONE for the two chokepoint-scoped ones: their stable in-scope N stays at the four curated
+	chokepoint cases forever, and those two are precisely the moves the retrospective calls the
+	weakest-reproduced.
+
+	A label outside the declared vocabulary is a hard error, not a skip — a typo would silently drop
+	that case from the chokepoint rows, which is the failure the whole archetype mechanism exists to
+	prevent."""
+	if not os.path.isfile(path):
+		return {}
+	with open(path, encoding="utf-8") as fh:
+		data = json.load(fh) or {}
+	labels = data.get("labels") or {}
+	bad = [f"{k}={v!r}" for k, v in labels.items() if v not in vocab]
+	if bad:
+		print(f"error: archetype labels outside the declared vocabulary in {path}: "
+			  f"{', '.join(bad[:10])}", file=sys.stderr)
+		sys.exit(2)
+	return labels
+
+
 def _load_resolution_cache(path: str) -> dict:
 	if not os.path.isfile(path):
 		return {}
@@ -386,7 +413,10 @@ def cmd_sample(args) -> None:
 	chosen: list[dict] = []
 	gold_ids: set[str] = set()
 	gold_missing: list[str] = []
+	vocab: set = set()
 	if not args.no_gold:
+		with open(args.gold, encoding="utf-8") as _fh:
+			vocab = set((json.load(_fh).get("_meta") or {}).get("archetype_vocabulary") or [])
 		for g in _load_gold_set(args.gold):
 			gid = str(g["id"])
 			r = by_id.get(gid)
@@ -423,6 +453,8 @@ def cmd_sample(args) -> None:
 			  f"{', '.join(gold_missing)}", file=sys.stderr)
 		sys.exit(2)
 
+	labels = _load_archetype_labels(args.archetype_labels, vocab) if vocab else {}
+
 	# Substantive single-name theses only: a tagged ticker, real length, a first-party post/subscriber
 	# (not a reply), and a resolvable primary ticker.
 	pool = []
@@ -441,14 +473,18 @@ def cmd_sample(args) -> None:
 		if _is_disclaimed(ticker, content):
 			disclaimed += 1
 			continue
+		rid = str(r.get("id"))
 		pool.append({
 			"id": r.get("id"),
 			"ticker": ticker,
 			"date": r.get("created_at"),
 			"type": r.get("type"),
 			"entry_type": _entry_type(content),
-			"archetype": None,
-			"archetype_source": None,
+			# A cached label if the one-time inspection has covered this case, else null. Null is
+			# honest, not a placeholder: `report` leaves the two chokepoint-scoped items unscored
+			# for it and says how many cases that was, rather than letting the judge re-decide.
+			"archetype": labels.get(rid),
+			"archetype_source": "cached" if rid in labels else None,
 			"gold": False,
 			"thesis_text": content,
 		})
@@ -528,6 +564,7 @@ def cmd_sample(args) -> None:
 			"min_len": args.min_len,
 			"eligible_pool": len(pool),
 			"gold_forced": sum(1 for c in chosen if c.get("gold")),
+			"archetype_labeled": sum(1 for c in chosen if c.get("archetype")),
 			"entry_type_distribution": dist,
 			"archetype_distribution": arch,
 			"resolution": {
@@ -893,6 +930,9 @@ def main() -> int:
 						"scoped rubric items may end up with an in-scope N of zero.")
 	s.add_argument("--resolution-cache", default=_DEFAULT_RESOLUTION_CACHE,
 				   help="Committed cache of ticker-resolution answers (keeps `sample` deterministic)")
+	s.add_argument("--archetype-labels", default=_DEFAULT_ARCHETYPE_LABELS,
+				   help="Committed id->archetype labels for the random remainder, filled during the "
+						"one-time inspection that freezes a standing sample")
 	s.add_argument("--no-network", action="store_true",
 				   help="Resolve from the cache only; a cache miss drops the candidate and is "
 						"reported under meta.resolution.rejected, never silently accepted")
