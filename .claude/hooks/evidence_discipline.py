@@ -8,6 +8,13 @@ from memory), scan for a dated catalyst (so an event isn't mis-read as a standal
 call), and pick the lens at intake (not at the verdict). This hook carries ONLY those actions and
 points at the in-context doctrine for the rest. It fires on a detected equity/macro intent, stays
 silent on a coding/harness-dev prompt, and never blocks: exit 0, print the reminder as context.
+
+Accepted limit: the dev-vs-market split is lexical, not semantic. A market question that leans on
+ONLY a bare pipeline field name (valuation, earnings, dividend, price target/PT — see the comment on
+_MARKET_ANCHOR) with no cashtag / Korean phrase / explicit buy-sell ask, and that also contains an
+unrelated _META word used in its ordinary sense ("should I commit to a dividend stock strategy"),
+gets suppressed. Telling that "commit" from a git commit needs semantic judgment a regex can't do,
+so this stays uncovered rather than chased with more bespoke patterns.
 """
 
 import json
@@ -31,7 +38,7 @@ _INTENT = re.compile(
 # Meta / harness-development guard. A prompt ABOUT this repo (hooks, skills, the pipeline code, a
 # plan) can trip _INTENT on words like "analyze" / "invest" / "valuation" without being a market
 # question — observed firing on this session's own planning prompts. Suppress ONLY when the prompt
-# reads as harness dev AND carries no concrete market anchor (a cashtag or a buy/sell/valuation ask).
+# reads as harness dev AND carries no concrete market anchor (a cashtag or a buy/sell ask).
 # The bias is deliberate: an extra fire is cheap context, a suppressed real market question is not,
 # so the anchor list stays generous and only unambiguous dev prompts get skipped.
 _META = re.compile(
@@ -40,10 +47,20 @@ _META = re.compile(
 	r"|refactor|리팩터|\beval\b|workflow|워크플로|commit|커밋|\b계획\b|구현|스펙|spec\b",
 	re.IGNORECASE,
 )
+# _MARKET_ANCHOR excludes bare field names the pipeline fetches (valuation, earnings, dividend,
+# price target/PT, and Korean 밸류/벨류/배당) even though _INTENT matches them: those words appear in
+# essentially every prompt ABOUT the pipeline's code too ("refactor how serenity_pipeline.py computes
+# the valuation multiples"), so they can't tell a market question apart from a dev one. The override
+# is a CONCRETE ask only — cashtag, Korean market phrase, or an explicit buy/sell action phrase —
+# never a bare field name alone. 목표가 ("price target" in Korean) stays anyway: that's the anchor
+# list agreed with the agent porting this same concept into verdict_gate.py, kept intentionally
+# asymmetric with English PT/price target rather than re-litigated here. The two hooks share no
+# imports by design (both stay dependency-free and independently runnable) — keep the definitions in
+# sync by hand.
 _MARKET_ANCHOR = re.compile(
 	r"\$[A-Za-z]{1,5}\b"
-	r"|매수|매도|사도|살까|팔까|종목|장\s*어때|물타|존버|목표가|밸류|벨류|배당"
-	r"|should i (buy|sell|own|short|add|hold)|buy the dip|price target|\bPT\b|valuation|dividend|earnings",
+	r"|매수|매도|사도|살까|팔까|종목|장\s*어때|물타|존버|목표가"
+	r"|should i (buy|sell|own|short|add|hold)|buy the dip",
 	re.IGNORECASE,
 )
 

@@ -1,0 +1,6 @@
+{
+  "prompt": "refactor how serenity_pipeline.py computes the valuation multiples so PEG doesn't divide by zero",
+  "_expect": {
+    "silent": true
+  }
+}
