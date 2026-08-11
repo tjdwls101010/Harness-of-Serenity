@@ -29,7 +29,10 @@ const CASES_SCHEMA = {
       type: 'array',
       items: {
         type: 'object', additionalProperties: true,
-        required: ['ticker', 'date', 'entry_type', 'blind_prompt', 'thesis_text'],
+        // `thesis_text` is NOT required: on the self-sampling path the judge fetches it from the DB
+        // by id rather than having it transcribed through this schema. `id` is, because that fetch
+        // has nothing to key on without it.
+        required: ['id', 'ticker', 'date', 'entry_type', 'blind_prompt'],
         properties: {
           id: { type: 'string' }, ticker: { type: 'string' }, date: { type: 'string' },
           entry_type: { type: 'string' }, blind_prompt: { type: 'string' }, thesis_text: { type: 'string' },
@@ -48,10 +51,15 @@ if (!cases.length) {
   const n = (args && args.n) || 6
   const seed = (args && args.seed) || 7
   log(`Sampling ${n} cases (seed ${seed}) via serenity_eval.py …`)
+  // `thesis_text` is deliberately NOT requested here. It is the answer key, it runs to several KB
+  // per case, and asking a model to reproduce ~55KB of it verbatim through a schema is a lossy step
+  // on the one input whose integrity everything downstream rests on — a silently truncated answer
+  // key would make every score look fine while measuring against half a thesis. The judge reads its
+  // own case straight from the DB by id instead, so the key never passes through a transcription.
   const sampled = await agent(
     `Run this EXACT Bash command and return its stdout as structured data. The JSON it prints has a ` +
-    `"cases" array; return every case's id, ticker, date, entry_type, blind_prompt, and thesis_text ` +
-    `VERBATIM — do NOT summarize, truncate, or reword thesis_text (it is the answer key):\n\n` +
+    `"cases" array; return every case's id, ticker, date, entry_type, archetype, gold_tests and ` +
+    `blind_prompt VERBATIM. Do NOT return thesis_text — omit that field entirely:\n\n` +
     `scripts/.venv/bin/python scripts/serenity_eval.py sample --n ${n} --seed ${seed}`,
     { label: 'sample', phase: 'Blind run', schema: CASES_SCHEMA },
   )
@@ -71,12 +79,15 @@ const SCORE_SCHEMA = {
   required: ['archetype_named', 'lens_run', 'recursive_bottom_hop', 'second_order_and_sibling',
              'bear_and_falsifier', 'priced_in_decomposed', 'missed_signature_moves', 'notes'],
   properties: {
-    archetype_named: { enum: [0, 1] },
-    lens_run: { enum: [0, 1] },
+    // Every item accepts 'n/a', including the four that are always in scope. Without that the
+    // ANSWER-KEY-UNAVAILABLE path below is inexpressible, and a judge forced to pick 0 or 1 with no
+    // key to score against would emit a normal-looking number instead of a visible gap.
+    archetype_named: { enum: [0, 1, 'n/a'] },
+    lens_run: { enum: [0, 1, 'n/a'] },
     recursive_bottom_hop: { enum: [0, 1, 'n/a'] },
     second_order_and_sibling: { enum: [0, 1, 'n/a'] },
-    bear_and_falsifier: { enum: [0, 1] },
-    priced_in_decomposed: { enum: [0, 1] },
+    bear_and_falsifier: { enum: [0, 1, 'n/a'] },
+    priced_in_decomposed: { enum: [0, 1, 'n/a'] },
     missed_signature_moves: { type: 'array', items: { type: 'string' } },
     notes: { type: 'string' },
   },
@@ -149,7 +160,16 @@ const scored = await pipeline(
   // on the two items the retrospective calls the weakest-reproduced moves.
   (answer, c) => agent(
     `${RUBRIC_TEXT}\n\n=== ANSWER-KEY THESIS (${c.ticker}, ${String(c.date).slice(0,10)}, ` +
-    `entry=${c.entry_type}) ===\n${c.thesis_text}\n` +
+    `entry=${c.entry_type}) ===\n` +
+    (c.thesis_text
+      ? `${c.thesis_text}\n`
+      : `Run this EXACT command and use its stdout as the answer-key thesis:\n\n` +
+        `scripts/.venv/bin/python -c "import sqlite3;print(sqlite3.connect('data/analysis_Serenity.db')` +
+        `.execute('SELECT content FROM tweets WHERE id=?',('${c.id}',)).fetchone()[0])"\n\n` +
+        `If that command fails or prints nothing, do NOT guess and do not score from the answer ` +
+        `alone — return the score object with every binary item "n/a" and \`notes\` beginning with ` +
+        `"ANSWER KEY UNAVAILABLE". A judge scoring without the key produces numbers that look ` +
+        `normal and mean nothing, which is worse than a gap the report can show.\n`) +
     (c.gold_tests ? `\n=== CURATED HINT — the moves this case was built to test ===\n${c.gold_tests}\n` : '') +
     `\n=== HARNESS ANSWER (blind) ===\n${answer}\n\nReturn the score object.`,
     { label: `judge:${c.ticker}`, phase: 'Judge', schema: SCORE_SCHEMA, model: MODEL },
