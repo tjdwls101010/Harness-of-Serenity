@@ -145,10 +145,23 @@ def test_unresolvable_tickers_never_reach_the_random_remainder(sample25, bad):
 
 
 def test_a_rejected_candidate_is_named_in_the_report_not_silently_dropped():
+    """Asserts the PROPERTY — every rejection is real and carries a stated reason — rather than a
+    specific ticker.
+
+    The earlier version named SIVE and XFAB. That broke the first time the thesis DB grew (52 rows
+    added by another session): an UNLABELLED draw shifts when the pool changes, so XFAB was no
+    longer reached before the buckets filled and FORM was rejected in its place. Nothing was wrong
+    with the code. A test pinned to an instance of the data fails on data growth and teaches people
+    to edit the assertion; one pinned to the invariant does not. (The standing sample is immune to
+    this by construction — see `--only-labeled` — but this test deliberately exercises the raw draw.)"""
     meta = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network").stdout)["meta"]
-    assert meta["resolution"]["rejected"], "rejections must be reported, not silently absorbed"
-    assert {r["ticker"] for r in meta["resolution"]["rejected"]} >= {"SIVE", "XFAB"}
-    assert all(r.get("reason") for r in meta["resolution"]["rejected"])
+    rejected = meta["resolution"]["rejected"]
+    assert rejected, "rejections must be reported, not silently absorbed"
+    assert all(r.get("reason") for r in rejected), "a rejection without a reason is a silent drop"
+    cache = json.loads((SCRIPTS_DIR / "eval" / "ticker_resolution_cache.json").read_text())["tickers"]
+    for r in rejected:
+        assert not cache.get(r["ticker"], {}).get("ok"), \
+            f"{r['ticker']} was rejected but the cache says it resolves"
 
 
 def test_a_thesis_that_disclaims_its_only_ticker_is_skipped():
