@@ -73,6 +73,8 @@ scripts/.venv/bin/python scripts/serenity_eval.py sample --n 100 --seed 7 --only
 # -> n=74, 74/74 labelled, all seven archetypes, chokepoint 21
 ```
 
+**It is a census, not a seeded sample, and the `--seed` in that command does nothing to it.** 74 labelled cases exist and `--n 100` asks for more than that, so every one is taken; seeds 7, 99 and 12345 produce identical membership and differ only in ordering. That is the right shape for a regression panel — you want the same cases every time — but it means the panel supports statements about *itself*, not about the corpus. It is not a random draw from the thesis DB and cannot carry prevalence or representativeness claims. Say "the standing panel scored X", never "the harness reproduces X% of his method".
+
 `--only-labeled` restricts the pool to cases carrying a label, and that is what makes the sample a **fixed point** rather than a moving target. Without it, excluding a non-thesis pushes the draw deeper into the pool and pulls in fresh unlabelled cases, which need another labelling round, which excludes more, which pulls in more. Measured on the first attempt: 26 exclusions caused 57 of 100 cases to come back unlabelled. With the pool restricted, the sample settles immediately and is reproducible by a command instead of by committing a blob of cases.
 
 n=74 rather than 100 is the honest price of dropping the non-theses, and it is a good trade: **chokepoint is 21**, comfortably above the `--n-floor`, so the two chokepoint-scoped rubric rows report a real percentage for the first time. Those are the moves the retrospective calls weakest-reproduced, and an unlabelled n=100 would have left them at an effective n=4.
