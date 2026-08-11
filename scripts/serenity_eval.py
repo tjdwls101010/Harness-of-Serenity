@@ -474,6 +474,13 @@ def cmd_sample(args) -> None:
 		if _is_disclaimed(ticker, content):
 			disclaimed += 1
 			continue
+		if args.only_labeled and str(r.get("id")) not in labels:
+			# Restrict the pool to cases the freeze pass has already labelled. Without this, an
+			# exclusion pushes the draw deeper into the pool and pulls in fresh unlabelled cases,
+			# which need another labelling round, which excludes more, which pulls in more — the
+			# sample never settles. Restricting the pool makes the standing sample the fixed point
+			# of that loop, reachable by a command rather than by committing a blob of cases.
+			continue
 		if str(r.get("id")) in excluded:
 			# Not a scoreable single-name thesis, decided once during the freeze pass. The blind
 			# prompt asks "what's your read on TICKER?" and this post becomes the answer key — so a
@@ -943,6 +950,10 @@ def main() -> int:
 	s.add_argument("--archetype-labels", default=_DEFAULT_ARCHETYPE_LABELS,
 				   help="Committed id->archetype labels for the random remainder, filled during the "
 						"one-time inspection that freezes a standing sample")
+	s.add_argument("--only-labeled", action="store_true",
+				   help="Draw the remainder only from cases carrying an archetype label. This is what "
+						"makes a standing regression sample stable — every case has a fixed scope, and "
+						"the draw cannot wander into unlabelled territory when an exclusion shifts it.")
 	s.add_argument("--no-network", action="store_true",
 				   help="Resolve from the cache only; a cache miss drops the candidate and is "
 						"reported under meta.resolution.rejected, never silently accepted")

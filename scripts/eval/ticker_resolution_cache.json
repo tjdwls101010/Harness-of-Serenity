@@ -18,6 +18,13 @@
       "quote_type": "EQUITY",
       "name": "Aeva Technologies, Inc."
     },
+    "AIRO": {
+      "ok": true,
+      "market_cap": 265401216,
+      "sector": "Industrials",
+      "quote_type": "EQUITY",
+      "name": "AIRO Group Holdings, Inc."
+    },
     "ALAB": {
       "ok": true,
       "market_cap": 55034683392,
@@ -31,6 +38,13 @@
       "sector": "Technology",
       "quote_type": "EQUITY",
       "name": "Allegro MicroSystems, Inc."
+    },
+    "ALOY": {
+      "ok": true,
+      "market_cap": 885980032,
+      "sector": "Basic Materials",
+      "quote_type": "EQUITY",
+      "name": "REalloys Inc."
     },
     "ALRIB": {
       "ok": false,
@@ -60,6 +74,13 @@
       "sector": "Consumer Cyclical",
       "quote_type": "EQUITY",
       "name": "Amazon.com, Inc."
+    },
+    "AOSL": {
+      "ok": true,
+      "market_cap": 1034366272,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Alpha and Omega Semiconductor L"
     },
     "APPL": {
       "ok": false,
@@ -112,6 +133,20 @@
       "quote_type": "EQUITY",
       "name": "AXT Inc"
     },
+    "BKKT": {
+      "ok": true,
+      "market_cap": 342007968,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Bakkt, Inc."
+    },
+    "BKSY": {
+      "ok": true,
+      "market_cap": 1170859904,
+      "sector": "Industrials",
+      "quote_type": "EQUITY",
+      "name": "BlackSky Technology Inc."
+    },
     "BMNR": {
       "ok": true,
       "market_cap": 10918397952,
@@ -161,6 +196,13 @@
       "quote_type": "EQUITY",
       "name": "Coherent Corp."
     },
+    "COIN": {
+      "ok": true,
+      "market_cap": 39227273216,
+      "sector": "Financial Services",
+      "quote_type": "EQUITY",
+      "name": "Coinbase Global, Inc."
+    },
     "CRCL": {
       "ok": true,
       "market_cap": 18277435392,
@@ -189,6 +231,13 @@
       "quote_type": "EQUITY",
       "name": "Chevron Corporation"
     },
+    "DOW": {
+      "ok": true,
+      "market_cap": 22089179136,
+      "sector": "Basic Materials",
+      "quote_type": "EQUITY",
+      "name": "Dow Inc."
+    },
     "DPRO": {
       "ok": true,
       "market_cap": 174087456,
@@ -211,6 +260,13 @@
       "quote_type": "EQUITY",
       "name": "eToro Group Ltd."
     },
+    "EWJ": {
+      "ok": true,
+      "market_cap": null,
+      "sector": null,
+      "quote_type": "ETF",
+      "name": "iShares MSCI Japan Index Fund"
+    },
     "FAZ": {
       "ok": true,
       "market_cap": null,
@@ -231,6 +287,13 @@
       "sector": "Industrials",
       "quote_type": "EQUITY",
       "name": "Firefly Aerospace Inc."
+    },
+    "GDRZF": {
+      "ok": true,
+      "market_cap": 662453312,
+      "sector": "Basic Materials",
+      "quote_type": "EQUITY",
+      "name": "Gold Reserve Ltd. (Bermuda)"
     },
     "GLW": {
       "ok": true,
@@ -296,12 +359,26 @@
       "quote_type": "ETF",
       "name": "iShares Bitcoin Trust ETF"
     },
+    "IBM": {
+      "ok": true,
+      "market_cap": 222635769856,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "International Business Machines"
+    },
     "IFNNY": {
       "ok": true,
       "market_cap": 93421027328,
       "sector": "Technology",
       "quote_type": "EQUITY",
       "name": "Infineon Technologies AG"
+    },
+    "INFQ": {
+      "ok": true,
+      "market_cap": 2550721536,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Infleqtion, Inc."
     },
     "INTC": {
       "ok": true,
@@ -316,6 +393,20 @@
       "sector": "Financial Services",
       "quote_type": "EQUITY",
       "name": "IREN LIMITED"
+    },
+    "JBL": {
+      "ok": true,
+      "market_cap": 35274477568,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Jabil Inc."
+    },
+    "JD": {
+      "ok": true,
+      "market_cap": 45201235968,
+      "sector": "Consumer Cyclical",
+      "quote_type": "EQUITY",
+      "name": "JD.com, Inc."
     },
     "KLA": {
       "ok": false,
@@ -391,6 +482,13 @@
       "quote_type": "EQUITY",
       "name": "LightPath Technologies, Inc."
     },
+    "MCB": {
+      "ok": true,
+      "market_cap": 1145802624,
+      "sector": "Financial Services",
+      "quote_type": "EQUITY",
+      "name": "Metropolitan Bank Holding Corp."
+    },
     "META": {
       "ok": true,
       "market_cap": 1515562336256,
@@ -446,6 +544,13 @@
       "sector": "Technology",
       "quote_type": "EQUITY",
       "name": "NVIDIA Corporation"
+    },
+    "NVTS": {
+      "ok": true,
+      "market_cap": 3438601216,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Navitas Semiconductor Corporati"
     },
     "ONDS": {
       "ok": true,
@@ -517,6 +622,13 @@
       "quote_type": "EQUITY",
       "name": "Powell Industries, Inc."
     },
+    "RDDT": {
+      "ok": true,
+      "market_cap": 30537175040,
+      "sector": "Communication Services",
+      "quote_type": "EQUITY",
+      "name": "Reddit, Inc."
+    },
     "RGTI": {
       "ok": true,
       "market_cap": 5891018240,
@@ -552,6 +664,14 @@
       "sector": "Technology",
       "quote_type": "EQUITY",
       "name": "Sanmina Corporation"
+    },
+    "SGCG": {
+      "ok": false,
+      "market_cap": null,
+      "sector": null,
+      "quote_type": null,
+      "name": null,
+      "reason": "no marketCap/sector (quoteType=None)"
     },
     "SHA": {
       "ok": false,
@@ -747,6 +867,13 @@
       "sector": null,
       "quote_type": "ETF",
       "name": "State Street Utilities Select S"
+    },
+    "Z": {
+      "ok": true,
+      "market_cap": 7589530112,
+      "sector": "Communication Services",
+      "quote_type": "EQUITY",
+      "name": "Zillow Group, Inc."
     }
   }
 }

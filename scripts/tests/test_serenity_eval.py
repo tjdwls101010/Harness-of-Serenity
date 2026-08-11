@@ -494,11 +494,20 @@ def test_the_data_timing_note_rides_inside_blind_prompt_so_both_modes_get_it():
 
 # --- the archetype label cache (the "inspect once and freeze" step) ------------------------------
 
-def test_cached_labels_are_applied_to_the_random_remainder(tmp_path, sample25):
+def test_cached_labels_are_applied_to_the_random_remainder(tmp_path):
     """Without this, growing n buys statistical power for the four always-in-scope rubric rows and
     NONE for the two chokepoint-scoped ones: their stable in-scope N stays at the four curated
-    chokepoint cases forever, and those two are the moves the retrospective calls weakest."""
-    ids = [c["id"] for c in sample25 if not c.get("gold")][:4]
+    chokepoint cases forever, and those two are the moves the retrospective calls weakest.
+
+    The ids are taken from a draw made under THIS test's own label file, not from the shared
+    `sample25` fixture. They diverged once the committed file grew an `excluded` list: the fixture's
+    draw skips those cases and a draw with an empty custom file does not, so ids picked from one
+    were simply absent from the other and nothing was marked cached."""
+    empty = tmp_path / "empty.json"
+    empty.write_text(json.dumps({"labels": {}}), encoding="utf-8")
+    baseline = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network",
+                               "--archetype-labels", str(empty)).stdout)["cases"]
+    ids = [c["id"] for c in baseline if not c.get("gold")][:4]
     lf = tmp_path / "labels.json"
     lf.write_text(json.dumps({"labels": {i: "disruption" for i in ids}}), encoding="utf-8")
     out = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network",
@@ -553,3 +562,19 @@ def test_exclusion_cannot_remove_a_gold_case(tmp_path, gold):
     out = json.loads(_run("sample", "--n", "12", "--seed", "7", "--no-network",
                           "--archetype-labels", str(lf)).stdout)
     assert gid in {c["id"] for c in out["cases"]}
+
+
+def test_only_labeled_yields_a_stable_fully_labeled_standing_sample():
+    """The fixed point of the freeze loop. Without it, excluding a case pushes the draw deeper into
+    the pool and pulls in fresh UNLABELLED cases, which need another labelling round, which excludes
+    more, which pulls in more — the sample never settles. Restricting the pool makes the standing
+    sample reachable by a command instead of by committing a blob of cases."""
+    cases = _sample(100, 7, "--only-labeled")
+    assert all(c.get("archetype") for c in cases), "every case must carry a fixed scope"
+    # the two chokepoint-scoped rubric rows only report a percentage above the n-floor; that is the
+    # whole return on the labelling pass, so it is asserted rather than hoped for.
+    assert sum(1 for c in cases if c["archetype"] == "chokepoint") >= _DEFAULT_N_FLOOR
+    assert [c["id"] for c in cases] == [c["id"] for c in _sample(100, 7, "--only-labeled")]
+
+
+_DEFAULT_N_FLOOR = 12
