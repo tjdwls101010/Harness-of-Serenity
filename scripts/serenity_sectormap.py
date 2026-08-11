@@ -555,6 +555,29 @@ def cmd_cohort(args: argparse.Namespace) -> JsonObject:
 		listings=listings,
 	)
 	tickers = [record["ticker"] for record in records]
+	# Carry each candidate's own role/note alongside the argv.
+	#
+	# This command used to emit the argv ALONE, which quietly dropped the one field that qualifies a
+	# ticker. The map's notes disclaim some names as "theme exposure, not bottleneck ownership" — and
+	# `discover` is the comparator whose cross-peer ratio the doctrine treats as the verdict, so
+	# feeding it an unqualified list lets a $50B conglomerate rank against a pure-play as though the
+	# map had said they were comparable. It said the opposite, in a field this command discarded.
+	#
+	# Surfacing the note is fact-loading, not judgment: the disclaimer is the analyst's, already
+	# written, and this only stops it being lost in transit. Deciding which candidates BELONG in a
+	# cohort stays the model's call — no filtering happens here.
+	qualifiers = {}
+	for layer in sector_map["layers"]:
+		if args.layer is not None and layer["id"] != args.layer:
+			continue
+		for candidate in layer["candidates"]:
+			if candidate["ticker"] not in set(tickers):
+				continue
+			q = qualifiers.setdefault(candidate["ticker"], {"role": [], "note": []})
+			for field in ("role", "note"):
+				value = candidate.get(field)
+				if value and value not in q[field]:
+					q[field].append(value)
 	return {
 		"layer": args.layer,
 		"argv": [
@@ -563,6 +586,19 @@ def cmd_cohort(args: argparse.Namespace) -> JsonObject:
 			"discover",
 			*tickers,
 		],
+		"candidates": [
+			{
+				"ticker": record["ticker"],
+				"layers": record["layers"],
+				"role": qualifiers.get(record["ticker"], {}).get("role", []),
+				"note": qualifiers.get(record["ticker"], {}).get("note", []),
+			}
+			for record in records
+		],
+		"read_the_notes": "The argv is a starting list, not a vetted cohort. Read each candidate's "
+		                  "role/note before running it — the map flags some names as theme exposure "
+		                  "rather than bottleneck ownership, and `discover`'s cross-peer ratio reads "
+		                  "as a verdict.",
 	}
 
 

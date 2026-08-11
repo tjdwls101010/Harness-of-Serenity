@@ -91,7 +91,7 @@ Hardware/materials is a chokepoint by default; relabel to disruption/evolution o
 - **A — Macro** ("장 어때", rates/liquidity/regime): enters at the regime read, which sets the aggression dial for everything downstream.
 - **B — One stock** (a named ticker): enters at `analyze`, names the archetype, walks the rest on that name.
 - **C — Discovery** ("뭐 사", a theme, "X vs Y"): enters one step earlier, then analyzes each candidate.
-- **D — Supply-chain / what-if**: map the chain (WebSearch) *before* discovery — you can't gate nodes you haven't drawn.
+- **D — Supply-chain / what-if**: map the chain (WebSearch) *before* discovery — you can't gate nodes you haven't drawn. When the map is worth keeping — a multi-layer industry chain you'll rank against later, not a three-hop sketch — write it as a `_sectormap.json` in the session folder (`scripts/serenity_sectormap.py validate` checks the schema; `cohort --layer` builds the `discover` argv for one layer, carrying each candidate's role/note so a name the map disclaims as theme exposure doesn't reach the comparator stripped of that caveat).
 - **E — Theme / rank**: run the fixed rank-N protocol (analysis skill, "Rank-N protocol") — gates filter membership, stage rung is the ordering spine, gate-strength + conviction order within a rung.
 
 Most real questions are several at once — walk the union in dependency order (broad context first, then the names inside it). When a lone question is genuinely ambiguous about which shape it is, let the wider frame win: **A > D > B > C > E.**

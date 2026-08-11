@@ -469,16 +469,23 @@ def test_cohort_argv_generation_and_otc_opt_in(tmp_path: Path) -> None:
 
 	default = _run("cohort", str(path), "--layer", "end-demand")
 	assert default.returncode == 0
-	assert _payload(default) == {
-		"layer": "end-demand",
-		"argv": [
-			"scripts/.venv/bin/python",
-			"scripts/serenity_pipeline.py",
-			"discover",
-			"NVDA",
-			"TSM",
-		],
-	}
+	payload = _payload(default)
+	assert payload["layer"] == "end-demand"
+	assert payload["argv"] == [
+		"scripts/.venv/bin/python",
+		"scripts/serenity_pipeline.py",
+		"discover",
+		"NVDA",
+		"TSM",
+	]
+	# Each ticker carries the map's own qualifying text. `discover` is the comparator whose
+	# cross-peer ratio reads as a verdict, so a ticker the map disclaims as theme exposure must not
+	# arrive there stripped of that disclaimer.
+	assert payload["candidates"] == [
+		{"ticker": "NVDA", "layers": ["end-demand"], "role": ["NVDA role"], "note": []},
+		{"ticker": "TSM", "layers": ["end-demand"], "role": ["TSM role"], "note": []},
+	]
+	assert "not a vetted cohort" in payload["read_the_notes"]
 
 	with_otc = _run(
 		"cohort",
@@ -488,17 +495,16 @@ def test_cohort_argv_generation_and_otc_opt_in(tmp_path: Path) -> None:
 		"--include-otc",
 	)
 	assert with_otc.returncode == 0
-	assert _payload(with_otc) == {
-		"layer": "end-demand",
-		"argv": [
-			"scripts/.venv/bin/python",
-			"scripts/serenity_pipeline.py",
-			"discover",
-			"NVDA",
-			"OTCM",
-			"TSM",
-		],
-	}
+	otc_payload = _payload(with_otc)
+	assert otc_payload["argv"] == [
+		"scripts/.venv/bin/python",
+		"scripts/serenity_pipeline.py",
+		"discover",
+		"NVDA",
+		"OTCM",
+		"TSM",
+	]
+	assert [c["ticker"] for c in otc_payload["candidates"]] == ["NVDA", "OTCM", "TSM"]
 
 
 def test_diff_output(tmp_path: Path) -> None:
