@@ -67,6 +67,40 @@ on this line," not "every leg of a forked lens is numeric" — a `Lens:` line wh
 outside the fork it claims to compute could still slip through. Promoting this to a per-leg check
 would need parsing the line into its floor/upside clauses, which this hook does not do.
 
+ACCEPTED LIMIT, MEASURED — this hook fires on harness-development writing about itself, and both
+obvious fixes are worse than the disease. Recorded with the numbers because the fixes are tempting,
+plausible, and each takes an hour to disprove.
+
+The mechanism: `single_name` matches the answer template's own section names (`Downside`, `rating`,
+`conviction`, `vehicle`). Discussing this file necessarily uses them, so an engineering report reads
+as a market verdict. It happened eight times in the session that wrote this, twice to messages whose
+entire content was explaining that it happens.
+
+  Fix A, "require a subject" — make template vocabulary count only alongside a cashtag or company
+  reference. Prototyped: **2 of 71 fixtures flip from correctly-blocking to not-blocking**, including
+  `real_verdict_still_blocks`, written specifically to prove a real verdict still blocks, and
+  `macro_hard`, a genuine regime call that has no cashtag because it names no single company. A
+  correct verdict missing only its NFI/NFA sign-off goes SILENT. It trades a nuisance for a hole in
+  the one hard guarantee. There is also no clean subject test: a capitalized-proper-noun rule is the
+  alias-list failure this harness rejects, and an ALL-CAPS ticker rule collides with `PT`, `MC`, `EV`,
+  `FCF`, `PEG`, `IRR`, `ATM`, `LEAPS`, `CSP`, `HBM` — doctrine vocabulary, several load-bearing right
+  here. The doctrine's own casual voice ("Nvidia's still the cleanest chokepoint long") makes the
+  cashtag-less verdict normal, not marginal.
+
+  Fix B, "strip code spans" — read markdown's use/mention distinction, since a report QUOTES
+  `Downsides:` while a verdict WRITES it. Prototyped: costs nothing (71/71) and cannot be gamed by
+  fencing a verdict. But run against REAL blocked messages rather than reconstructions of them, it
+  cleared **zero of two** — both mixed backticked and bare mentions, written by someone actively
+  thinking about this failure mode. It works only for an author who fences every mention, which is a
+  formatting habit nobody reliably holds. Note the methodological trap: reconstructing the messages
+  to test made them artificially consistent and scored ~2/3. Test the artifact, not your memory of it.
+
+So the limit stands. The compensating control is that the block costs one corrective round, not a
+lost turn (`stop_hook_active`), and CLAUDE.md is always loaded, so the doctrine is in context whether
+or not this fires. The correct response to a false fire is to say so and move on — NOT to add a
+sign-off to an engineering report, which manufactures the compliance token this hook's own
+label-as-content check exists to reject.
+
 Known limit — a bare prose verdict with no listed vocabulary is invisible. "TLDR: Nvidia is a
 screaming buy right now" has no cashtag, no `PT`/`rating`/`vehicle`, no Korean market phrase —
 nothing in `finance_signal`'s closed vocabulary. Catching it honestly needs proper-noun-plus-verb
