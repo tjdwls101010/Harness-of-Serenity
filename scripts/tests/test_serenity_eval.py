@@ -435,3 +435,58 @@ def test_a_hook_failure_is_visible_in_the_report(tmp_path):
     # works — this asserts the healthy path rather than the failure, keeping the pair honest.
     assert proc.returncode == 0
     assert "mechanical pre-pass:" in proc.stdout
+
+
+# --- leakage guards on the two REAL prompt-construction sites -----------------------------------
+# The leak test above checks `cmd_sample`'s output field. These check the two places that actually
+# build a prompt for the harness-under-test. Both were verified clean by hand during review and
+# neither had a test — "currently clean, invisibly regressable" is exactly the state a guard is for.
+
+_ANSWER_KEY_FIELDS = ("thesis_text", "gold_tests", "gold_label")
+_WORKFLOW_JS = SCRIPTS_DIR / "eval" / "serenity_eval_workflow.js"
+_MODEB = SCRIPTS_DIR / "eval" / "modeb_runner.py"
+
+
+def _strip_comments_js(src: str) -> str:
+    out = []
+    for line in src.splitlines():
+        s = line.lstrip()
+        if s.startswith("//"):
+            continue
+        out.append(line.split("//")[0] if "//" in line and "'" not in line.split("//")[0][-2:] else line)
+    return "\n".join(out)
+
+
+def test_the_workflow_stage_one_prompt_never_interpolates_an_answer_key_field():
+    """Stage 1 is what the harness-under-test reads. Stage 2 (the judge) legitimately carries the
+    answer key, so this isolates stage 1 by splitting the file at the judge's own marker rather
+    than grepping the whole file and finding the judge's uses."""
+    src = _strip_comments_js(_WORKFLOW_JS.read_text(encoding="utf-8"))
+    marker = "RUBRIC_TEXT"
+    assert marker in src
+    stage1 = src.split("Stage 2")[0] if "Stage 2" in src else src.split(marker)[0]
+    for field in _ANSWER_KEY_FIELDS:
+        assert f"c.{field}" not in stage1, (
+            f"answer-key field `{field}` reaches the blind-run prompt — this fails nothing at "
+            f"runtime, it just inflates every score")
+
+
+def test_modeb_sends_only_the_blind_prompt_to_the_harness():
+    """`_process_case` passes `case["blind_prompt"]` to `claude -p` verbatim. Nothing else from the
+    case object may reach that argv."""
+    src = _MODEB.read_text(encoding="utf-8")
+    for field in _ANSWER_KEY_FIELDS:
+        assert f'case["{field}"]' not in src and f"case.get('{field}')" not in src \
+            and f'case.get("{field}")' not in src, f"mode B touches the answer-key field `{field}`"
+    assert 'case["blind_prompt"]' in src, "the blind prompt is what mode B is supposed to send"
+
+
+def test_the_data_timing_note_rides_inside_blind_prompt_so_both_modes_get_it():
+    """It used to live in the workflow's six-step wrapper only. Mode B passes `blind_prompt` to
+    `claude -p` with no wrapper at all, so anything stated only in the wrapper reached half the
+    runs — and the half it missed is the high-fidelity one."""
+    for c in _sample(12, 7):
+        assert "Data note:" in c["blind_prompt"], c["ticker"]
+        assert "AS OF that date" in c["blind_prompt"]
+    js = _strip_comments_js(_WORKFLOW_JS.read_text(encoding="utf-8"))
+    assert "Data timing:" not in js, "the wrapper must not restate it — one source, not two"
