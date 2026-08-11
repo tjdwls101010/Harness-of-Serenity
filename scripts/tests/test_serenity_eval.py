@@ -526,3 +526,30 @@ def test_a_missing_label_file_is_not_an_error(tmp_path):
     p = _run("sample", "--n", "12", "--seed", "7", "--no-network",
              "--archetype-labels", str(tmp_path / "nope.json"))
     assert json.loads(p.stdout)["meta"]["archetype_labeled"] == 12
+
+
+def test_an_excluded_case_never_enters_the_sample(tmp_path, sample25):
+    """A post that is not a scoreable single-name thesis (a ticker list, a table of daily moves, a
+    follower-milestone note) still has a tagged ticker and clears the length filter, so nothing
+    stopped it. The blind prompt then asks "what's your read on TICKER?" and that post becomes the
+    answer key — a guaranteed miss on every rubric row for reasons unrelated to the harness. A low
+    score that means nothing is worse than a missing case, because it looks like a finding."""
+    victim = next(c["id"] for c in sample25 if not c.get("gold"))
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {}, "excluded": [victim]}), encoding="utf-8")
+    out = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network",
+                          "--archetype-labels", str(lf)).stdout)
+    assert victim not in {c["id"] for c in out["cases"]}
+    assert out["meta"]["resolution"]["excluded_not_a_thesis"] >= 1
+    assert out["meta"]["n"] == 25, "an exclusion must be back-filled, not left as a hole"
+
+
+def test_exclusion_cannot_remove_a_gold_case(tmp_path, gold):
+    """The curated floor is hand-picked and its archetype spread is the whole point. Exclusion is a
+    filter on the RANDOM draw; letting it reach the floor would silently empty an archetype."""
+    gid = gold["cases"][0]["id"]
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {}, "excluded": [gid]}), encoding="utf-8")
+    out = json.loads(_run("sample", "--n", "12", "--seed", "7", "--no-network",
+                          "--archetype-labels", str(lf)).stdout)
+    assert gid in {c["id"] for c in out["cases"]}

@@ -251,7 +251,7 @@ def _load_archetype_labels(path: str, vocab: set) -> dict:
 	that case from the chokepoint rows, which is the failure the whole archetype mechanism exists to
 	prevent."""
 	if not os.path.isfile(path):
-		return {}
+		return {}, set()
 	with open(path, encoding="utf-8") as fh:
 		data = json.load(fh) or {}
 	labels = data.get("labels") or {}
@@ -260,7 +260,7 @@ def _load_archetype_labels(path: str, vocab: set) -> dict:
 		print(f"error: archetype labels outside the declared vocabulary in {path}: "
 			  f"{', '.join(bad[:10])}", file=sys.stderr)
 		sys.exit(2)
-	return labels
+	return labels, set(data.get("excluded") or [])
 
 
 def _load_resolution_cache(path: str) -> dict:
@@ -453,12 +453,13 @@ def cmd_sample(args) -> None:
 			  f"{', '.join(gold_missing)}", file=sys.stderr)
 		sys.exit(2)
 
-	labels = _load_archetype_labels(args.archetype_labels, vocab) if vocab else {}
+	labels, excluded = _load_archetype_labels(args.archetype_labels, vocab) if vocab else ({}, set())
 
 	# Substantive single-name theses only: a tagged ticker, real length, a first-party post/subscriber
 	# (not a reply), and a resolvable primary ticker.
 	pool = []
 	disclaimed = 0
+	skipped_excluded = 0
 	for r in rows:
 		if r.get("type") not in ("post", "subscriber"):
 			continue
@@ -472,6 +473,14 @@ def cmd_sample(args) -> None:
 			continue
 		if _is_disclaimed(ticker, content):
 			disclaimed += 1
+			continue
+		if str(r.get("id")) in excluded:
+			# Not a scoreable single-name thesis, decided once during the freeze pass. The blind
+			# prompt asks "what's your read on TICKER?" and this post becomes the answer key — so a
+			# ticker list, a table of daily moves, or a research-in-progress scan yields a
+			# guaranteed miss on every rubric row for reasons that have nothing to do with the
+			# harness. That is measuring nothing, dressed as a low score.
+			skipped_excluded += 1
 			continue
 		rid = str(r.get("id"))
 		pool.append({
@@ -570,6 +579,7 @@ def cmd_sample(args) -> None:
 			"resolution": {
 				"rejected": rejected,
 				"disclaimed_skipped": disclaimed,
+				"excluded_not_a_thesis": skipped_excluded,
 				"cache": os.path.relpath(args.resolution_cache, os.path.join(_HERE, os.pardir)),
 				"network": not args.no_network,
 			},
