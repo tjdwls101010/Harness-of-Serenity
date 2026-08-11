@@ -251,7 +251,7 @@ def _load_archetype_labels(path: str, vocab: set) -> dict:
 	that case from the chokepoint rows, which is the failure the whole archetype mechanism exists to
 	prevent."""
 	if not os.path.isfile(path):
-		return {}, set()
+		return {}, set(), {}
 	with open(path, encoding="utf-8") as fh:
 		data = json.load(fh) or {}
 	labels = data.get("labels") or {}
@@ -260,7 +260,7 @@ def _load_archetype_labels(path: str, vocab: set) -> dict:
 		print(f"error: archetype labels outside the declared vocabulary in {path}: "
 			  f"{', '.join(bad[:10])}", file=sys.stderr)
 		sys.exit(2)
-	return labels, set(data.get("excluded") or [])
+	return labels, set(data.get("excluded") or []), (data.get("subjects") or {})
 
 
 def _load_resolution_cache(path: str) -> dict:
@@ -458,7 +458,8 @@ def cmd_sample(args) -> None:
 			  f"{', '.join(gold_missing)}", file=sys.stderr)
 		sys.exit(2)
 
-	labels, excluded = _load_archetype_labels(args.archetype_labels, vocab) if vocab else ({}, set())
+	labels, excluded, subjects = (_load_archetype_labels(args.archetype_labels, vocab)
+							 if vocab else ({}, set(), {}))
 
 	# Substantive single-name theses only: a tagged ticker, real length, a first-party post/subscriber
 	# (not a reply), and a resolvable primary ticker.
@@ -497,7 +498,11 @@ def cmd_sample(args) -> None:
 		rid = str(r.get("id"))
 		pool.append({
 			"id": r.get("id"),
-			"ticker": ticker,
+			# A pinned subject, where the freeze pass found the thesis argues a DIFFERENT named
+			# company than the one it is tagged with. Same fix the curated twelve got by hand; the
+			# random remainder never had it, so 19% of cases asked about the wrong company.
+			"ticker": subjects.get(rid, ticker),
+			"subject_pinned": rid in subjects,
 			"date": r.get("created_at"),
 			"type": r.get("type"),
 			"entry_type": _entry_type(content),

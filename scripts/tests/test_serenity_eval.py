@@ -652,3 +652,28 @@ def test_no_gold_still_honours_labels_and_exclusions():
     assert meta["gold_forced"] == 0
     assert meta["archetype_labeled"] > 0, "labels must still apply without the gold floor"
     assert meta["resolution"]["excluded_not_a_thesis"] > 0, "exclusions must still apply"
+
+
+def test_a_resubjected_case_asks_about_the_company_its_thesis_argues(tmp_path):
+    """`_primary_ticker` takes the first regex-valid tag — tagging order, not relevance. The curated
+    twelve were pinned by hand; the remainder never was, and a subject audit found 19% of random
+    cases asked about the wrong company (a thesis arguing SIVE filed under AMD, one arguing LITE
+    filed under GOOGL). Neither the labelling pass nor the triage caught it: triage asked whether
+    the POST is a scoreable thesis, never whether the SUBJECT is right."""
+    cases = _sample(100, 7, "--only-labeled")
+    pinned = [c for c in cases if c.get("subject_pinned")]
+    assert pinned, "the committed label file carries subject overrides; none reached the sample"
+    for c in pinned:
+        assert c["ticker"] in c["blind_prompt"], "the pin must reach the question actually asked"
+
+
+def test_a_resubject_target_that_cannot_resolve_is_excluded_not_pinned(gold):
+    """Four of the six re-subject targets were foreign codes (7853, 3363, P4O) or unresolvable
+    (SIVE). Re-pointing a case at a ticker the pipeline cannot load would swap a wrong-company
+    question for a no-data one — the same 'measures nothing' failure in a different costume."""
+    lab = json.loads((SCRIPTS_DIR / "eval" / "archetype_labels.json").read_text(encoding="utf-8"))
+    cache = json.loads((SCRIPTS_DIR / "eval" / "ticker_resolution_cache.json").read_text())["tickers"]
+    for cid, sub in (lab.get("subjects") or {}).items():
+        assert cid not in set(lab.get("excluded") or []), f"{cid} is both pinned and excluded"
+        entry = cache.get(sub)
+        assert entry is None or entry.get("ok"), f"pinned subject {sub} does not resolve"
