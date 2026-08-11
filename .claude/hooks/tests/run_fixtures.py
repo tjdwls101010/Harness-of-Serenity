@@ -8,8 +8,21 @@ This is the durable, dependency-free re-runner: it pipes each fixture's JSON to 
 harness-creator tool does per file —
     test_hook.py --command .claude/hooks/<hook>.py --event <Event> --input <fixture>.json
 — but without needing that tool on PATH, so the suite stays runnable from any checkout. See README.md
-for the per-fixture expected outcomes. Resolves paths relative to itself and runs from the repo root
-so verdict_gate's Saved:-folder check sees the committed sessions/990101.hook-fixture scaffolding.
+for the per-fixture expected outcomes.
+
+verdict_gate's Saved:-mark branch resolves a session folder against CLAUDE_PROJECT_DIR, so the suite
+points that variable at its own fixtures/ sandbox and the scaffolding lives there rather than in
+sessions/. It is set EXPLICITLY rather than left to the hook's `or os.getcwd()` fallback, because
+the fallback only applies when the variable is unset: a terminal run would pass while every real
+SessionStart — where Claude Code sets it to the repo root — would fail against a sandbox that isn't
+there. Verify any change to this both ways.
+
+The scaffolding sits here and not under sessions/ because sessions/ is documented as real archived
+analysis. Debris there invites a tidy-up, and it got one: both folders were deleted from the working
+tree, three fixtures went red, and validate reported green throughout. A comment saying "do not
+delete" is the weakest possible guard — it is read by nobody at the moment of deletion. Scaffolding
+that is structurally distinguishable from real output cannot be swept by someone doing the right
+thing.
 """
 import json
 import os
@@ -19,6 +32,7 @@ import sys
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 HOOKS_DIR = os.path.dirname(TESTS_DIR)
 ROOT = os.path.dirname(os.path.dirname(HOOKS_DIR))
+SANDBOX = os.path.join(TESTS_DIR, "fixtures")
 VG = os.path.join(HOOKS_DIR, "verdict_gate.py")
 ED = os.path.join(HOOKS_DIR, "evidence_discipline.py")
 
@@ -82,9 +96,8 @@ def main():
     fails = 0
     for fixture, hook, check in CASES:
         payload = open(os.path.join(TESTS_DIR, fixture + ".json"), encoding="utf-8").read()
-        # Run from ROOT so the hook's cwd-fallback (when CLAUDE_PROJECT_DIR is unset) resolves
-        # sessions/ against the repo root, matching production where CLAUDE_PROJECT_DIR is set there.
         p = subprocess.run([sys.executable, hook], input=payload, cwd=ROOT,
+                           env={**os.environ, "CLAUDE_PROJECT_DIR": SANDBOX},
                            capture_output=True, text=True)
         err = check(p.stdout)
         if err:

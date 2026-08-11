@@ -268,18 +268,21 @@ A fixture is the exact stdin payload the hook receives, and the runner asserts o
 Cover the cashtag, Korean, English-phrase, and macro firing cases; the meta suppression cases; the
 anchor override; a non-market control; and one pinning the session-retrieval line in the reminder.
 
-The last two `verdict_gate` fixtures depend on real committed directories:
+The `Saved:`-mark `verdict_gate` fixtures depend on real committed directories, which live in the
+suite's own sandbox at `.claude/hooks/tests/fixtures/sessions/`:
 
-- `sessions/990101.hook-fixture/FIXT.md` — a folder that **does** contain a `.md`
-- `sessions/990102.hook-empty/.gitkeep` — a folder that deliberately contains **no** `.md`
-- `sessions/990199.hook-missing/` — referenced but deliberately absent
+- `990101.hook-fixture/FIXT.md` — a folder that **does** contain a `.md`
+- `990102.hook-empty/.gitkeep` — a folder that deliberately contains **no** `.md`
+- `990199.hook-missing/` — referenced but deliberately absent
 
-The 9901xx dates (1999) make them obviously non-real and sort them out of the way. **Do not add a
-`.md` to `990102.hook-empty`** — that would silently stop the empty-folder fixture from testing
-what it claims.
+The 9901xx dates (1999) make them obviously non-real. **Do not add a `.md` to `990102.hook-empty`**
+— that would silently stop the empty-folder fixture from testing what it claims.
 
-The runner must execute with the repository root as its working directory, since `verdict_gate`
-resolves session paths relative to it.
+`run_fixtures.py` sets `CLAUDE_PROJECT_DIR` to that sandbox explicitly, rather than relying on
+`verdict_gate`'s `or os.getcwd()` fallback. The fallback only applies when the variable is unset, so
+depending on it would pass in a terminal and fail at every real SessionStart — where Claude Code
+sets the variable to the repo root. Verify any change to the runner with the variable both unset and
+set.
 
 ## Adding a hook
 

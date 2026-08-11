@@ -22,10 +22,12 @@ test_hook.py --command .claude/hooks/evidence_discipline.py --event UserPromptSu
 ```
 
 (`test_hook.py` ships with the harness-creator skill: `~/.claude/skills/harness-creator/scripts/test_hook.py`.)
-Run from the repo root. `verdict_gate.py`'s `Saved:`-mark branch resolves the archive folder against
-`$CLAUDE_PROJECT_DIR` (set by Claude Code in production) and falls back to the current directory — so the
-committed `sessions/990101.hook-fixture/` (holds a `.md`) and `sessions/990102.hook-empty/` (holds none)
-scaffolding only lines up when the tool is invoked from the repo root. Both hook scripts must be
+`verdict_gate.py`'s `Saved:`-mark branch resolves the archive folder against `$CLAUDE_PROJECT_DIR`
+(set by Claude Code in production), falling back to the current directory. The scaffolding it resolves
+against — `990101.hook-fixture/` (holds a `.md`) and `990102.hook-empty/` (holds none) — lives in this
+suite's own sandbox at `fixtures/sessions/`, so for the `--command` form above, point
+`CLAUDE_PROJECT_DIR` at `.claude/hooks/tests/fixtures`. `run_fixtures.py` does that for you.
+Both hook scripts must be
 executable (`chmod +x`) for the `--command` form, since it execs them via their shebang; in production
 `settings.json` invokes them through the venv python explicitly, so the bit is irrelevant there.
 
