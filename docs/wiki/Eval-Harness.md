@@ -61,26 +61,47 @@ $PY scripts/serenity_eval.py report --results scored.json > eval-report.md
 
 | Flag | Default | Effect |
 | --- | --- | --- |
-| `--n` | `8` | Number of cases |
+| `--n` | `8` | Number of cases (the twelve gold cases are a floor, not part of the count) |
 | `--seed` | `7` | Same seed → same cases |
 | `--min-len` | `400` | Minimum thesis length in characters |
+| `--gold` | `scripts/eval/gold_set.json` | The curated, archetype-labeled cases force-included first |
+| `--no-gold` | off | Random draw only — leaves the sample archetype-blind |
+| `--resolution-cache` | `scripts/eval/ticker_resolution_cache.json` | Committed cache of resolution answers |
+| `--no-network` | off | Resolve from the cache only; a miss drops the candidate and is reported |
 
-Eligibility: type is `post` or `subscriber` (replies excluded), length clears `--min-len`, and a
-primary ticker is resolvable.
+Sampling happens in two passes. **The twelve curated gold cases are force-included first**, then
+the remainder of `--n` is filled from the seeded random draw. That ordering is what guarantees an
+archetype floor: the DB carries no archetype labels for the general pool, so the random half cannot
+be stratified on that axis, and before the floor existed only one of the twelve ever appeared in an
+n=25 draw — leaving the two chokepoint-scoped rubric rows with an in-scope N of whatever chance
+supplied.
 
-Cases are bucketed by **entry type** — `fear_dip`, `event`, or `discovery` — via a keyword
-heuristic, then drawn round-robin across buckets, preferring deeper theses and avoiding ticker
-repeats. Seeding means the same seed reproduces the same cases exactly (a true before/after) while
-a different seed draws a different subset of comparably deep theses (broader coverage across
-rounds).
+For the random remainder, eligibility is: type `post` or `subscriber` (replies excluded), length
+clears `--min-len`, a primary ticker exists, the thesis does not *disclaim* that ticker, and the
+ticker **resolves** to a real security. Resolution is `marketCap` or `sector` non-null, plus an
+explicit ETF branch — both fields are null for an ETF by construction, so the naive predicate would
+reject every one. Gold cases bypass the gate entirely; it exists to keep unresolvable garbage out
+of the random draw, not to second-guess a hand-picked case.
 
-Each case carries a `blind_prompt` that reconstructs the *situation* — the ticker, the date, the
-setup — with the conclusion removed, plus `thesis_text`, which is the answer key.
+Candidates are then bucketed by **entry type** — `fear_dip`, `event`, `discovery`, `ranking` — via
+a keyword heuristic, drawn round-robin, preferring deeper theses and avoiding ticker repeats. Gold
+cases pin their own `entry_type` where the heuristic mis-frames them, because that field selects
+the prompt template and therefore decides what question each case actually asks.
 
-> The sampler's own metadata states an important honesty caveat: the DB carries no archetype
-> labels, so it **cannot** stratify by archetype — naming the archetype is precisely what is being
-> tested, so the harness does it, not the sampler. A skew in the entry-type distribution reflects
-> the corpus, not a silent cap.
+Each case carries a `blind_prompt` reconstructing the *situation* — ticker, date, setup — with the
+conclusion removed, plus the answer key: `thesis_text`, and for a gold case `archetype`,
+`gold_label` and `gold_tests`. **All of those go to the judge only.** A leak into `blind_prompt`
+would fail nothing; it would quietly inflate every score, which is why it is asserted per case in
+`scripts/tests/test_serenity_eval.py`.
+
+`archetype` is persisted at sample time rather than re-derived by the judge each pass. That is what
+stops a borderline case from flipping `n/a`↔`0` between two scorings of the *identical* answer — a
+false regression with zero underlying change, which no increase in n removes.
+
+> Resolution answers are cached to a committed file. That is what makes a sample reproducible on a
+> fresh clone with the network down, and what stops its composition from depending on yfinance's
+> mood that afternoon. Entries never expire on their own: a ticker that resolved once does not stop
+> being a real company, and an automatic refresh would reintroduce the drift the cache removes.
 
 ### Step 2 — Blind run and judge
 
@@ -102,11 +123,29 @@ rubric, the hidden `thesis_text`, and the stage-one answer, and requires a struc
 load the skill — but that is a reconstruction of what the hooks would have injected, not the real
 thing.
 
+That caveat costs less than it appears to. **No hook checks archetype naming, chain depth,
+second-order actors, or priced-in decomposition** — `verdict_gate` touches only the `Lens:` token,
+the Downsides/falsifier phrasing, and the `Saved:` mark. So routing those four doctrine items
+through the expensive hooks-included mode buys zero extra fidelity, which is the whole argument for
+running mode A at high n and mode B at low n rather than one uniform pass.
+
 **Mode B — `claude -p` per case (full harness, slower):**
 
-Blind-run each case as a fresh top-level session in the project directory, then judge. Slower and
-more expensive, but it is the faithful measure — and the only valid one when a hook's behavior is
-what you are checking.
+```bash
+scripts/.venv/bin/python scripts/eval/modeb_runner.py --cases cases.json --out answers.json
+```
+
+Each case runs in its own throwaway git worktree with `CLAUDE_PROJECT_DIR` pointed at it. That
+isolation is not optional: mode B produces real verdicts, and CLAUDE.md's archive rule plus
+`verdict_gate`'s `Saved:` nudge push every one of them toward writing into the **real** `sessions/`
+and appending to the **real** `INDEX.md`. Parallelise for wall-clock and two runs interleave on the
+same index. The runner snapshots the real `sessions/` before and after and fails loudly if anything
+under it changed; `--dry-run` exercises the entire isolation path without spending a token.
+
+> A bare worktree is not enough. `scripts/.venv` is gitignored with zero tracked files, so a
+> worktree has no interpreter and every `analyze` call inside it fails — producing answers built on
+> no data at all. The runner symlinks the venv, and verifies it by *executing* the interpreter
+> inside the worktree rather than checking that the link exists.
 
 ### Step 3 — The rubric
 
@@ -127,14 +166,39 @@ schema so `report` can aggregate either.
 Scoring is 1, 0, or `n/a`; the reproduction rate is the mean of in-scope binary items with `n/a`
 excluded.
 
-**Scoping matters.** The two chokepoint-only items are skipped for disruption and evolution names.
-A disruptor legitimately has no recursive bottom hop, and scoring it there would manufacture a
-miss — inflating the apparent failure rate and pointing doctrine work at a non-problem.
+**Scoping matters, and it is not the judge's call.** The two chokepoint-only items are skipped for
+disruption and evolution names — a disruptor legitimately has no recursive bottom hop, and scoring
+it there manufactures a miss, inflating the failure rate and pointing doctrine work at a
+non-problem. `report` applies that split **mechanically** from each case's persisted `archetype`.
+The judge is told explicitly not to re-derive it, because a judge re-deciding scope from
+unstructured text on every pass is how the identical answer scored differently twice.
+
+**Two items are scored by the production hook, not by the judge.** `lens_run` and
+`bear_and_falsifier` are exactly what `verdict_gate` already checks, so `report` runs the live hook
+over each answer via `verdict_gate.py --explain` and lets its verdict override the judge's. A judge
+can score `lens_run = 1` on an answer the real hook would have blocked; that measures the judge.
+Sharing the hook itself — rather than extracting its patterns into a module both sides import —
+means the two cannot drift, and the hook's own fixture suite regression-covers the eval's oracle for
+free. Where the hook returns `null` for a check it did not apply (a macro-only answer names no
+company to run a driver line on), that maps to `n/a`, never to 0.
 
 ### Step 4 — The report
 
-`report` aggregates into markdown: an overall reproduction rate, a per-move table, a per-case grid,
-and — the part that matters — a **doctrine deltas** section.
+`report` aggregates into markdown: a pooled reproduction rate, a per-move table, an **instrument
+health** block, a per-case grid, a **doctrine deltas** section, and a plain statement of what the
+run can and cannot claim.
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--n-floor` | `12` | Below this many in-scope cases, print "insufficient n" instead of a percentage |
+| `--no-hook` | off | Skip the mechanical pre-pass and use judge scores for the two hook-owned items |
+
+**Read the instrument-health block first.** It reports how many cases the live hook actually scored,
+how often the hook and the judge disagreed, and how many cases lack an archetype label. If it says
+the mechanical pre-pass is *unavailable*, every number below it is a weaker measurement than the
+report normally makes — a `verdict_gate.py` predating `--explain` ignores argv and prints ordinary
+hook output, which is valid JSON, so the contract's own key is demanded rather than a successful
+parse.
 
 ## The feedback rule
 
@@ -179,14 +243,27 @@ improvement or a regression.
 
 Some honesty about what a reproduction rate is and is not.
 
-- **Small n.** Runs are typically 6–8 cases. Differences of a few percentage points are noise. The
-  per-move breakdown is more informative than the headline number.
+- **The n you need is larger than the n you will run.** At α = 0.05 two-sided and 80% power,
+  detecting a 50%→70% shift needs ≈90 in-scope cases; 60%→90% needs ≈29; only a ≈40-point swing
+  drops to ≈20. This is why per-move percentages are suppressed below `--n-floor` and why the
+  report states its own limits on every run: the previous measurement (n=6, 72%→70%) was called a
+  single stochastic judge flip by its own authors and still got quoted afterwards.
 - **A judge is a model.** Scoring is an LLM comparing two texts against a rubric. It is
-  reproducible in structure, not in the sense that two judges would agree perfectly.
+  reproducible in structure, not in the sense that two judges would agree perfectly — which is why
+  the two items a deterministic hook can score are taken away from the judge entirely, and why the
+  hook/judge disagreement count is printed rather than hidden.
 - **The corpus is one analyst.** It measures reproduction of one method, not analytical quality in
   general.
+- **It measures method, not direction.** These theses are months old and the pipeline loads current
+  data. If a setup has since resolved and the harness therefore reaches a *different* verdict, that
+  is a pass on every item whose method ran properly.
 - **It is not a backtest.** Nothing here measures whether the method makes money. No performance
   claim is made anywhere in this repository, and the eval provides no basis for one.
+
+What the design *can* claim, stated plainly because the report prints it too: gross regressions,
+the pooled cross-move number as a coarse dashboard reading, and a running trend across successive
+doctrine edits. A per-move before/after at any n this instrument will realistically run is not on
+that list.
 
 What it is genuinely good for: catching the specific failure where a harness produces
 correctly-shaped output that skipped the moves carrying the insight. That failure is invisible to
