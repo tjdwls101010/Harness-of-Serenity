@@ -54,6 +54,7 @@ def _checks(ev):
 	rev_kf = _num(kf.get("totalRevenue"))
 	debt = _num(dc.get("total_debt"))
 	rev_dc = _num(dc.get("total_revenue"))
+	bs_cash = _num(dc.get("cash_and_equivalents"))
 
 	# 1. MC == price x shares (the strongest collision / stale tripwire)
 	if mc and price and shares:
@@ -106,15 +107,26 @@ def _checks(ev):
 				"read": "EV doesn't reconcile to MC + total_debt - cash; check which cash line was used before trusting EV/Rev.",
 			})
 
-	# 6. Two revenue figures diverge (informational — pick the denominator deliberately)
+	# 6. Two revenue figures diverge (informational — pick the denominator deliberately). Tiered
+	#    the same way check #1 is: below the floor, timing alone explains part of the gap for a
+	#    growing company, since dc.total_revenue is the last completed fiscal year while
+	#    kf.totalRevenue (TTM) can run up to a year newer. The ceiling on "timing alone": a company
+	#    whose revenue exactly doubles YoY (rare, hypergrowth-tier) viewed at maximum staleness —
+	#    TTM = 3 quarters of the new year + 1 shared quarter, annual = 4 quarters of the old year —
+	#    produces EXACTLY a 75% gap through timing alone (e.g. four quarters of 100 each vs the new
+	#    year's 100+200+200+200: TTM 700 vs annual 400 -> 75%). Past 75%, timing can no longer
+	#    explain it even for a name doubling revenue YoY — the two figures are more likely not the
+	#    same metric on a different basis at all, i.e. check #1's collision/stale class (N9). The
+	#    16th case: a small-cap where a 142%-scale gap would NOT look obviously wrong just from
+	#    eyeballing the company's size — tiering by ratio, never by scale, is what catches it anyway.
 	if rev_kf and rev_dc:
 		r = _rel(rev_kf, rev_dc)
 		if r is not None and r > 0.12:
 			flags.append({
-				"severity": "note",
+				"severity": "HARD" if r > 0.75 else "note",
 				"check": "revenue figures (key_facts TTM vs debt_and_cash annual)",
 				"observed": f"key_facts {_money(rev_kf)} vs debt_and_cash {_money(rev_dc)} ({r * 100:.0f}% apart)",
-				"read": "two revenue bases differ (TTM vs annual) — divide each ratio by the one the lens actually calls for, deliberately.",
+				"read": "two revenue bases differ (TTM vs annual) — divide each ratio by the one the lens actually calls for, deliberately; past a 75% gap that's beyond plausible timing drift even for a hypergrowth name, so it's likelier a stale/mis-tagged/collision figure (N9) — reconcile which one is real before dividing by either.",
 			})
 
 	# 7. Balance identity: Cash + Inventory <= Total Assets (both are line items WITHIN assets).
@@ -122,7 +134,6 @@ def _checks(ev):
 	#    the error IS the mispricing (the canonical $82M-phantom-inventory data-error catch).
 	ta = _num(dc.get("total_assets"))
 	inv = _num(dc.get("inventory"))
-	bs_cash = _num(dc.get("cash_and_equivalents"))
 	if ta and inv is not None and bs_cash is not None and inv > 0:
 		room = ta - bs_cash
 		if inv > room * 1.02:
@@ -131,6 +142,33 @@ def _checks(ev):
 				"check": "balance identity: Inventory <= Total Assets - Cash",
 				"observed": f"inventory {_money(inv)} > assets-minus-cash room {_money(room)} (TA {_money(ta)} - cash {_money(bs_cash)})",
 				"read": "inventory exceeds the room left after cash on the balance sheet — mathematically impossible -> a mis-tagged / ticker-collision number (N9: the data error IS the mispricing). Reconcile via the serenity-filings subagent before tagging an archetype.",
+			})
+
+	# 8. Two cash figures diverge (informational — same shape as check #6, for cash instead of
+	#    revenue). Check #5's `cash` is kf.totalCash — Yahoo's own info-API aggregate, the same
+	#    source as the marketCap/enterpriseValue it reconciles against there. Check #7's `bs_cash`
+	#    is dc.cash_and_equivalents — parsed off the raw balance sheet, the same source as the
+	#    total_assets/inventory it reconciles against there. Each is internally consistent with ITS
+	#    OWN check's other inputs, which is why neither is simply switched to the other's field:
+	#    doing that would just relocate the cross-source mismatch into whichever check lost its
+	#    matching source. Unlike check #6's two revenue figures (both meant to be the same fiscal
+	#    concept, give or take timing), "total cash" and "cash and equivalents" are DEFINITIONALLY
+	#    allowed to differ — totalCash routinely folds in short/long-term investments a treasury-
+	#    heavy company holds, so a large gap is normal at megacap scale, not evidence of an error.
+	#    There is no timing-style ceiling to derive here the way check #6 has one; 0.20 is just a
+	#    floor set above ordinary pull-timing/rounding noise between the two data sources, low
+	#    enough to still surface the common case (any company running a real investment portfolio)
+	#    where the two numbers mean visibly different things. That is exactly why this stays a soft
+	#    note unconditionally, never HARD: it exists so a downstream cash-based read (net cash, cash
+	#    runway) picks its field on purpose, not by whichever of #5/#7 happened to fire.
+	if cash and bs_cash:
+		r = _rel(cash, bs_cash)
+		if r is not None and r > 0.20:
+			flags.append({
+				"severity": "soft",
+				"check": "cash figures (key_facts totalCash vs debt_and_cash cash_and_equivalents)",
+				"observed": f"key_facts {_money(cash)} vs debt_and_cash {_money(bs_cash)} ({r * 100:.0f}% apart)",
+				"read": "totalCash (often cash + short/long-term investments) and cash_and_equivalents (balance-sheet line only) are different concepts by definition, not a discrepancy to resolve — confirm which one a cash-based read (net cash, runway) actually means before treating either as THE cash figure.",
 			})
 
 	return flags

@@ -1,0 +1,20 @@
+{
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "scripts/.venv/bin/python scripts/serenity_pipeline.py analyze AAPL"
+  },
+  "tool_response": {
+    "stdout": "{\"key_facts\": {\"totalRevenue\": 466822987776}, \"fundamental_inputs\": {\"debt_and_cash\": {\"total_revenue\": 416161000000}}}"
+  },
+  "_expect": {
+    "contains": [
+      "[data-integrity]",
+      "[note]",
+      "revenue figures",
+      "12%"
+    ],
+    "excludes": [
+      "[HARD]"
+    ]
+  }
+}

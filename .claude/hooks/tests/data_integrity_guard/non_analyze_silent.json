@@ -1,0 +1,12 @@
+{
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "ls -la scripts/"
+  },
+  "tool_response": {
+    "stdout": "total 42\ndrwxr-xr-x  12 user  staff   384 Aug 11 10:00 .\n"
+  },
+  "_expect": {
+    "silent": true
+  }
+}

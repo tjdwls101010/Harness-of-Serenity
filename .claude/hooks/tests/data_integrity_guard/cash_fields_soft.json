@@ -1,0 +1,19 @@
+{
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "scripts/.venv/bin/python scripts/serenity_pipeline.py analyze TEST"
+  },
+  "tool_response": {
+    "stdout": "{\"key_facts\": {\"totalCash\": 50000000000}, \"fundamental_inputs\": {\"debt_and_cash\": {\"cash_and_equivalents\": 20000000000}}}"
+  },
+  "_expect": {
+    "contains": [
+      "[data-integrity]",
+      "[soft]",
+      "cash figures"
+    ],
+    "excludes": [
+      "[HARD]"
+    ]
+  }
+}
