@@ -677,3 +677,19 @@ def test_a_resubject_target_that_cannot_resolve_is_excluded_not_pinned(gold):
         assert cid not in set(lab.get("excluded") or []), f"{cid} is both pinned and excluded"
         entry = cache.get(sub)
         assert entry is None or entry.get("ok"), f"pinned subject {sub} does not resolve"
+
+
+def test_cases_lost_between_sampling_and_scoring_are_reported(tmp_path):
+    """The workflow guards the transcription step; nothing guarded the far end. A blind run that
+    errors or a judge whose result is dropped simply shrinks the file, and every rate is then
+    computed over the survivors while the header reports the smaller count as if it were the whole
+    sample."""
+    p = _scored(tmp_path, [_case("AXTI", "chokepoint", dict(_FULL))], meta={"n": 5, "seed": 7})
+    out = _run("report", "--results", str(p), "--n-floor", "1", "--no-hook").stdout
+    assert "went missing between sampling and scoring" in out
+    assert "n=5" in out and "has 1" in out
+
+
+def test_a_complete_run_says_nothing_about_missing_cases(tmp_path):
+    p = _scored(tmp_path, [_case("AXTI", "chokepoint", dict(_FULL))], meta={"n": 1, "seed": 7})
+    assert "went missing" not in _run("report", "--results", str(p), "--no-hook").stdout

@@ -850,6 +850,17 @@ def cmd_report(args) -> None:
 	lines.append("")
 
 	lines += ["## Instrument health", ""]
+	declared = (meta or {}).get("n")
+	if isinstance(declared, int) and declared != len(cases):
+		# The sampler recorded how many cases it produced. If fewer arrived here, the run LOST some
+		# between sampling and scoring — a blind run that errored, a judge whose result was dropped —
+		# and every rate below is computed over the survivors while the header cheerfully reports the
+		# smaller count as though it were the whole sample. The workflow guards the transcription
+		# step; nothing guarded the far end until now.
+		lines.append(f"- ⚠ **{declared - len(cases)} case(s) went missing between sampling and "
+					 f"scoring** — the sampler recorded n={declared}, this file has {len(cases)}. "
+					 f"Every number below is over the survivors. Find out what dropped before "
+					 f"comparing this report against another.")
 	if args.no_hook:
 		lines.append("- mechanical pre-pass: **skipped** (`--no-hook`); lens_run and bear_and_falsifier "
 					 "are judge scores only.")
