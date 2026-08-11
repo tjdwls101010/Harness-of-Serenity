@@ -56,13 +56,14 @@ run** — only hard failures exit non-zero.
 | 5 | `pipeline_entry` | `serenity_pipeline` imports and the three command functions are importable |
 | 6 | `evidence_invariants` | **The real regression** — see below |
 | 7 | `macro_sanitizer` | A synthetic poisoned macro payload comes out clean |
-| 8 | `sec_consolidation` | The retired XBRL parser stays unimported and the live SEC fetch ships no classification of its own |
+| 8 | `xbrl_module_boundary` | No `_sec_xbrl` module outside `legacy` has been imported into the active path |
 | 9 | `judgment_boundary` | No module matching `pipeline.legacy` appears in `sys.modules` |
 | 10–11 | `sec_layer:*` | `serenity_filings.py` and the filings agent exist (**soft** — warns, never fails) |
 | 12 | `hooks` | `.claude/settings.json` maps the exact four events to the exact four scripts, and each script file exists |
 | 13 | `agent:serenity-scorecard` | The agent file exists, declares all four required tools, and its body contains the schema sentinels |
 | 14 | `session_archive_doctrine` | `CLAUDE.md` contains the archive section and the `Saved:` token |
 | 15 | `sessions_index` | `sessions/INDEX.md` exists and declares itself verdict-free |
+| 16 | `hook_fixtures` | **The hooks behave** — runs `run_fixtures.py` and adopts its exit code. Check 12 asserts the wiring exists; this asserts it works |
 
 Frontmatter is parsed with a regex rather than a YAML library — a deliberate choice to keep the
 validator dependency-free so it can run before anything is installed.

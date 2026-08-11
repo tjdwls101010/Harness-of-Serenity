@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
 _SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -175,23 +176,62 @@ def _check_macro_sanitizer(checks):
 		"raw gauges kept; regime/risk_level stripped" if ok else f"leaked={leaked} gauges_kept={kept}"))
 
 
-def _check_sec_consolidation(checks):
+def _check_xbrl_module_boundary(checks):
 	"""The filing's disclosure numbers (customer %, geographic %, inventory, purchase obligations)
-	consolidated into the `serenity-filings` subagent. The active pipeline must therefore pull NO
-	in-pipeline XBRL — the brittle `_sec_xbrl` parser is retired to `pipeline/legacy/` — so the
-	live extractor returns an empty filing payload and imports no `_sec_xbrl` into the active path.
-	build_evidence KEEPS the capability to fold a populated filing payload (the golden fixtures
-	exercise it); this check guards only that the LIVE fetch ships none of its own."""
-	from pipeline._fetch import _extract_sec_supply_chain
+	consolidated into the `serenity-filings` subagent, and the brittle `_sec_xbrl` parser retired to
+	`pipeline/legacy/`. This check guards exactly one thing: that no `_sec_xbrl` module outside
+	`legacy` has been imported into the active path.
+
+	It is named for what it guards, which it was not before. It used to also assert that
+	`_extract_sec_supply_chain("AAPL")` returned an empty `xbrl` and an empty `classification` — but
+	that function is an unconditional `return {...empty...}` that ignores its ticker argument, so both
+	conjuncts were True by construction for every possible input while the failure message printed all
+	three as if independently informative.
+
+	The general lesson, worth more than this check: an assertion whose subject is a hardcoded literal
+	tests the source code, not the behavior. It cannot fail, so it cannot inform — and a suite of
+	fifteen checks where one is decorative is worse than fourteen real ones, because the count is what
+	gets quoted as evidence of coverage."""
 	leaked = sorted(m for m in sys.modules if "_sec_xbrl" in m and "legacy" not in m)
-	sc = _extract_sec_supply_chain("AAPL")  # pure stub now — no network
-	data = (sc.get("data") or {})
-	xbrl_empty = not (data.get("xbrl") or {})
-	classification_empty = not (data.get("classification") or {})
-	ok = not leaked and xbrl_empty and classification_empty
-	checks.append(("sec_consolidation", "pass" if ok else "fail",
-		"filing numbers consolidated to subagent; active path pulls no in-pipeline XBRL" if ok
-		else f"active_xbrl_leak={leaked} xbrl_empty={xbrl_empty} classification_empty={classification_empty}"))
+	checks.append(("xbrl_module_boundary", "pass" if not leaked else "fail",
+		"no active-path _sec_xbrl import; filing numbers come from the serenity-filings subagent"
+		if not leaked else f"active_xbrl_leak={leaked}"))
+
+
+def _check_hook_fixtures(checks):
+	"""Run the committed hook fixtures and adopt their exit code.
+
+	This is the check whose absence made every other check untrustworthy. The `hooks` check asserts
+	that four scripts exist on disk and are named in settings.json — existence, not behavior. A hook
+	can be present, correctly wired, and completely broken, and nothing noticed: the suite sat at
+	19/22 while `validate` reported green and `session_status.py`, which is gated on `report.ok`,
+	stayed silent through it.
+
+	Gates on the EXIT CODE, never on parsing "N/M fixtures passed" out of stdout. A hardcoded
+	expected count would rot the moment anyone adds a fixture, and asserting a literal instead of a
+	behavior is the same defect this pass removed from the XBRL boundary check.
+
+	Runs in a subprocess rather than importing the runner, because the runner spawns hooks with a
+	deliberately overridden CLAUDE_PROJECT_DIR and its own cwd; importing it would entangle this
+	process's environment with the suite's."""
+	runner = os.path.join(_ROOT, ".claude", "hooks", "tests", "run_fixtures.py")
+	if not os.path.isfile(runner):
+		checks.append(("hook_fixtures", "fail", "no .claude/hooks/tests/run_fixtures.py — the hook layer has no behavioral guard"))
+		return
+	try:
+		p = subprocess.run([sys.executable, runner], capture_output=True, text=True, timeout=120, cwd=_ROOT)
+	except subprocess.TimeoutExpired:
+		checks.append(("hook_fixtures", "fail", "fixture suite did not finish within 120s"))
+		return
+	except Exception as e:  # noqa: BLE001
+		checks.append(("hook_fixtures", "fail", f"could not run the fixture suite: {type(e).__name__}: {e}"))
+		return
+	tail = [ln for ln in p.stdout.splitlines() if ln.strip()]
+	if p.returncode == 0:
+		checks.append(("hook_fixtures", "pass", tail[-1] if tail else "fixture suite exited 0"))
+	else:
+		failures = "; ".join(ln for ln in tail if ln.startswith("FAIL")) or (p.stderr.strip()[:300] or "no detail")
+		checks.append(("hook_fixtures", "fail", f"{tail[-1] if tail else 'suite failed'} — {failures}"))
 
 
 def _check_reproducibility(checks):
@@ -270,9 +310,9 @@ def cmd_validate(args):
 	_check_evidence_invariants(checks)
 
 	# 4b. Exercise the two layers the golden corpus can't (all fixtures have l1=None): the macro
-	# sanitizer, and the SEC-consolidation boundary (active path pulls no in-pipeline XBRL).
+	# sanitizer, and the XBRL module boundary (active path imports no in-pipeline XBRL parser).
 	_check_macro_sanitizer(checks)
-	_check_sec_consolidation(checks)
+	_check_xbrl_module_boundary(checks)
 
 	# 5. Boundary: the active path must not pull in any legacy (judgment) module
 	leaked = sorted(m for m in sys.modules if "pipeline.legacy" in m)
@@ -325,6 +365,10 @@ def cmd_validate(args):
 
 	# 8. Decision-reproducibility layer wiring (scorecard agent, archive doctrine, retrieval index)
 	_check_reproducibility(checks)
+
+	# 9. The hooks actually BEHAVE — not merely exist. Check 7 above asserts the event-to-script
+	# wiring; this runs every committed fixture and takes the suite's exit code.
+	_check_hook_fixtures(checks)
 
 	hard_fail = [c for c in checks if c[1] == "fail"]
 	report = {

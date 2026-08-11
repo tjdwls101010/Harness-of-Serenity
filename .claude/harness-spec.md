@@ -43,8 +43,9 @@ Serenity's methodology is tacit — it cannot be enumerated "case X → action Y
 
 - `scripts/serenity_harness.py validate` → green; `rankdiff` diffs two `_ranking.md` tier tables deterministically.
 - Hooks: fixtures committed under `.claude/hooks/tests/`, one JSON stdin payload per scenario. Each carries its own `_expect` and lives in a directory named for the hook it exercises, so `run_fixtures.py` discovers both the hook and the assertion — there is no central case list to append to, and README.md documents rather than defines. A fixture without `_expect` fails loudly; a skipped fixture would be indistinguishable from a passing one.
-- Pipeline: `scripts/tests/test_evidence_contract.py` (the fact/judge seam is judgment-free) + a fixture-based `evidence --fixture` smoke.
+- Pipeline: `scripts/tests/test_evidence_contract.py` (the fact/judge seam is judgment-free) + a fixture-based `evidence --fixture` smoke. Run with `scripts/.venv/bin/python -m pytest scripts/tests/ -q`; the venv has been relocated, so its `bin/pip` and `bin/pytest` console scripts carry a dead shebang and everything routes through `-m`.
 - Reproduction: `scripts/serenity_eval.py` — baseline before a doctrine edit, re-run after, compare per-move rates.
+- **The red path is exercised, not assumed** (2026-08-11). A check nobody has watched fail is not a check — this harness reported 15/15 green for as long as its fixture suite sat at 19/22. All four paths were driven deliberately and observed: a hook regex edit (`\bNF[IA]\b` → `\bNFIA\b`) reddens `validate`, exits 1, names the failing fixture, and makes `session_status.py` loud; a validate that crashes without parseable JSON is now loud rather than silent; a fixture with no `_expect` hard-fails rather than skipping; a fixture directory with no matching hook hard-fails. **Re-run this whenever a check is added.** The failure mode being guarded against is not a check that fails wrongly — it is a check that cannot fail at all, which looks identical to a check that passes.
 
 ## Change history
 
