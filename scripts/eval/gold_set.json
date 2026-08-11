@@ -1,0 +1,126 @@
+{
+  "_meta": {
+    "what": "The twelve hand-curated, archetype-labeled validation theses. `serenity_eval.py sample` force-includes every one of these before filling the remainder of --n from the seeded random draw, so a sample can never be archetype-blind.",
+    "why_it_exists": "Verified on `sample --n 25 --seed 7`: only ONE of these twelve appeared in the draw, and it was assigned an entry_type by keyword heuristic that does not correspond to its curated archetype. The sampler stratifies on an entry-type axis orthogonal to archetype, so nothing guaranteed a draw contained a chokepoint case at all — while `recursive_bottom_hop` and `second_order_and_sibling` (scope: chokepoint) are the two rubric rows the harness's own retrospective calls the weakest-reproduced moves. Their in-scope N was whatever a random draw happened to yield, which could be zero.",
+    "provenance": "Derived from `references/db-mining-report.md` section D. That file is gitignored (build-time scaffolding, not published), so this JSON is the committed form. `thesis_text` is deliberately NOT duplicated here — it is read from `data/analysis_Serenity.db` by `id`, which is the single source of truth and is committed.",
+    "LEAKAGE RULE": "`archetype`, `tests`, and `label` are ANSWER KEY. They go to the judge only, exactly like `thesis_text`, and never into a blind_prompt. `tests` is the validated hint that lets a judge score the two hardest chokepoint items against something better than its own reverse-engineering of the prose.",
+    "subject_pin": "`subject` overrides `_primary_ticker` (first regex-valid entry of the DB's `tickers` array). Measured: that heuristic picks the right subject for 10 of these 12; it fails on the AXT InP thesis (tagged NVDA first) and the cycle-stage meta post (tagged MSTR first). Pinning by hand is the point of a curated set. Two alternatives were measured and REJECTED: most-mentioned-in-content scores 8/12, worse, and it degrades the random draw too (it rewrites a Soitec thesis into an NVDA question). So the sampler's own heuristic is left alone and only these two rows are pinned.",
+    "resolution_exemption": "Gold cases bypass the ticker-resolution gate. The gate exists to stop the RANDOM draw from feeding unresolvable garbage (SIVE / XFAB / ASHM / APPL) into a run; it is not there to second-guess a hand-picked case. Two of these do fail a naive `marketCap or sector` check and are kept deliberately: EWY is an ETF (both fields are null BY CONSTRUCTION) and its case tests whether the harness routes an ETF question to `macro` instead of `analyze`; IQE is LSE-listed and its case tests the foreign-winner / US-resolution-ladder move. Dropping them would empty two of the six archetype categories this file exists to guarantee.",
+    "archetype_vocabulary": [
+      "chokepoint",
+      "disruption",
+      "evolution",
+      "falling_knife",
+      "data_error",
+      "macro",
+      "cycle_meta"
+    ],
+    "chokepoint_scope": "Only `archetype: chokepoint` puts `recursive_bottom_hop` and `second_order_and_sibling` in scope. `cmd_report` applies that split mechanically from this field so the judge never re-derives it — a borderline case re-decided per pass can flip n/a<->0 between two scorings of the IDENTICAL answer, which reads as a regression with zero underlying change.",
+    "spread": "4 chokepoint, 2 disruption, 2 evolution, 1 falling_knife, 1 data_error, 1 macro, 1 cycle_meta",
+    "entry_type_pin": "`entry_type` selects the blind-prompt template, so it decides what QUESTION each case asks. The keyword heuristic mis-frames 5 of these 12 — it reads a drop mentioned anywhere in a long thesis as a fear-dip, which turns the AXT InP chokepoint read, both NBIS reads, the SNAP margin-inversion read and the cycle-stage meta post into 'did it sell off?' questions. Pinned here where that happens; absent means the heuristic is right. `ranking` exists for the one meta case none of the three original templates fit — without it that case asks about a fear-dip on AEHR and tests none of the stage-placement-and-sizing it was curated for."
+  },
+  "cases": [
+    {
+      "id": "2004936335702753729",
+      "subject": "AXTI",
+      "subject_pinned": true,
+      "archetype": "chokepoint",
+      "label": "InP purity-tier recursive hop",
+      "tests": "chain-trace to feedstock, demand>supply gate, enabler-material reframe",
+      "entry_type": "discovery"
+    },
+    {
+      "id": "2029219794025644382",
+      "subject": "AAOI",
+      "subject_pinned": false,
+      "archetype": "chokepoint",
+      "label": "chokepoint + content-sizing",
+      "tests": "content×volume÷MC, monetization gate, made-in-America moat"
+    },
+    {
+      "id": "2027318568728273305",
+      "subject": "IQE",
+      "subject_pinned": false,
+      "archetype": "chokepoint",
+      "label": "chokepoint + asset-value turnaround (foreign-listed)",
+      "tests": "transfer-from-winner, survival gate, capacity-optionality, DEDUCED restructuring bet"
+    },
+    {
+      "id": "2016921538780680402",
+      "subject": "CPSH",
+      "subject_pinned": false,
+      "archetype": "chokepoint",
+      "label": "enabler-material, early-cycle",
+      "tests": "stage-1 guess, enabler-material option, defense-floor downside",
+      "entry_type": "discovery"
+    },
+    {
+      "id": "1975205333254447126",
+      "subject": "SNAP",
+      "subject_pinned": false,
+      "archetype": "disruption",
+      "label": "margin-inversion",
+      "tests": "OPEX-flips-to-revenue re-anchor, FCF-multiple valuation",
+      "entry_type": "discovery"
+    },
+    {
+      "id": "2031055797086728366",
+      "subject": "RDDT",
+      "subject_pinned": false,
+      "archetype": "disruption",
+      "label": "catalyst, contrarian",
+      "tests": "catalyst=forward-revenue test, second-order engagement, falsifiable"
+    },
+    {
+      "id": "1995084174223651180",
+      "subject": "NBIS",
+      "subject_pinned": false,
+      "archetype": "evolution",
+      "label": "asset-financed + levered-IRR",
+      "tests": "levered-IRR substitution, normalized peer table, dilution/debt kill",
+      "entry_type": "discovery"
+    },
+    {
+      "id": "1969151544320016527",
+      "subject": "NBIS",
+      "subject_pinned": false,
+      "archetype": "evolution",
+      "label": "strategic-floor + macro stack",
+      "tests": "strategic-backstop floor, funded-de-risking, multi-channel macro→micro",
+      "entry_type": "discovery"
+    },
+    {
+      "id": "2006301094394335399",
+      "subject": "MRVL",
+      "subject_pinned": false,
+      "archetype": "falling_knife",
+      "label": "displacement-headline mechanism check",
+      "tests": "is-headline-bad-math, physics-trumps-rumor, sympathy-vs-real-damage"
+    },
+    {
+      "id": "2009637599661510665",
+      "subject": "VLN",
+      "subject_pinned": false,
+      "archetype": "data_error",
+      "label": "ticker-collision mispricing",
+      "tests": "data-error gotcha, prove-the-math on filing, dilution-cap on warrants"
+    },
+    {
+      "id": "2030667380855083222",
+      "subject": "EWY",
+      "subject_pinned": false,
+      "archetype": "macro",
+      "label": "fear-fade with math (ETF vehicle)",
+      "tests": "prove-the-math fear-dip, narrative-flood-as-tell, KRW second-order, EWY LEAP vehicle"
+    },
+    {
+      "id": "2033763395032519112",
+      "subject": "AEHR",
+      "subject_pinned": true,
+      "archetype": "cycle_meta",
+      "label": "5-stage cycle map + allocation logic",
+      "tests": "can the harness place a name on the right cycle rung and size conviction accordingly?",
+      "entry_type": "ranking"
+    }
+  ]
+}

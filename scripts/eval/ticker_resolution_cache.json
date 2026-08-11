@@ -1,0 +1,123 @@
+{
+  "_meta": {
+    "what": "yfinance resolution answers, cached so `sample` is deterministic and offline-reproducible. Same (n, seed) must yield the same cases or a before/after comparison measures the network, not a doctrine edit.",
+    "refresh": "delete an entry (or the file) to re-resolve it. Entries do not expire on their own: a ticker that resolved once does not stop being a real company, and an automatic refresh would reintroduce exactly the run-to-run drift this file exists to remove."
+  },
+  "tickers": {
+    "AEVA": {
+      "ok": true,
+      "market_cap": 1651329536,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Aeva Technologies, Inc."
+    },
+    "ASTS": {
+      "ok": true,
+      "market_cap": 26687447040,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "AST SpaceMobile, Inc."
+    },
+    "COHR": {
+      "ok": true,
+      "market_cap": 63612125184,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Coherent Corp."
+    },
+    "CRCL": {
+      "ok": true,
+      "market_cap": 18277435392,
+      "sector": "Financial Services",
+      "quote_type": "EQUITY",
+      "name": "Circle Internet Group, Inc."
+    },
+    "GOOGL": {
+      "ok": true,
+      "market_cap": 4372446314496,
+      "sector": "Communication Services",
+      "quote_type": "EQUITY",
+      "name": "Alphabet Inc."
+    },
+    "LASR": {
+      "ok": true,
+      "market_cap": 2942488576,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "nLIGHT, Inc."
+    },
+    "LITE": {
+      "ok": true,
+      "market_cap": 63291080704,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Lumentum Holdings Inc."
+    },
+    "LPK": {
+      "ok": false,
+      "market_cap": null,
+      "sector": null,
+      "quote_type": "ECNQUOTE",
+      "name": null,
+      "reason": "no marketCap/sector (quoteType=ECNQUOTE)"
+    },
+    "LPTH": {
+      "ok": true,
+      "market_cap": 789262848,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "LightPath Technologies, Inc."
+    },
+    "PLTR": {
+      "ok": true,
+      "market_cap": 421087903744,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Palantir Technologies Inc."
+    },
+    "POWL": {
+      "ok": true,
+      "market_cap": 7549555712,
+      "sector": "Industrials",
+      "quote_type": "EQUITY",
+      "name": "Powell Industries, Inc."
+    },
+    "SIVE": {
+      "ok": false,
+      "market_cap": null,
+      "sector": null,
+      "quote_type": "NONE",
+      "name": null,
+      "reason": "no marketCap/sector (quoteType=NONE)"
+    },
+    "UAVS": {
+      "ok": true,
+      "market_cap": 59183092,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "AgEagle Aerial Systems, Inc."
+    },
+    "VIRT": {
+      "ok": true,
+      "market_cap": 4915698688,
+      "sector": "Financial Services",
+      "quote_type": "EQUITY",
+      "name": "Virtu Financial, Inc."
+    },
+    "WOLF": {
+      "ok": true,
+      "market_cap": 1522782464,
+      "sector": "Technology",
+      "quote_type": "EQUITY",
+      "name": "Wolfspeed, Inc."
+    },
+    "XFAB": {
+      "ok": false,
+      "market_cap": null,
+      "sector": null,
+      "quote_type": null,
+      "name": null,
+      "reason": "no marketCap/sector (quoteType=None)"
+    }
+  }
+}

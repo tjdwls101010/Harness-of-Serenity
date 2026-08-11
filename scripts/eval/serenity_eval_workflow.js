@@ -33,6 +33,10 @@ const CASES_SCHEMA = {
         properties: {
           id: { type: 'string' }, ticker: { type: 'string' }, date: { type: 'string' },
           entry_type: { type: 'string' }, blind_prompt: { type: 'string' }, thesis_text: { type: 'string' },
+          // Carried through so `report` can split chokepoint scope mechanically and the judge can
+          // see a gold case's curated hint. Nullable: only the twelve curated cases have them.
+          archetype: { type: ['string', 'null'] }, gold: { type: 'boolean' },
+          gold_tests: { type: ['string', 'null'] },
         },
       },
     },
@@ -79,24 +83,44 @@ const SCORE_SCHEMA = {
 }
 
 const RUBRIC_TEXT = `Score the harness ANSWER against the answer-key THESIS for signature-move reproduction.
-1 = met, 0 = not met, "n/a" = out of scope for this case's archetype (a disruptor/evolution name has no
-recursive-bottom-hop — score n/a there, never 0). Score reproduction of METHOD, not number-match (the
-pipeline loads CURRENT data, so figures will differ from the thesis date — that is expected, not a miss).
+1 = met, 0 = not met, "n/a" = the item does not apply to this answer.
 - archetype_named: named the archetype off the name's economics, no escape to a softer lens.
 - lens_run: ran the valuation lens with driver arithmetic shown, BOTH legs if it forks — not just named,
   not a bare top-down multiple.
-- recursive_bottom_hop: [chokepoint only] traced to the substep UNDER the headline node.
-- second_order_and_sibling: [chokepoint only] a 2nd-order allocation actor AND a chain-sibling ranked.
+- recursive_bottom_hop: traced to the substep UNDER the headline node (bottleneck within a bottleneck).
+- second_order_and_sibling: a 2nd-order allocation actor AND a chain-sibling ranked.
 - bear_and_falsifier: explicit bear case AND a 'breaks if…' falsifier.
 - priced_in_decomposed: named the mispricing gap (what is vs isn't priced), not just consensus multiples.
 - missed_signature_moves: the moves the THESIS made that the ANSWER dropped or weakened (short phrases).
-- notes: one line — same structural insight / weaker version / different-but-defensible.`
+- notes: one line — same structural insight / weaker version / different-but-defensible.
+
+THREE RULES THAT DECIDE MORE SCORES THAN THE ITEMS ABOVE DO:
+1. Score METHOD, never direction or numbers. The pipeline loads CURRENT data and these theses are
+   months old, so figures will differ — expected, not a miss. More importantly: if the setup has since
+   RESOLVED and the harness therefore reaches a different verdict ("already re-rated, look elsewhere"),
+   that is a PASS on every item whose method was run properly. This measures whether his method was
+   reproduced, not whether his call was right.
+2. Do NOT decide whether this case is chokepoint-scoped. That split is applied mechanically downstream
+   from a fixed per-case archetype label. Score recursive_bottom_hop / second_order_and_sibling on their
+   merits and let the aggregator decide whether they count. Re-deciding scope per pass is what let a
+   borderline case flip n/a↔0 between two scorings of the identical answer.
+3. lens_run and bear_and_falsifier are ALSO scored by running the live production hook over this
+   answer, and the hook's verdict overrides yours where you disagree. Score them anyway — the
+   disagreement rate is reported and is itself a measurement of this rubric.`
+
+// 4.7 — PIN the model and stamp it into the output. Without this a before/after separated by weeks
+// could reflect a default-model change rather than the doctrine edit under test, and the confound is
+// unrecoverable after the fact: nothing in the scored JSON records which model produced an answer.
+// Default to the production model, not a cheap one — the eval measures the harness as it actually
+// runs, and scoring a weaker model's answers measures the model.
+const MODEL = (args && args.model) || 'opus'
 
 const scored = await pipeline(
   cases,
-  // Stage 1 — the harness answers BLIND (the thesis is never shown to it). We load the doctrine
-  // EXPLICITLY (Read ./CLAUDE.md + the matching skill, run the pipeline) rather than trust subagent
-  // auto-injection — that's what makes a before/after dedup difference actually register in the score.
+  // Stage 1 — the harness answers BLIND. `thesis_text`, `archetype`, `gold_label` and `gold_tests`
+  // are ALL answer key and none of them may appear here; only `blind_prompt` crosses. We load the
+  // doctrine EXPLICITLY (Read ./CLAUDE.md + the matching skill, run the pipeline) rather than trust
+  // subagent auto-injection — that's what makes a doctrine edit actually register in the score.
   (c) => agent(
     `You are the Serenity harness. Reproduce its method FAITHFULLY on the question below:\n` +
     `1. Read ./CLAUDE.md — that is your operating doctrine (voice, funnel, roots, non-negotiables).\n` +
@@ -107,16 +131,25 @@ const scored = await pipeline(
     `4. Answer fully in-character: TLDR, archetype, the lens RUN with arithmetic (both legs if it forks), ` +
     `winner-gate, cycle stage, a Downsides block + falsifier, rating + vehicle, NFI/NFA.\n\n` +
     `Question:\n${c.blind_prompt}`,
-    { label: `run:${c.ticker}`, phase: 'Blind run' },
+    { label: `run:${c.ticker}`, phase: 'Blind run', model: MODEL },
   ),
-  // Stage 2 — judge the answer against the hidden answer-key thesis.
+  // Stage 2 — judge the answer against the hidden answer-key thesis. A gold case also hands over its
+  // curated `Tests:` annotation: identifying the true bottom hop needs company-specific domain
+  // knowledge no rubric supplies, so without the hint the judge reverse-engineers "what should the
+  // bottom hop have been here" from raw prose on every run — the least reliable scoring in the set,
+  // on the two items the retrospective calls the weakest-reproduced moves.
   (answer, c) => agent(
     `${RUBRIC_TEXT}\n\n=== ANSWER-KEY THESIS (${c.ticker}, ${String(c.date).slice(0,10)}, ` +
-    `entry=${c.entry_type}) ===\n${c.thesis_text}\n\n=== HARNESS ANSWER (blind) ===\n${answer}\n\n` +
-    `Return the score object.`,
-    { label: `judge:${c.ticker}`, phase: 'Judge', schema: SCORE_SCHEMA },
+    `entry=${c.entry_type}) ===\n${c.thesis_text}\n` +
+    (c.gold_tests ? `\n=== CURATED HINT — the moves this case was built to test ===\n${c.gold_tests}\n` : '') +
+    `\n=== HARNESS ANSWER (blind) ===\n${answer}\n\nReturn the score object.`,
+    { label: `judge:${c.ticker}`, phase: 'Judge', schema: SCORE_SCHEMA, model: MODEL },
   ).then((scores) => ({
     id: c.id, ticker: c.ticker, date: c.date, entry_type: c.entry_type,
+    // `archetype` rides along so `report` can apply the chokepoint scope split mechanically. Dropping
+    // it here would send the scored file downstream with nothing to split on, and the aggregator
+    // would silently fall back to the judge's own per-pass scope guess.
+    archetype: c.archetype ?? null, gold: !!c.gold,
     scores, response: answer,
   })),
 )
@@ -124,4 +157,4 @@ const scored = await pipeline(
 const cleaned = scored.filter(Boolean)
 log(`Scored ${cleaned.length}/${cases.length} cases. Write this to scored.json and run ` +
     `\`serenity_eval.py report --results scored.json\` for the doctrine-delta list.`)
-return { meta: payload.meta || null, cases: cleaned }
+return { meta: { ...(payload.meta || {}), model: MODEL }, cases: cleaned }
