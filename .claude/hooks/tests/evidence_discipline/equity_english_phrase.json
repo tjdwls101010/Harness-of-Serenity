@@ -1,3 +1,8 @@
 {
-  "prompt": "is AVGO priced in already, or worth owning here?"
+  "prompt": "is AVGO priced in already, or worth owning here?",
+  "_expect": {
+    "contains": [
+      "[evidence-discipline]"
+    ]
+  }
 }

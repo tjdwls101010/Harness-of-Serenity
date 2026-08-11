@@ -7,18 +7,18 @@ makes the code/judgment boundary an enforced invariant rather than a stated inte
 
 | Suite | Command | Count | Network |
 | --- | --- | --- | --- |
-| Structural validator | `serenity_harness.py validate` | 15 checks | No |
-| Hook fixtures | `.claude/hooks/tests/run_fixtures.py` | 22 fixtures | No |
-| Contract tests | `python3 -m pytest scripts/tests/ -q` | 2 tests | No |
+| Structural validator | `serenity_harness.py validate` | Wiring + the fact/judge seam | No |
+| Hook fixtures | `.claude/hooks/tests/run_fixtures.py` | Every committed hook scenario | No |
+| Contract tests | `scripts/.venv/bin/python -m pytest scripts/tests/ -q` | The fact/judge seam + the sector-map schema | No |
 
 Run all three before opening a pull request. There is no CI, so they are the only gate.
 
 ```bash
 PY=scripts/.venv/bin/python
 
-$PY scripts/serenity_harness.py validate        # → "ok": true, pass: 15
-$PY .claude/hooks/tests/run_fixtures.py         # → 22/22 fixtures passed
-python3 -m pytest scripts/tests/ -q             # currently fails — see Known Limitations
+$PY scripts/serenity_harness.py validate        # → "ok": true
+$PY .claude/hooks/tests/run_fixtures.py         # → all fixtures passed (exit 0)
+$PY -m pytest scripts/tests/ -q                 # → all pass
 ```
 
 ---
@@ -39,7 +39,7 @@ Output:
 {
   "harness": "serenity",
   "ok": true,
-  "summary": { "pass": 15, "warn": 0, "fail": 0 },
+  "summary": { "pass": 16, "warn": 0, "fail": 0 },
   "checks": [ { "check": "claude_md", "status": "pass" }, ... ]
 }
 ```
@@ -47,7 +47,7 @@ Output:
 `detail` appears only for non-passing checks unless `--verbose` is set. **Warnings never fail the
 run** — only hard failures exit non-zero.
 
-### The 15 checks
+### The checks
 
 | # | Check | Asserts |
 | --- | --- | --- |
@@ -241,11 +241,12 @@ Everything judgment-shaped stripped; the raw gauges preserved exactly.
 
 ## Hook fixtures
 
-22 fixtures covering the two hooks with behavioral logic.
+One fixture per scenario, covering the two hooks with branch logic. `run_fixtures.py` discovers them
+by directory, so the count is whatever is committed — it is printed, never asserted.
 
 ```bash
 scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py
-# → 22/22 fixtures passed
+# → all fixtures passed (exit 0)
 ```
 
 A fixture is the exact stdin payload the hook receives; the runner asserts on stdout using

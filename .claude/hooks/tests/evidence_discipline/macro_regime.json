@@ -1,3 +1,8 @@
 {
-  "prompt": "장 어때? 지금 들어가도 되나"
+  "prompt": "장 어때? 지금 들어가도 되나",
+  "_expect": {
+    "contains": [
+      "[evidence-discipline]"
+    ]
+  }
 }

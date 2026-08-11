@@ -248,7 +248,7 @@ Confirm the hooks behave correctly:
 
 ```bash
 scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py
-# → 22/22 fixtures passed
+# → all fixtures passed (exit 0)
 ```
 
 See [Agent Harness](Agent-Harness.md) and [Hooks Reference](Hooks-Reference.md). None of it is

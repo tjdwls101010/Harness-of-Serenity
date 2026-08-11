@@ -1,4 +1,13 @@
 {
   "last_assistant_message": "TLDR: $XYZ screens cheap on asset value but I'd pass — dilution overhang isn't done. NFI.\n\nStructural position: distressed asset-heavy commodity capacity.\nForward revenue: melting, mid-restructuring trough.\nLens: floor — net-cash-after-ATM $2/sh ÷ price $10 = 0.2x, a thin discount to a shrinking book.\nWinner-gates: economic anchor weak.\nDownsides:\n- serial ATM dilution (not priced-in)\n- restructuring may fail (priced-in)\nFalsifier: breaks if the raise closes above book and the cash floor firms.\nRating: pass, watch.\n\nSaved: sessions/990101.hook-fixture/",
-  "stop_hook_active": false
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": [
+      "UPSIDE leg"
+    ],
+    "excludes": [
+      "isn't archived",
+      "machine-checkable"
+    ]
+  }
 }

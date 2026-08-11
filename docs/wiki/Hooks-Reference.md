@@ -235,7 +235,7 @@ Hooks are behavioral code, and behavioral code needs fixtures. There are 22:
 
 ```bash
 scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py
-# → 22/22 fixtures passed
+# → all fixtures passed (exit 0)
 ```
 
 A fixture is the exact stdin payload the hook receives, and the runner asserts on stdout:
@@ -245,7 +245,7 @@ A fixture is the exact stdin payload the hook receives, and the runner asserts o
 { "last_assistant_message": "TLDR: $AVGO ...", "stop_hook_active": false }
 ```
 
-### `verdict_gate` — 13 fixtures
+### `verdict_gate` fixtures
 
 | Fixture | Guards against |
 | --- | --- |
@@ -263,7 +263,7 @@ A fixture is the exact stdin payload the hook receives, and the runner asserts o
 | `saved_backtick_silent` | Markdown backticks around the path must be tolerated |
 | `false_fire_guard` | "the bottleneck was in the parser; all tests pass" must stay silent |
 
-### `evidence_discipline` — 9 fixtures
+### `evidence_discipline` fixtures
 
 Cover the cashtag, Korean, English-phrase, and macro firing cases; the meta suppression cases; the
 anchor override; a non-market control; and one pinning the session-retrieval line in the reminder.

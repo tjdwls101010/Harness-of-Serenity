@@ -86,13 +86,13 @@ Run these before opening a PR. There is no CI, so they are the only gate.
 ```bash
 PY=scripts/.venv/bin/python
 
-# 1. Structural self-check — 15 checks, no network, no keys required.
+# 1. Structural self-check — no network, no keys required.
 #    This is the important one: it replays all 16 golden fixtures
 #    through the evidence builder and enforces the boundary rule.
 $PY scripts/serenity_harness.py validate
 $PY scripts/serenity_harness.py validate --verbose   # detail for passing checks too
 
-# 2. Hook behavior fixtures — must print "22/22 fixtures passed".
+# 2. Hook behavior fixtures — must exit 0.
 $PY .claude/hooks/tests/run_fixtures.py
 
 # 3. Evidence contract tests.

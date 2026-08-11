@@ -1,4 +1,7 @@
 {
   "last_assistant_message": "TL;DR: the bottleneck was in the parser; all tests pass after the fix.\nRefactored `analyze()` and the harness `validate` step is green now.",
-  "stop_hook_active": false
+  "stop_hook_active": false,
+  "_expect": {
+    "silent": true
+  }
 }

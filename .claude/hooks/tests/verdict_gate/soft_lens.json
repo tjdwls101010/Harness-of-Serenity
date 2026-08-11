@@ -1,4 +1,13 @@
 {
   "last_assistant_message": "TLDR: $NVDA priced-in up here — I'd wait for a better entry. NFI/NFA.\n\nStructural position: chokepoint, CoWoS the real bottleneck.\nForward revenue: still ramping; the upside case is a re-rate, the floor case a discount to book.\nWinner-gates: clean.\nDownsides:\n- valuation priced-in (addressed)\n- export overhang (priced-in)\nFalsifier: breaks if the ramp stalls two quarters.\nRating: watch.\n\nSaved: sessions/990101.hook-fixture/",
-  "stop_hook_active": false
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": [
+      "machine-checkable"
+    ],
+    "excludes": [
+      "isn't archived",
+      "UPSIDE leg"
+    ]
+  }
 }

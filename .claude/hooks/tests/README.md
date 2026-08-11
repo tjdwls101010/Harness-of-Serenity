@@ -12,7 +12,7 @@ scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py    # dependency-fre
 ```
 
 `run_fixtures.py` pipes each payload to the hook on stdin and asserts the expected branch — the durable,
-in-repo check. It must print `22/22 fixtures passed`.
+in-repo check. It must exit 0; the pass count it prints is derived, never asserted anywhere else.
 
 ## Re-run one fixture through the harness-creator tool (the canonical per-file check)
 

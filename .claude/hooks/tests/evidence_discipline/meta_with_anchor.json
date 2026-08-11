@@ -1,3 +1,8 @@
 {
-  "prompt": "analyze $NVDA then update the analysis skill accordingly"
+  "prompt": "analyze $NVDA then update the analysis skill accordingly",
+  "_expect": {
+    "contains": [
+      "[evidence-discipline]"
+    ]
+  }
 }

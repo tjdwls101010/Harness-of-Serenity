@@ -75,20 +75,25 @@ location.
 Verify the hooks themselves are healthy:
 
 ```bash
-scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py    # → 22/22
+scripts/.venv/bin/python .claude/hooks/tests/run_fixtures.py    # → all fixtures passed (exit 0)
 ```
 
 ### `pytest: command not found` / `No module named pytest`
 
-pytest is not in `requirements.txt` and is not installed in the venv. Install it separately:
+pytest is in `requirements.txt` but not installed in this venv:
 
 ```bash
-scripts/.venv/bin/pip install pytest
+scripts/.venv/bin/python -m pip install pytest
 scripts/.venv/bin/python -m pytest scripts/tests/ -q
 ```
 
-Note the contract tests currently fail for an unrelated reason — see
-[Known Limitations](Known-Limitations.md#contract-tests-fail-on-a-path-bug).
+Note `-m pip` rather than `scripts/.venv/bin/pip`: this venv has been relocated, so its console
+scripts (`bin/pip`, `bin/pytest`) carry a shebang pointing at an interpreter path that no longer
+exists. `bin/python` itself is fine, so route everything through `-m`.
+
+Install into the venv, never system-wide. The tests shell out to `serenity_pipeline.py` with
+`sys.executable`, so a runner outside the venv resolves an interpreter with no yfinance and the
+failure looks like a missing dependency rather than a wrong runner.
 
 ---
 
