@@ -151,6 +151,8 @@ _LABELS = (r"Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structura
 # silent on a correct answer, the second calls it broken.
 _SEP_BOUNDARY = "[:：]"
 _SECTION_LABEL = re.compile(rf"^{_DECOR}(?:{_LABELS}){_AFTER}(?:{_SEP_BOUNDARY}|$)", re.IGNORECASE)
+# The dash-tolerant boundary, used ONLY inside a section whose own header was dash-styled.
+_SECTION_LABEL_ANY = re.compile(rf"^{_DECOR}(?:{_LABELS}){_AFTER}(?:{_SEP}|$)", re.IGNORECASE)
 _NULL_LEAD = re.compile(
 	r"^(none|n/?a|없음|can'?t think of(?:\s+(?:one|any|anything))?)\b\s*[:\-—,]*\s*",
 	re.IGNORECASE,
@@ -214,6 +216,23 @@ def _section_body(label, msg):
 	m = _find_section_header(label, msg)
 	if not m:
 		return None
+	# The boundary follows THIS ANSWER'S OWN header convention, read off the header just matched.
+	#
+	# A fixed global answer was wrong in both directions. Accepting a dash for every boundary let an
+	# ordinary wrapped line ("Rating — not the equity rating, …") truncate a real body. Requiring a
+	# colon for every boundary meant a genuinely dash-styled `Falsifier — …` did not end the previous
+	# section, so a null block hid behind it.
+	#
+	# Neither is necessary, because the answer already told us which style it uses. A model that
+	# writes `Downsides — none` is writing dash-style headers throughout; it does not switch back to a
+	# colon one line later. So a dash counts as a boundary exactly when the section being measured was
+	# itself dash-headed. In a colon-styled answer — the doctrine's own template, and what CLAUDE.md
+	# reinforces on every load — a dash stays ordinary prose and cannot truncate anything.
+	#
+	# Reading the document's convention rather than legislating one is what makes this different from
+	# the three decoration-class rounds before it: nothing here is a list that a new formatting habit
+	# can fall outside of.
+	boundary = _SECTION_LABEL_ANY if m.group(0).rstrip().endswith(("—", "–")) else _SECTION_LABEL
 	lines = msg[m.end():].split("\n")
 	body_lines = []
 	for i, line in enumerate(lines):
@@ -228,7 +247,7 @@ def _section_body(label, msg):
 		# the module's own motivating example (`Downsides: none that matter`) walked straight back in
 		# through a formatting variant. Structural checks have to survive the formatting the model
 		# actually produces, not the formatting the example was written in.
-		if not line.strip() or _SECTION_LABEL.match(line):
+		if not line.strip() or boundary.match(line):
 			break
 		body_lines.append(line)
 	return "\n".join(body_lines)
