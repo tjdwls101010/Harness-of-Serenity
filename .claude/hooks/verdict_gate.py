@@ -212,7 +212,35 @@ def main():
 	)
 	cashtag = _has(r"\$[A-Za-z]{1,5}\b", msg)
 	cashtag_signal = cashtag and not (dev_context and not other_finance_signal)
-	finance_signal = other_finance_signal or cashtag_signal
+
+	# A REPO ARTIFACT beats every finance signal, cashtag or not — found by dogfooding, not by
+	# reasoning: an agent's own report on this very hook was hard-blocked for quoting its fixtures'
+	# example vocabulary (a price target, a rating, "overweight", "priced-in"). Those set
+	# other_finance_signal, which the cashtag-only suppression above deliberately does not touch.
+	#
+	# Working on this repository means writing about market vocabulary constantly, AS SUBJECT
+	# MATTER. A hook that cannot tell talking about a market from making a market call gets trained
+	# away by its own false fires, and this one owns the layer's only hard block — the most
+	# expensive thing to have people learn to ignore.
+	#
+	# The marker is deliberately NARROWER than dev_context above: a literal repository filename or
+	# path, not a topic word. "harness" or "refactor" can appear in a real market answer; the string
+	# `verdict_gate.py` or `.claude/hooks/` cannot plausibly appear in one. That tightness is what
+	# makes this safe to apply against the hard block rather than only the cashtag path — a broad
+	# topical guard here would be the semantic judgment the ceiling rule declines, and would punch a
+	# hole in the NFI/NFA guarantee. Widen it only with a fixture proving a real verdict still blocks.
+	repo_artifact = _has(
+		r"\b[\w./-]+\.py\b|\bSKILL\.md\b|\bCLAUDE\.md\b|\bsettings\.json\b|\bharness-spec\.md\b"
+		r"|\.claude/|\brun_fixtures\b|\bpytest\b|\bgit (?:commit|diff|status|add)\b",
+		msg,
+	)
+	# A bare `fixtures?/` was here and is deliberately gone: it matched `sessions/990101.hook-fixture/`
+	# inside a real `Saved:` mark, so a genuine archived verdict stopped hard-blocking. Caught by the
+	# suite on the first run. `.claude/` already covers the real fixture directory, which is the
+	# lesson worth keeping — a path fragment general enough to feel safe is general enough to match
+	# the archive, and this guard suppresses the layer's only hard block, so it is the one place
+	# where over-matching is the expensive direction.
+	finance_signal = (other_finance_signal or cashtag_signal) and not repo_artifact
 
 	# Entry gate (2.1): a formatted serenity answer OR any finance signal — never the TLDR token
 	# alone. Closes the 16th case: any opener that isn't the literal token ("Quick take:", a Korean

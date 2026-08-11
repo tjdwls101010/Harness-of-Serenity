@@ -52,14 +52,24 @@ _META = re.compile(
 # essentially every prompt ABOUT the pipeline's code too ("refactor how serenity_pipeline.py computes
 # the valuation multiples"), so they can't tell a market question apart from a dev one. The override
 # is a CONCRETE ask only — cashtag, Korean market phrase, or an explicit buy/sell action phrase —
-# never a bare field name alone. 목표가 ("price target" in Korean) stays anyway: that's the anchor
-# list agreed with the agent porting this same concept into verdict_gate.py, kept intentionally
-# asymmetric with English PT/price target rather than re-litigated here. The two hooks share no
-# imports by design (both stay dependency-free and independently runnable) — keep the definitions in
-# sync by hand.
+# never a bare field name alone.
+#
+# 목표가 was dropped too, on a second pass. It sat in the agreed keeper-list, but it is the one entry
+# there that names a FIELD rather than an ACTION: 매수/매도/살까/팔까/물타/존버 are all things a person
+# DOES, 종목 and 장 어때 scope a market question, and 목표가 is simply "price target" in Korean — the
+# same token that was just dropped in English, so keeping it would have left the identical bug open
+# for a Korean dev prompt ("serenity_pipeline.py 리팩터하면서 목표가 계산 로직도 고쳐줘").
+#
+# Costless to drop, because the anchor is only consulted when _META ALREADY matched. A genuine
+# market question ("NVDA 목표가 얼마야?") carries no harness vocabulary, so _META never fires and the
+# anchor is never reached — the reminder prints on _INTENT alone. Dropping it can therefore only
+# affect prompts that are simultaneously about this repository, which is exactly the intent.
+#
+# The two hooks share no imports by design (both stay dependency-free and independently runnable) —
+# keep the definitions in sync by hand.
 _MARKET_ANCHOR = re.compile(
 	r"\$[A-Za-z]{1,5}\b"
-	r"|매수|매도|사도|살까|팔까|종목|장\s*어때|물타|존버|목표가"
+	r"|매수|매도|사도|살까|팔까|종목|장\s*어때|물타|존버"
 	r"|should i (buy|sell|own|short|add|hold)|buy the dip",
 	re.IGNORECASE,
 )

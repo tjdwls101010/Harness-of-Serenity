@@ -1,0 +1,8 @@
+{
+  "prompt": "NVDA 목표가 얼마로 봐? 지금 들어가도 되나",
+  "_expect": {
+    "contains": [
+      "[evidence-discipline]"
+    ]
+  }
+}

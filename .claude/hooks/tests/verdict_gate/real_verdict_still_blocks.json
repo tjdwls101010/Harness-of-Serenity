@@ -1,0 +1,10 @@
+{
+  "last_assistant_message": "Bottom line: PT $250, 12 months, LEAPS as the vehicle. Rating: overweight, high conviction. Priced-in? Not yet — the allocation premium has room.",
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": [
+      "\"decision\": \"block\"",
+      "NFI/NFA sign-off"
+    ]
+  }
+}
