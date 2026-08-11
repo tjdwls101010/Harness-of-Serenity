@@ -1,0 +1,7 @@
+{
+  "last_assistant_message": "TL;DR: fixed the verdict_gate cashtag regex so a $NVDA-style example now round-trips through the new fixture",
+  "stop_hook_active": false,
+  "_expect": {
+    "silent": true
+  }
+}
