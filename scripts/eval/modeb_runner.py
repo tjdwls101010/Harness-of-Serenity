@@ -180,20 +180,40 @@ def _slug(text, max_len: int = 40) -> str:
 	return (s or "case")[:max_len]
 
 
+def _ensure_linked(dst: str, src: str, *, is_dir: bool) -> None:
+	"""Symlink dst -> src, idempotently. A fresh worktree of THIS repo always has nothing at dst
+	(scripts/.venv and .env are both gitignored here) — but --repo-root can point at any repo, and
+	one that does not gitignore what this one does would already have `git worktree add` check out
+	a real (tracked) venv/.env at dst before this function ever runs. Skip when what's there already
+	looks usable, whatever put it there; replace only a broken/dangling symlink or an unusable leftover;
+	never silently clobber something real that already works. `is_dir` probes scripts/.venv by its
+	interpreter (bin/python) rather than by "is dst a directory", since the point is a WORKING
+	interpreter, not just a populated folder — the same "verify by executing, not by existing"
+	property the smoke-test right after this applies to the result."""
+	probe = os.path.join(dst, "bin", "python") if is_dir else dst
+	if os.path.exists(probe):
+		return  # already usable, however it got there
+	if os.path.islink(dst) or os.path.isfile(dst):
+		os.remove(dst)          # dangling symlink, or an unusable plain file
+	elif os.path.isdir(dst):
+		shutil.rmtree(dst)      # a real but unusable directory (e.g. an empty tracked venv/)
+	os.symlink(src, dst, target_is_directory=is_dir)
+
+
 def _link_shared_deps(repo_root: str, worktree: str) -> list:
-	"""Symlink the two gitignored-but-required trees a bare worktree checkout has zero of (see the
-	module docstring for why each matters). Both are best-effort: a missing source is recorded as a
-	warning, not a hard failure, so a worktree degrades the same way the real repo would if IT had
-	no .env — never worse, and never silently different."""
+	"""Link the two gitignored-but-required trees a bare worktree checkout of THIS repo has zero of
+	(see the module docstring for why each matters). Both are best-effort: a missing source is
+	recorded as a warning, not a hard failure, so a worktree degrades the same way the real repo
+	would if IT had no .env — never worse, and never silently different."""
 	warnings = []
 	venv_src = os.path.join(repo_root, "scripts", ".venv")
 	if os.path.isdir(venv_src):
-		os.symlink(venv_src, os.path.join(worktree, "scripts", ".venv"), target_is_directory=True)
+		_ensure_linked(os.path.join(worktree, "scripts", ".venv"), venv_src, is_dir=True)
 	else:
 		warnings.append(f"no scripts/.venv at {venv_src} — pipeline calls inside the worktree will fail")
 	env_src = os.path.join(repo_root, ".env")
 	if os.path.isfile(env_src):
-		os.symlink(env_src, os.path.join(worktree, ".env"))
+		_ensure_linked(os.path.join(worktree, ".env"), env_src, is_dir=False)
 	else:
 		warnings.append(f"no .env at {env_src} — FRED-gated macro gauges will degrade to per-gauge errors")
 	return warnings
