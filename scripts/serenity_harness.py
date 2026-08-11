@@ -343,6 +343,77 @@ def _check_scorecard_conformance(checks):
 		checks.append(("scorecard_conformance", "pass", f"{checked}/{checked} scorecards conform"))
 
 
+# --- Prose growth ------------------------------------------------------------------------------
+# Baseline taken at a35c9a3 (2026-08-10), the commit before the remediation branch. Deliberately
+# PRE-session: baselining after this branch's own doc growth would make the check born-green and
+# never observed firing, which is the exact defect the branch exists to remove — a check nobody has
+# watched fail is not a check.
+#
+# Update these numbers when a growth warning has been examined and accepted, and say why in
+# harness-spec.md's change history. Editing code to move a baseline is the point: it is a deliberate
+# act with a git-blame trail, where a self-updating high-water mark would ratchet silently.
+_PROSE_BASELINE = {"always_loaded": 27451, "on_demand": 109186, "at": "a35c9a3 (2026-08-10)"}
+# 15% is a "look at this", not a limit. Small enough that a year of unexamined accretion cannot hide
+# under it, large enough that one substantive addition does not cry wolf.
+_PROSE_WARN_PCT = 15
+
+
+def _check_prose_growth(checks):
+	"""Measure the doctrine's size against a recorded baseline. WARN only, and never a cap.
+
+	This exists because the bloat warning in this project's own spec is qualitative — with no number,
+	nothing distinguishes "the harness grew because it needed to" from "the harness is accreting."
+	The spec names per-miss patching as bloat's root cause and the commit history shows four
+	consecutive rounds of it, so susceptibility here is demonstrated, not hypothetical.
+
+	**This is not grounds for deleting anything.** Length limits in this harness are advisory and
+	content that belongs always-on stays; where prose genuinely should leave CLAUDE.md the
+	destination is a signature, which relocates rather than deletes. A warning that fires and is
+	dismissed with a one-line reason in the change history is the check working exactly as intended.
+	Its job is to convert a hunch into a signal: growth is fine, *unexamined* growth is not.
+
+	Always-loaded and on-demand are measured separately because they are paid on completely different
+	schedules — always-loaded is billed every request, a skill body only when its trigger fires — and
+	merging them hides which one moved."""
+	always = 0
+	cm = os.path.join(_ROOT, "CLAUDE.md")
+	if os.path.isfile(cm):
+		always += os.path.getsize(cm)
+	rules = os.path.join(_ROOT, ".claude", "rules")
+	if os.path.isdir(rules):
+		for f in sorted(os.listdir(rules)):
+			if not f.endswith(".md"):
+				continue
+			path = os.path.join(rules, f)
+			# A rule with a `paths:` glob loads only when a matching file is touched, so it is not
+			# part of the every-request bill.
+			head = open(path, encoding="utf-8").read(2000)
+			if not re.search(r"^paths:", head, re.MULTILINE):
+				always += os.path.getsize(path)
+	on_demand = 0
+	skills = os.path.join(_ROOT, ".claude", "skills")
+	if os.path.isdir(skills):
+		for s in sorted(os.listdir(skills)):
+			p = os.path.join(skills, s, "SKILL.md")
+			if os.path.isfile(p):
+				on_demand += os.path.getsize(p)
+
+	def pct(now, base):
+		return round(100.0 * (now - base) / base, 1) if base else 0.0
+
+	da, do = pct(always, _PROSE_BASELINE["always_loaded"]), pct(on_demand, _PROSE_BASELINE["on_demand"])
+	summary = (f"always-loaded {always}B ({da:+}% vs baseline), on-demand skills {on_demand}B "
+	           f"({do:+}%), baseline {_PROSE_BASELINE['at']}")
+	if max(da, do) > _PROSE_WARN_PCT:
+		checks.append(("prose_growth", "warn",
+			f"{summary} — past the {_PROSE_WARN_PCT}% examine-me line. NOT a cap and NOT grounds to "
+			f"delete: record why the growth was warranted in harness-spec.md's change history and "
+			f"move the baseline, or relocate prose into a signature (a CLI argument space, a schema) "
+			f"which is re-read for free."))
+	else:
+		checks.append(("prose_growth", "pass", summary))
+
+
 def _check_hook_fixtures(checks):
 	"""Run the committed hook fixtures and adopt their exit code.
 
@@ -528,6 +599,9 @@ def cmd_validate(args):
 	# 10. Do the produced scorecards match the pinned schema? Runtime data, so WARN-only and kept
 	# out of _check_reproducibility, whose contract is harness wiring alone.
 	_check_scorecard_conformance(checks)
+
+	# 11. Is the doctrine growing, and was that growth examined? WARN-only; never a cap.
+	_check_prose_growth(checks)
 
 	hard_fail = [c for c in checks if c[1] == "fail"]
 	report = {
