@@ -128,7 +128,29 @@ _AFTER = r"[ \t*_`~]*"
 _SEP = "[:：—–]"
 _LABELS = (r"Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structural position"
            r"|Forward revenue")
-_SECTION_LABEL = re.compile(rf"^{_DECOR}(?:{_LABELS}){_AFTER}(?:{_SEP}|$)", re.IGNORECASE)
+
+# THE BOUNDARY SCAN DEMANDS A STRONGER SEPARATOR THAN THE HEADER SEARCH. Not a patch — the two ask
+# different questions with very different exposure.
+#
+# `_find_section_header` asks "where is the Downsides section?" One known label, and the contract
+# says it should be there, so a dash is fair evidence.
+#
+# `_SECTION_LABEL` asks "does ANY of six other sections start on this line?" — six chances to
+# misfire, evaluated against every line of every body. `Rating`, `Saved` and `Lens` are ordinary
+# English words, so once a dash counted as a separator, a wrapped prose line beginning "Rating — not
+# the equity rating, the credit outlook…" read as a section boundary. The walk stopped there and the
+# 200 characters of real explanation after it were discarded, so a substantial section measured as
+# null and a correct answer got told it was empty. Adding the dash to `_SEP` — done to catch the
+# doctrine's own separator style — caused it, which is the lesson: widening a signal is safe in
+# proportion to how specific the thing you are matching is.
+#
+# Residual, and the cheaper failure: a genuine next section written `Rating — overweight` no longer
+# ends the previous one, so that body over-absorbs and a null section could hide behind it. That
+# needs a dash-style header, which is rare; the bug it replaces needed an ordinary wrapped sentence,
+# which is not. Prefer under-detecting a boundary over discarding a real body — the first stays
+# silent on a correct answer, the second calls it broken.
+_SEP_BOUNDARY = "[:：]"
+_SECTION_LABEL = re.compile(rf"^{_DECOR}(?:{_LABELS}){_AFTER}(?:{_SEP_BOUNDARY}|$)", re.IGNORECASE)
 _NULL_LEAD = re.compile(
 	r"^(none|n/?a|없음|can'?t think of(?:\s+(?:one|any|anything))?)\b\s*[:\-—,]*\s*",
 	re.IGNORECASE,
