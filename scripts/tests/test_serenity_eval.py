@@ -490,3 +490,39 @@ def test_the_data_timing_note_rides_inside_blind_prompt_so_both_modes_get_it():
         assert "AS OF that date" in c["blind_prompt"]
     js = _strip_comments_js(_WORKFLOW_JS.read_text(encoding="utf-8"))
     assert "Data timing:" not in js, "the wrapper must not restate it — one source, not two"
+
+
+# --- the archetype label cache (the "inspect once and freeze" step) ------------------------------
+
+def test_cached_labels_are_applied_to_the_random_remainder(tmp_path, sample25):
+    """Without this, growing n buys statistical power for the four always-in-scope rubric rows and
+    NONE for the two chokepoint-scoped ones: their stable in-scope N stays at the four curated
+    chokepoint cases forever, and those two are the moves the retrospective calls weakest."""
+    ids = [c["id"] for c in sample25 if not c.get("gold")][:4]
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {i: "disruption" for i in ids}}), encoding="utf-8")
+    out = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network",
+                          "--archetype-labels", str(lf)).stdout)
+    cached = [c for c in out["cases"] if c.get("archetype_source") == "cached"]
+    assert {c["id"] for c in cached} == set(ids)
+    assert all(c["archetype"] == "disruption" for c in cached)
+    assert out["meta"]["archetype_labeled"] == 12 + len(ids)
+
+
+def test_a_label_outside_the_declared_vocabulary_is_a_hard_error(tmp_path):
+    """A typo would silently drop that case from the two chokepoint-scoped rows with no error
+    anywhere — quietly reintroducing the uncontrolled in-scope N the whole mechanism removes."""
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {"123": "not_an_archetype"}}), encoding="utf-8")
+    p = _run("sample", "--n", "12", "--seed", "7", "--no-network",
+             "--archetype-labels", str(lf), expect_ok=False)
+    assert p.returncode == 2
+    assert "outside the declared vocabulary" in p.stderr
+
+
+def test_a_missing_label_file_is_not_an_error(tmp_path):
+    """Absent labels are the honest default — the gold floor still works and `report` says how many
+    cases went unscoped. Only a WRONG label is fatal."""
+    p = _run("sample", "--n", "12", "--seed", "7", "--no-network",
+             "--archetype-labels", str(tmp_path / "nope.json"))
+    assert json.loads(p.stdout)["meta"]["archetype_labeled"] == 12
