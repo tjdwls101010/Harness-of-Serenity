@@ -1,0 +1,9 @@
+{
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "ls"
+  },
+  "_expect": {
+    "silent": true
+  }
+}

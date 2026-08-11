@@ -53,10 +53,40 @@ SANDBOX = os.path.join(TESTS_DIR, "fixtures")
 NOT_A_HOOK_DIR = {"fixtures"}
 
 
+def _haystack(out):
+    """The raw stdout PLUS every string inside it, when it is JSON.
+
+    Hooks emit `json.dumps(...)` at its default `ensure_ascii=True`, so an em-dash on the wire is
+    the six characters `\\u2014`. Matching only the raw text would mean fixtures had to assert the
+    ESCAPED form — which is invisible until it bites, and bites hardest on exactly the messages
+    worth asserting, since a hook's prose uses dashes and Korean freely.
+
+    So assertions run against what the model actually reads. Both forms are searched, because a
+    fixture written either way should work."""
+    hay = [out]
+
+    def walk(node):
+        if isinstance(node, str):
+            hay.append(node)
+        elif isinstance(node, dict):
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    try:
+        walk(json.loads(out))
+    except Exception:  # noqa: BLE001 — plain-text output is fine; the raw string is already in hay
+        pass
+    return "\n".join(hay)
+
+
 def check(expect, out):
     """Return an error string, or None when the output matches. Structural only — never semantic."""
     if expect.get("silent"):
         return None if out.strip() == "" else f"expected SILENT, got: {out[:120]!r}"
+    out = _haystack(out)
     miss = [s for s in expect.get("contains", []) if s not in out]
     if miss:
         return f"missing {miss}"

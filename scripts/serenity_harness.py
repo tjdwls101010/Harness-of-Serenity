@@ -198,6 +198,151 @@ def _check_xbrl_module_boundary(checks):
 		if not leaked else f"active_xbrl_leak={leaked}"))
 
 
+# --- The scorecard schema, in ONE place -------------------------------------------------------
+# `.claude/agents/serenity-scorecard.md` states this schema in prose; this is its machine form, and
+# the write-guard hook reaches it by shelling out to `scorecard-lint` rather than reimplementing it
+# (the same move `session_status.py` makes for `validate`). Two implementations of one enum set is
+# how the enum set stops being one.
+_SCORECARD_REQUIRED = ("ticker", "type", "session", "date", "data_as_of",
+                       "archetype", "stage", "gates", "conviction", "gate_strength", "vehicle", "mc")
+_SCORECARD_ENUMS = {
+	"type": ("scorecard", "analysis"),
+	"archetype": ("chokepoint", "disruption", "evolution"),   # or UNRESOLVED:<nulled line>
+	"conviction": ("high", "medium", "low"),
+}
+# `tier` is forbidden, not merely absent. The agent body: "a scorecard that carries a tier is
+# inviting itself to rank, and it can't see the cohort." Ranking is the synthesizer's job in
+# `_ranking.md`, and a cohort-blind agent that assigns one is guessing with a confident face.
+_SCORECARD_FORBIDDEN = ("tier",)
+# Scorecards in session folders dated before this are GRANDFATHERED — reported, never failed.
+# The seven in `sessions/260726. …/` predate enforcement, and `date`/`data_as_of`/`mc` cannot be
+# recovered without re-running the pipeline. Back-filling them would produce a file that LOOKS
+# current while carrying expired numbers, which is precisely what the spine's "numbers expire,
+# structure doesn't" rule exists to prevent. The fix is a re-run of the cohort, not a patch.
+# Dating off the SESSION FOLDER rather than the file: it needs no git and no mtime, and it is the
+# same {yymmdd} the archive convention already pins.
+_SCORECARD_LINT_FROM = "260811"
+
+
+def lint_scorecard(path):
+	"""Return a list of violation strings for one `sessions/{folder}/TICKER.md`. Empty = conforms.
+
+	Format only. Whether the archetype is the RIGHT archetype, or the stage the right rung, is
+	judgment and stays the model's — this checks that the fields exist and that their values are
+	inside the pinned vocabulary, nothing more. A linter that starts explaining a scorecard has
+	crossed the seam this harness is built on."""
+	try:
+		text = open(path, encoding="utf-8").read()
+	except OSError as e:
+		return [f"unreadable: {e}"]
+	m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+	if not m:
+		return ["no YAML frontmatter — a scorecard opens with a --- block carrying the pinned fields"]
+	block = m.group(1)
+	fields = {}
+	for line in block.splitlines():
+		fm = re.match(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$", line)
+		if fm:
+			fields[fm.group(1)] = fm.group(2).strip().strip("\"'")
+	out = []
+	for key in _SCORECARD_FORBIDDEN:
+		if key in fields:
+			out.append(f"`{key}:` is forbidden — it belongs to the synthesizer's _ranking.md; a "
+			           f"cohort-blind scorecard cannot see the cohort it would be ranking against")
+	for key in _SCORECARD_REQUIRED:
+		if key not in fields:
+			out.append(f"missing required field `{key}:`")
+	for key, allowed in _SCORECARD_ENUMS.items():
+		val = fields.get(key)
+		if val is None:
+			continue
+		bare = val.split("#")[0].strip()
+		if key == "archetype" and bare.startswith("UNRESOLVED:"):
+			continue
+		if bare not in allowed:
+			out.append(f"`{key}: {bare}` is outside the pinned vocabulary ({' | '.join(allowed)})")
+	stage = fields.get("stage")
+	if stage is not None:
+		bare = stage.split("#")[0].strip()
+		if not (bare.isdigit() and 1 <= int(bare) <= 5):
+			out.append(f"`stage: {bare}` is not an integer ladder rung 1-5 — the rung is the ordering "
+			           f"spine of a ranking, so free text there cannot be sorted")
+	return out
+
+
+def _session_stamp(path):
+	"""The {yymmdd} of the session folder a file sits in, or None."""
+	for part in os.path.normpath(os.path.abspath(path)).split(os.sep):
+		m = re.match(r"^(\d{6})\.", part)
+		if m:
+			return m.group(1)
+	return None
+
+
+def cmd_scorecard_lint(args):
+	reports = []
+	for path in args.paths:
+		violations = lint_scorecard(path)
+		stamp = _session_stamp(path)
+		reports.append({
+			"file": path,
+			"session_stamp": stamp,
+			"grandfathered": bool(stamp and stamp < _SCORECARD_LINT_FROM),
+			"conforms": not violations,
+			"violations": violations,
+		})
+	bad = [r for r in reports if not r["conforms"] and not r["grandfathered"]]
+	json.dump({"lint_from": _SCORECARD_LINT_FROM, "checked": len(reports),
+	           "failing": len(bad), "reports": reports},
+	          sys.stdout, ensure_ascii=False, indent=2)
+	print()
+	sys.exit(1 if bad else 0)
+
+
+def _check_scorecard_conformance(checks):
+	"""Lint the committed scorecards. WARN, never FAIL.
+
+	`_check_reproducibility` guards harness WIRING and says so in its own docstring — "never
+	sessions/ CONTENT, which is runtime data." This check deliberately reads that content, so it is
+	kept separate and kept soft. Two reasons it must not redden `validate`:
+
+	  - The seven scorecards in the archive predate enforcement and have no in-scope fix, so a hard
+	    failure would make validate permanently red over history nobody can repair. A red banner
+	    that cannot be cleared is one people learn to dismiss — which would undo the whole point of
+	    wiring the fixture suite in.
+	  - A bad ANALYSIS is not a broken HARNESS. Routing both down one alarm channel means neither
+	    can be read for what it is."""
+	root = os.path.join(_ROOT, "sessions")
+	if not os.path.isdir(root):
+		return
+	offenders, checked = [], 0
+	for folder in sorted(os.listdir(root)):
+		d = os.path.join(root, folder)
+		if not os.path.isdir(d) or not re.match(r"^\d{6}\.", folder):
+			continue
+		for f in sorted(os.listdir(d)):
+			if not f.endswith(".md") or f.startswith("_"):
+				continue
+			checked += 1
+			v = lint_scorecard(os.path.join(d, f))
+			if v:
+				grandfathered = folder[:6] < _SCORECARD_LINT_FROM
+				offenders.append(f"{folder}/{f}{' [grandfathered]' if grandfathered else ''}: {v[0]}")
+	live = [o for o in offenders if "[grandfathered]" not in o]
+	if not checked:
+		return
+	if live:
+		checks.append(("scorecard_conformance", "warn",
+			f"{len(live)}/{checked} scorecards violate the pinned schema: {'; '.join(live[:3])}"))
+	elif offenders:
+		checks.append(("scorecard_conformance", "warn",
+			f"{len(offenders)}/{checked} scorecards are non-conforming but predate enforcement "
+			f"(lint_from={_SCORECARD_LINT_FROM}) — resolve on the next cohort re-run, not by "
+			f"patching frontmatter onto expired numbers"))
+	else:
+		checks.append(("scorecard_conformance", "pass", f"{checked}/{checked} scorecards conform"))
+
+
 def _check_hook_fixtures(checks):
 	"""Run the committed hook fixtures and adopt their exit code.
 
@@ -339,11 +484,16 @@ def cmd_validate(args):
 	# tripwire), and the answer's end (the verdict-gate contract). web_number_guard (PreToolUse)
 	# and subagent_discipline (SubagentStart) were retired: each only re-stated context already
 	# in CLAUDE.md / the serenity-filings agent's own system prompt at the same lifecycle point.
+	# One event may carry SEVERAL hooks, so this maps event -> list. It was a dict of event -> one
+	# script, which could not represent a second PostToolUse hook at all: adding one left it
+	# unvalidated entirely, so a hook that was present-but-unwired (or wired-but-missing) would go
+	# unnoticed — the exact "checks existence, not behavior" defect this pass is removing, recreated
+	# by the fix for something else.
 	expected = {
-		"SessionStart": "session_status.py",
-		"UserPromptSubmit": "evidence_discipline.py",
-		"PostToolUse": "data_integrity_guard.py",
-		"Stop": "verdict_gate.py",
+		"SessionStart": ["session_status.py"],
+		"UserPromptSubmit": ["evidence_discipline.py"],
+		"PostToolUse": ["data_integrity_guard.py", "scorecard_guard.py"],
+		"Stop": ["verdict_gate.py"],
 	}
 	if not os.path.isfile(settings):
 		checks.append(("hooks", "warn", "no .claude/settings.json"))
@@ -352,13 +502,18 @@ def cmd_validate(args):
 			cfg = json.load(open(settings, encoding="utf-8"))
 			events = (cfg.get("hooks") or {})
 			missing_event = [e for e in expected if e not in events]
+			all_scripts = [s for scripts in expected.values() for s in scripts]
 			missing_script = [
-				s for s in expected.values()
+				s for s in all_scripts
 				if not os.path.isfile(os.path.join(_ROOT, ".claude", "hooks", s))
 			]
-			ok = not missing_event and not missing_script
-			detail = f"{len(expected) - len(missing_event)}/{len(expected)} events wired, all scripts present" if ok \
-				else f"missing_event={missing_event} missing_script={missing_script}"
+			# A script present on disk but never named in settings.json is wired nowhere and fires
+			# never — indistinguishable from a healthy silent hook unless something looks.
+			wired = json.dumps(events)
+			unwired = [s for s in all_scripts if s not in wired]
+			ok = not missing_event and not missing_script and not unwired
+			detail = f"{len(expected) - len(missing_event)}/{len(expected)} events wired, {len(all_scripts)} scripts present and referenced" if ok \
+				else f"missing_event={missing_event} missing_script={missing_script} not_referenced_in_settings={unwired}"
 			checks.append(("hooks", "pass" if ok else "fail", detail))
 		except Exception as e:  # noqa: BLE001
 			checks.append(("hooks", "fail", f"settings.json invalid: {e}"))
@@ -369,6 +524,10 @@ def cmd_validate(args):
 	# 9. The hooks actually BEHAVE — not merely exist. Check 7 above asserts the event-to-script
 	# wiring; this runs every committed fixture and takes the suite's exit code.
 	_check_hook_fixtures(checks)
+
+	# 10. Do the produced scorecards match the pinned schema? Runtime data, so WARN-only and kept
+	# out of _check_reproducibility, whose contract is harness wiring alone.
+	_check_scorecard_conformance(checks)
 
 	hard_fail = [c for c in checks if c[1] == "fail"]
 	report = {
@@ -598,6 +757,9 @@ def main():
 		help="comma-separated tickers for the INDEX.md line, e.g. 'MU,TSEM,LITE'. Tickers only — the "
 		     "index carries no verdicts")
 	ns.set_defaults(func=cmd_new_session)
+	sl = sub.add_parser("scorecard-lint", help="Check session scorecards against the pinned schema (format only, no judgment)")
+	sl.add_argument("paths", nargs="+", help="one or more sessions/{folder}/TICKER.md — quote paths containing spaces")
+	sl.set_defaults(func=cmd_scorecard_lint)
 	try:
 		args = parser.parse_args()
 		args.func(args)

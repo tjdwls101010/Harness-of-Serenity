@@ -1,0 +1,9 @@
+{
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/tmp/NVDA.md"
+  },
+  "_expect": {
+    "silent": true
+  }
+}
