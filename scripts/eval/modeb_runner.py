@@ -321,6 +321,13 @@ def _process_case(case: dict, index: int, *, repo_root: str, run_dir: str, model
 			result["answer"] = payload.get("result")
 			result["session_id"] = payload.get("session_id")
 			result["is_error"] = payload.get("is_error")
+			if payload.get("is_error"):
+				# Promote it to `error` like every other failure path in this function does.
+				# Without this, `claude -p` reporting its own internal failure was the ONE failure
+				# mode that left `error` unset — so a consumer filtering on `.error` to pick usable
+				# answers would silently score an errored run's output as a real answer.
+				result["error"] = ("claude -p reported is_error=true; its `result` text is not a "
+								   "usable answer")
 			result["total_cost_usd"] = payload.get("total_cost_usd")
 			result["num_turns"] = payload.get("num_turns")
 			# The resolved model, read back from claude's OWN accounting rather than echoing the

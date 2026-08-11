@@ -277,16 +277,26 @@ def test_a_hook_that_cannot_explain_reads_as_unavailable_not_as_healthy(tmp_path
 
 def test_hook_null_checks_map_to_n_a_never_to_zero():
     """`null` from the hook means the check did not APPLY (a macro-only answer names no company to
-    run a driver line on). Collapsing that to 0 manufactures a miss out of a correct answer."""
+    run a driver line on). Collapsing that to 0 manufactures a miss out of a correct answer.
+
+    This test used to assert `== {}` for the abstain case, which is what its name claims only if
+    the caller then treats an absent key as n/a — and the caller did not; it left the judge's score
+    in place. So the property was asserted in the one place it could not fail. Now the function
+    returns the `n/a` explicitly and the assertions say so."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("_ev", EVAL)
     ev = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ev)
-    assert ev._mechanical_scores({"checks": {"lens_line": None, "downsides": None,
-                                             "falsifier": None}}) == {}
-    assert ev._mechanical_scores({"checks": {"lens_line": False}}) == {"lens_run": 0}
-    assert ev._mechanical_scores({"checks": {"downsides": True, "falsifier": False}}) \
-        == {"bear_and_falsifier": 0}
+    E = ev._mechanical_scores
+    assert E({"checks": {"entered": True, "lens_line": None, "downsides": None, "falsifier": None}}) \
+        == {"lens_run": "n/a", "bear_and_falsifier": "n/a"}
+    assert E({"checks": {"entered": True, "lens_line": False, "downsides": None, "falsifier": None}}) \
+        == {"lens_run": 0, "bear_and_falsifier": "n/a"}
+    assert E({"checks": {"entered": True, "lens_line": True, "downsides": True, "falsifier": False}}) \
+        == {"lens_run": 1, "bear_and_falsifier": 0}
+    # entered=False is the one abstention that must NOT be excused — the answer never presented as
+    # a verdict, which is a miss to score, so the hook offers no opinion and the judge's score stands.
+    assert E({"checks": {"entered": False, "lens_line": None}}) == {}
 
 
 # --- the disclaim guard, directly ---------------------------------------------------------------
@@ -332,3 +342,96 @@ def test_a_fully_scored_run_says_nothing_about_missing_judges(tmp_path):
     """The warning has to be absent when it does not apply, or it becomes wallpaper."""
     p = _scored(tmp_path, [_case("AXTI", "chokepoint", dict(_FULL))])
     assert "carry no judge result" not in _run("report", "--results", str(p), "--no-hook").stdout
+
+
+# --- the hook/judge integration, where four review findings lived --------------------------------
+
+_MACRO_ANSWER = "TLDR: overweight semis, underweight defensives. NFI"
+_FULL_ANSWER = ("TLDR: buy.\nLens: content — $12 × 40M ÷ $4.8B = 10%\nDownsides:\n- dilution, "
+                "priced-in\nFalsifier: breaks if demand halves.\nRating: Buy, PT $40. NFI")
+
+
+def test_the_hook_forces_n_a_when_it_abstains_not_just_when_it_disagrees(tmp_path):
+    """A macro-only answer names no company to run a driver line on, so the hook returns `null` for
+    lens_line/downsides/falsifier. Returning *nothing* for those left a judge's wrong 0 standing
+    uncorrected — two real misses manufactured out of a correct answer. Abstention has to be an
+    active `n/a`, not silence."""
+    sc = dict(_FULL, lens_run=0, bear_and_falsifier=0)
+    p = _scored(tmp_path, [_case("MACRO", "macro", sc, response=_MACRO_ANSWER)])
+    out = _run("report", "--results", str(p), "--n-floor", "1").stdout
+    for row in ("lens_run", "bear_and_falsifier"):
+        line = next(l for l in out.splitlines() if l.startswith(f"| {row} "))
+        assert "0 / 0" in line, f"{row} should be out of scope entirely: {line}"
+
+
+def test_a_failed_response_is_still_scored_not_excused_as_out_of_scope(tmp_path):
+    """The inverse, and the reason the fix branches on `entered`. When the hook never enters, the
+    answer failed to present as a verdict at all — a miss to score, not a scope exclusion. Forcing
+    n/a there would quietly pardon an empty or broken response."""
+    sc = dict(_FULL, lens_run=0, bear_and_falsifier=0)
+    p = _scored(tmp_path, [_case("EMPTY", "chokepoint", sc, response="...")])
+    out = _run("report", "--results", str(p), "--n-floor", "1").stdout
+    line = next(l for l in out.splitlines() if l.startswith("| lens_run "))
+    assert "0 / 1" in line, f"a non-verdict must stay a scored miss: {line}"
+
+
+def test_the_unscored_warning_never_contradicts_the_numbers_beside_it(tmp_path):
+    """`unscored` was computed BEFORE the hook ran, so a case whose judge died but whose response
+    the hook could still score printed 'contributed to nothing above / computed over the remaining
+    0' directly beside a rate built from that very case's two hook scores."""
+    cases = [{"id": "N", "ticker": "NULLJ", "entry_type": "discovery", "archetype": "chokepoint",
+              "response": _FULL_ANSWER, "scores": None}]
+    out = _run("report", "--results", str(_scored(tmp_path, cases)), "--n-floor", "1").stdout
+    assert "carry no judge result" not in out, "the hook scored it — it did contribute"
+    line = next(l for l in out.splitlines() if l.startswith("| lens_run "))
+    assert "1 / 1" in line, line
+
+
+def test_the_per_case_table_agrees_with_the_aggregate_after_a_hook_override(tmp_path):
+    """The table re-read `c["scores"]` — the judge's uncorrected opinion — while the aggregate used
+    the hook-corrected copy. Worst form: judge says 'n/a', hook corrects to a real miss, the
+    aggregate counts it and the row renders '–', the glyph meaning 'not applicable'."""
+    sc = dict(_FULL, lens_run="n/a", bear_and_falsifier="n/a")
+    # a single-name answer with a null Downsides body: the hook scores bear_and_falsifier 0
+    resp = "TLDR: cheap here.\nDownsides:\n- none\nRating: Buy, PT $9, overweight. NFI"
+    out = _run("report", "--results", str(_scored(tmp_path, [_case("NVDA", "chokepoint", sc, response=resp)])),
+               "--n-floor", "1").stdout
+    agg = next(l for l in out.splitlines() if l.startswith("| bear_and_falsifier "))
+    assert "0 / 1" in agg, agg
+    row = next(l for l in out.splitlines() if l.startswith("| NVDA "))
+    assert "✗" in row, f"aggregate scored a miss but the row says otherwise: {row}"
+
+
+def test_a_hook_failure_after_an_earlier_success_is_reported(tmp_path, monkeypatch):
+    """`hook_available` only ever moved None->True/False, so once any case succeeded a later
+    timeout was invisible: that case looked like one the hook had no opinion about, and its
+    unverified judge score was trusted wholesale."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_ev2", EVAL)
+    ev = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ev)
+    calls = {"n": 0}
+    real = ev.subprocess.run
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise ev.subprocess.TimeoutExpired(cmd="verdict_gate", timeout=30)
+        return real(*a, **k)
+    monkeypatch.setattr(ev.subprocess, "run", flaky)
+    assert ev._hook_explain(_FULL_ANSWER) is not None      # first call succeeds
+    assert ev._hook_explain(_FULL_ANSWER) is None          # second times out -> unavailable
+
+
+def test_a_hook_failure_is_visible_in_the_report(tmp_path):
+    """End-to-end companion to the unit test above: point the report at a hook that cannot answer
+    and confirm the per-case note and the health line both say so."""
+    p = _scored(tmp_path, [_case("NVDA", "chokepoint", dict(_FULL), response=_FULL_ANSWER)])
+    env = {**os.environ, "PATH": os.environ.get("PATH", "")}
+    proc = subprocess.run([sys.executable, str(EVAL), "report", "--results", str(p),
+                           "--n-floor", "1"], capture_output=True, text=True, cwd=str(tmp_path),
+                          env=env, timeout=120)
+    # run from tmp_path: _VERDICT_GATE is resolved from the script's own location, so it still
+    # works — this asserts the healthy path rather than the failure, keeping the pair honest.
+    assert proc.returncode == 0
+    assert "mechanical pre-pass:" in proc.stdout

@@ -218,6 +218,18 @@ def _load_gold_set(path: str) -> list[dict]:
 	if not cases:
 		print(f"error: gold set at {path} has no `cases`", file=sys.stderr)
 		sys.exit(2)
+	# The file declares its own vocabulary; nothing was checking against it. A typo on the literal
+	# string "chokepoint" would silently drop that case from the two chokepoint-scoped rubric rows
+	# with no error anywhere — quietly reintroducing the uncontrolled in-scope N this whole file
+	# exists to remove. The declared list is the contract, so enforce it here rather than trusting
+	# twelve hand-typed strings to stay correct.
+	vocab = set((data.get("_meta") or {}).get("archetype_vocabulary") or [])
+	if vocab:
+		bad = [f"{c.get('id')}={c.get('archetype')!r}" for c in cases if c.get("archetype") not in vocab]
+		if bad:
+			print(f"error: gold set at {path} has archetype(s) outside its own declared "
+				  f"archetype_vocabulary: {', '.join(bad)}", file=sys.stderr)
+			sys.exit(2)
 	return cases
 
 
@@ -286,6 +298,31 @@ def _resolve_ticker(ticker: str, cache: dict, allow_network: bool) -> dict:
 	return res
 
 
+# Appended to EVERY blind prompt, and deliberately part of the prompt string rather than of one
+# mode's wrapper: mode A wraps `blind_prompt` in a six-step instruction block, mode B passes it to
+# `claude -p` verbatim with no wrapper at all, so anything living in the wrapper reaches only half
+# the runs — and mode B is the high-fidelity half.
+#
+# The gap it closes: the question is date-anchored but the pipeline loads TODAY's data, so a blind
+# run can simply observe how the setup resolved. Observed varying case to case in the first pilot —
+# one run spotted it unprompted and rebuilt the as-of information set from reported filings,
+# another reasoned from current figures about whether a catalyst had existed on the asked date.
+# Noticing that your data postdates the question is not one of the six moves under test, so leaving
+# it to chance adds variance to every score while measuring nothing.
+#
+# Disclosure alone is not the guard, which is why this says *build from* rather than *flag*: a model
+# that already knows a name re-rated 5x can reason backwards from the outcome and still truthfully
+# report that it used current data. That inflates the chain-trace and lens rows specifically, and it
+# skews toward older, more-resolved theses — i.e. concentrated on the curated chokepoint cases the
+# archetype floor exists to protect. It remains an uncontrolled variance source; `report` says so.
+_DATA_TIMING_NOTE = (
+	"\n\n(Data note: the pipeline loads CURRENT market data, which may be months later than the "
+	"date above. Build the read from what was knowable AS OF that date. Where you use a figure "
+	"that postdates it — including anything about how this situation resolved — say so explicitly "
+	"and keep it separate from the as-of read.)"
+)
+
+
 def _blind_prompt(ticker: str, date: str, entry_type: str) -> str:
 	"""Reconstruct the SITUATION as a user question, with the thesis hidden. The harness must
 	produce its own read; the answer-key thesis is never shown to it.
@@ -298,16 +335,18 @@ def _blind_prompt(ticker: str, date: str, entry_type: str) -> str:
 	asked in the world the thesis was written in."""
 	day = (date or "")[:10]
 	if entry_type == "fear_dip":
-		return (f"{ticker} sold off hard around {day}. Is this a real fundamental break or a fear-dip "
-				f"I should be buying? Give me your full read.")
-	if entry_type == "event":
-		return (f"There's a catalyst on {ticker} around {day} (earnings / news / a filing). What's your "
-				f"take — does it change the forward-revenue picture, and is the move an opportunity?")
-	if entry_type == "ranking":
-		return (f"As of {day}, where is {ticker} in its cycle, and how would you rank and size it "
-				f"against the other names in the same chain?")
-	return (f"As of {day}, what's your read on {ticker}? Is it structurally mispriced, and if so, how "
-			f"would you play it?")
+		q = (f"{ticker} sold off hard around {day}. Is this a real fundamental break or a fear-dip "
+			 f"I should be buying? Give me your full read.")
+	elif entry_type == "event":
+		q = (f"There's a catalyst on {ticker} around {day} (earnings / news / a filing). What's your "
+			 f"take — does it change the forward-revenue picture, and is the move an opportunity?")
+	elif entry_type == "ranking":
+		q = (f"As of {day}, where is {ticker} in its cycle, and how would you rank and size it "
+			 f"against the other names in the same chain?")
+	else:
+		q = (f"As of {day}, what's your read on {ticker}? Is it structurally mispriced, and if so, how "
+			 f"would you play it?")
+	return q + _DATA_TIMING_NOTE
 
 
 def _load_rows(db_path: str) -> list[dict]:
@@ -317,8 +356,15 @@ def _load_rows(db_path: str) -> list[dict]:
 	con = sqlite3.connect(db_path)
 	con.row_factory = sqlite3.Row
 	try:
+		# ORDER BY is explicit, not decorative: the seeded shuffle downstream is only reproducible
+		# if the input order is, and SQLite's default scan order is an implementation detail rather
+		# than a promise. `rowid` specifically, because it IS the current default order — the goal
+		# is to make today's behaviour contractual, not to pick a different one. `ORDER BY id` was
+		# tried and reverted: `id` is TEXT, so it sorts lexicographically, which reorders the whole
+		# candidate scan and silently changes which cases a given seed draws. Swapping one accident
+		# for another accident that also invalidates every cached resolution is not a fix.
 		rows = con.execute(
-			"SELECT id, created_at, type, tickers, content FROM tweets"
+			"SELECT id, created_at, type, tickers, content FROM tweets ORDER BY rowid"
 		).fetchall()
 	finally:
 		con.close()
@@ -353,11 +399,12 @@ def cmd_sample(args) -> None:
 				"date": r.get("created_at"),
 				"type": r.get("type"),
 				# The curated set pins its own framing where the keyword heuristic mis-frames it.
-				# Measured on these twelve: the heuristic asks the AXT InP chokepoint read, both
-				# NBIS reads, the SNAP margin-inversion read and the cycle-stage meta post as
-				# fear-dips, because each mentions a drop somewhere in a long thesis. The blind
-				# prompt IS the instrument — asking a discovery thesis "is this a fear-dip?" measures
-				# a different question, the same way a mis-selected subject ticker does.
+				# Measured on these twelve, it mis-frames six: five as fear-dips (the AXT InP
+				# chokepoint read, both NBIS reads, the SNAP margin-inversion read, the cycle-stage
+				# meta post) because each mentions a drop somewhere in a long thesis, and CPSH as an
+				# event because it mentions a DoD contract. The blind prompt IS the instrument —
+				# asking a discovery thesis "is this a fear-dip?" measures a different question, the
+				# same way a mis-selected subject ticker does.
 				"entry_type": g.get("entry_type") or _entry_type(content),
 				"archetype": g.get("archetype"),
 				"archetype_source": "curated",
@@ -574,20 +621,27 @@ def _hook_explain(response: str) -> dict | None:
 
 
 def _mechanical_scores(explain: dict) -> dict:
-	"""Map the hook's checks onto the two rubric items it actually owns.
+	"""Map the hook's checks onto the two rubric items it actually owns → `{key: 0 | 1 | "n/a"}`.
 
 	`null` from the hook means the check did not apply, which is the rubric's `n/a` — never a 0.
 	Collapsing those would manufacture misses on exactly the answers the hook deliberately stays
-	quiet about."""
+	quiet about. But the reverse matters just as much and is easy to miss: returning *nothing* for
+	an inapplicable check leaves a judge's wrong 0/1 standing there uncorrected, which is how a
+	macro-only answer — no company to run a driver line on — still scored two real misses.
+
+	The one case that must NOT be excused is `entered: false`. The hook declines to enter when the
+	answer never presents as a verdict at all, and that is a failure to score, not a scope
+	exclusion. Forcing `n/a` there would quietly pardon an empty or broken response."""
 	checks = explain.get("checks") or {}
-	out: dict = {}
+	if not checks.get("entered"):
+		return {}
 	lens = checks.get("lens_line")
-	if lens is not None:
-		out["lens_run"] = int(bool(lens))
 	down, fals = checks.get("downsides"), checks.get("falsifier")
-	if down is not None or fals is not None:
-		out["bear_and_falsifier"] = int(bool(down) and bool(fals))
-	return out
+	return {
+		"lens_run": "n/a" if lens is None else int(bool(lens)),
+		"bear_and_falsifier": ("n/a" if (down is None and fals is None)
+							   else int(bool(down) and bool(fals))),
+	}
 
 
 def cmd_report(args) -> None:
@@ -609,32 +663,46 @@ def cmd_report(args) -> None:
 	hook_scored = 0
 	hook_available = None
 
+	# ONE pass builds each case's EFFECTIVE scores (judge + hook overrides); the aggregate and the
+	# per-case table are both rendered from that same object afterwards. They used to be computed
+	# from two different dicts — the table re-read the raw judge scores — so a hook override made
+	# the two tables disagree about the same cell, and a judge `n/a` corrected to a real miss still
+	# rendered as "–", the glyph that means "not applicable".
+	effective: list[dict] = []
 	for c in cases:
 		sc = dict(c.get("scores") or {})
 		arch = c.get("archetype")
 		if arch is None:
 			unlabeled += 1
-		# A case whose judge failed arrives as `scores: null` and contributes to nothing. Silently
-		# it would just shrink every denominator while the header still says "cases: 12" — the
-		# pooled rate would be computed over an unstated subset. Observed live: a session limit
-		# killed five judges mid-pilot and every one of them came back exactly this way.
-		if not sc:
-			unscored += 1
+		hook_status = "skipped" if args.no_hook else "no-response"
 
 		# --- mechanical pre-pass: the live hook overrides the judge on the items it owns ---
 		if not args.no_hook and c.get("response"):
 			explain = _hook_explain(str(c["response"]))
-			if explain is not None:
+			if explain is None:
+				# Per case, never a single run-wide flag. A sticky "the hook worked once" bit made
+				# a later timeout invisible: the case simply looked like one the hook had no
+				# opinion about, and its unverified judge score was trusted wholesale.
+				hook_status = "unavailable"
+				if hook_available is None:
+					hook_available = False
+			else:
 				hook_available = True
+				hook_status = "ok"
 				mech = _mechanical_scores(explain)
 				for k, v in mech.items():
 					if sc.get(k) in (0, 1) and sc.get(k) != v:
 						disagreements.append(f"{c.get('ticker')}/{k}: judge={sc.get(k)} hook={v}")
 					sc[k] = v
-				if mech:
+				if any(v in (0, 1) for v in mech.values()):
 					hook_scored += 1
-			elif hook_available is None:
-				hook_available = False
+
+		# "Carries no judge result" has to be decided AFTER the hook, not before: a case whose
+		# judge died can still be scored on the two structural items by the live hook, and counting
+		# it as contributing nothing while its hook scores fed the aggregate printed a warning that
+		# contradicted the number directly above it.
+		if not any(sc.get(k) in (0, 1) for k in scored_keys):
+			unscored += 1
 
 		for k in scored_keys:
 			v = sc.get(k)
@@ -653,6 +721,8 @@ def cmd_report(args) -> None:
 			key = str(m).strip().lower()
 			if key:
 				missed_tally[key] = missed_tally.get(key, 0) + 1
+		effective.append({"case": c, "scores": sc, "archetype": arch, "hook": hook_status})
+	hook_failures = sum(1 for e in effective if e["hook"] == "unavailable")
 
 	lines = ["# Serenity harness — reproduction eval report", ""]
 	meta = data.get("meta") if isinstance(data, dict) else None
@@ -704,6 +774,10 @@ def cmd_report(args) -> None:
 					 f"bear_and_falsifier.")
 		lines.append(f"- judge/hook disagreements: **{len(disagreements)}**"
 					 + (" — " + "; ".join(disagreements[:8]) if disagreements else ""))
+		if hook_failures:
+			lines.append(f"- ⚠ **the hook failed on {hook_failures} case(s)** (timeout or crash). Those "
+						 f"cases kept their unverified judge scores for lens_run and "
+						 f"bear_and_falsifier, which is not what the row above claims for the rest.")
 	if unscored:
 		lines.append(f"- ⚠ **{unscored}/{len(cases)} case(s) carry no judge result** and contributed to "
 					 f"nothing above. Every rate on this page is computed over the remaining "
@@ -721,9 +795,10 @@ def cmd_report(args) -> None:
 	lines += ["## Per-case", "",
 			  "| ticker | archetype | entry | " + " | ".join(scored_keys) + " | note |",
 			  "|---|---|---|" + "|".join("---" for _ in scored_keys) + "|---|"]
-	for c in cases:
-		sc = c.get("scores") or {}
-		arch = c.get("archetype")
+	for e in effective:
+		# The EFFECTIVE scores, the same object the aggregate above was computed from — never a
+		# second read of `c["scores"]`, which is the judge's uncorrected opinion.
+		c, sc, arch = e["case"], e["scores"], e["archetype"]
 		cells = []
 		for k in scored_keys:
 			v = sc.get(k)
@@ -734,6 +809,8 @@ def cmd_report(args) -> None:
 		# `notes` used to be collected by the judge and then read by nothing — the one field that
 		# can say "this case is broken" or "different but defensible" was write-only.
 		note = str(sc.get("notes") or c.get("notes") or "").replace("|", "/")[:80]
+		if e["hook"] == "unavailable":
+			note = ("[hook failed — lens_run/bear unverified] " + note)[:80]
 		lines.append(f"| {c.get('ticker')} | {arch or '?'} | {c.get('entry_type')} | "
 					 + " | ".join(cells) + f" | {note} |")
 	lines.append("")
@@ -767,6 +844,12 @@ def cmd_report(args) -> None:
 			  "the rubric scores decomposition METHOD rather than directional agreement: a harness "
 			  "that reaches a different verdict because the setup has since resolved passes any item "
 			  "whose method ran properly.", "",
+			  "**Uncontrolled variance, named:** disclosure is not the same guard as blinding. A run "
+			  "that already knows how a name resolved can reason backwards from the outcome and still "
+			  "truthfully report that it used current data. That inflates the chain-trace and lens "
+			  "rows specifically, and it grows with thesis age — so it concentrates on the curated "
+			  "chokepoint cases, which are the oldest and the ones the archetype floor exists to "
+			  "protect. Treat a per-move number on those two rows as an upper bound.", "",
 			  "**Can:** gross regressions and breaks (visible well below the power threshold); the "
 			  "pooled cross-move number above as a coarse dashboard reading; a running trend across "
 			  "successive doctrine edits, which is where this instrument earns its keep.", "",
