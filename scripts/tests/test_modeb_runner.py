@@ -178,6 +178,83 @@ def test_slug_is_filesystem_safe_nonempty_and_bounded():
 	assert len(MOD._slug("x" * 100)) <= 40
 
 
+# --- _ensure_linked: idempotent link/skip/replace, unit-level -------------------------------------
+
+def test_ensure_linked_creates_a_fresh_symlink_when_nothing_is_there(tmp_path):
+	src = tmp_path / "src.env"
+	src.write_text("FRED_API_KEY=x\n", encoding="utf-8")
+	dst = tmp_path / "dst.env"
+	MOD._ensure_linked(str(dst), str(src), is_dir=False)
+	assert dst.is_symlink()
+	assert dst.read_text(encoding="utf-8") == "FRED_API_KEY=x\n"
+
+
+def test_ensure_linked_leaves_an_already_working_target_alone(tmp_path):
+	"""The exact scenario a repo that tracks scripts/.venv produces: `git worktree add` checks out
+	a REAL directory (not a symlink) at dst before this function ever runs."""
+	src = tmp_path / "src_venv"
+	(src / "bin").mkdir(parents=True)
+	(src / "bin" / "python").write_text("#!/bin/sh\necho fake\n", encoding="utf-8")
+	dst = tmp_path / "dst_venv"
+	shutil.copytree(src, dst)
+	MOD._ensure_linked(str(dst), str(src), is_dir=True)
+	assert not dst.is_symlink(), "an already-usable target must be left exactly as it was found"
+	assert (dst / "bin" / "python").read_text(encoding="utf-8") == "#!/bin/sh\necho fake\n"
+
+
+def test_ensure_linked_replaces_a_broken_dangling_symlink(tmp_path):
+	src = tmp_path / "src_venv"
+	(src / "bin").mkdir(parents=True)
+	(src / "bin" / "python").write_text("#!/bin/sh\necho fake\n", encoding="utf-8")
+	dst = tmp_path / "dst_venv"
+	os.symlink(tmp_path / "nowhere", dst, target_is_directory=True)  # dangling: points nowhere
+	assert not os.path.exists(dst)  # sanity: a dangling symlink reports False for exists()
+
+	MOD._ensure_linked(str(dst), str(src), is_dir=True)
+	assert dst.is_symlink()
+	assert os.path.realpath(str(dst)) == os.path.realpath(str(src))
+	assert (dst / "bin" / "python").exists()
+
+
+@pytest.fixture
+def sandbox_repo_with_tracked_venv(tmp_path):
+	"""The scenario `sandbox_repo` deliberately avoids (see its docstring), built on purpose here:
+	a repo that does NOT gitignore scripts/.venv, so `git worktree add` checks out a real, working
+	symlink at that path before `_link_shared_deps` ever runs. Proves `_ensure_linked` is idempotent
+	rather than relying on every caller's repo to keep .venv untracked the way this one does — a
+	real robustness gap a hand-built repro outside this fixture caught (FileExistsError creating a
+	symlink on top of one git had already checked out)."""
+	if not REAL_VENV.is_dir():
+		pytest.skip("scripts/.venv is not installed — cannot smoke-test a real interpreter")
+	repo = tmp_path / "sandbox_repo_tracked_venv"
+	repo.mkdir()
+	subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+	subprocess.run(["git", "config", "user.email", "modeb-test@example.com"], cwd=repo, check=True)
+	subprocess.run(["git", "config", "user.name", "modeb-test"], cwd=repo, check=True)
+	(repo / "sessions").mkdir()
+	(repo / "sessions" / "INDEX.md").write_text("# index\n<!-- entries below -->\n", encoding="utf-8")
+	(repo / "scripts").mkdir()
+	os.symlink(REAL_VENV, repo / "scripts" / ".venv", target_is_directory=True)  # linked BEFORE commit
+	subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+	subprocess.run(["git", "commit", "-q", "-m", "init, venv tracked on purpose"], cwd=repo, check=True)
+	return repo
+
+
+def test_a_tracked_already_checked_out_venv_is_left_alone_not_collided_with(sandbox_repo_with_tracked_venv):
+	sandbox = sandbox_repo_with_tracked_venv
+	cases_path = sandbox / "cases.json"
+	cases_path.write_text(json.dumps({"cases": [_case("NVDA")]}), encoding="utf-8")
+	out_path = sandbox / "answers.json"
+
+	proc = _run_cli("--cases", str(cases_path), "--out", str(out_path), "--dry-run",
+	                 "--repo-root", str(sandbox))
+	assert proc.returncode == 0, f"stderr: {proc.stderr}"
+	out = json.loads(out_path.read_text(encoding="utf-8"))
+	case0 = out["cases"][0]
+	assert case0.get("error") is None, "a tracked venv must be reused, not collided with"
+	assert case0["interpreter_smoke_test"] == "ok"
+
+
 # --- CLI: clean dry-run against a sandbox ---------------------------------------------------------
 
 @_NEEDS_REAL_VENV
