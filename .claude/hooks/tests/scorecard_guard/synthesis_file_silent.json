@@ -1,7 +1,7 @@
 {
   "tool_name": "Write",
   "tool_input": {
-    "file_path": "/Users/seongjin/Coding/Invest/Harness of Serenity/.claude/hooks/tests/fixtures/sessions/990104.scorecard-bad/_ranking.md"
+    "file_path": "{{SANDBOX}}/sessions/990104.scorecard-bad/_ranking.md"
   },
   "_expect": {
     "silent": true

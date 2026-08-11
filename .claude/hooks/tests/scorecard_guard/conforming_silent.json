@@ -1,7 +1,7 @@
 {
   "tool_name": "Write",
   "tool_input": {
-    "file_path": "/Users/seongjin/Coding/Invest/Harness of Serenity/.claude/hooks/tests/fixtures/sessions/990103.scorecard-ok/NVDA.md"
+    "file_path": "{{SANDBOX}}/sessions/990103.scorecard-ok/NVDA.md"
   },
   "_expect": {
     "silent": true
