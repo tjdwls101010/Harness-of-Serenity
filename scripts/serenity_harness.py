@@ -389,11 +389,69 @@ def cmd_validate(args):
 	sys.exit(0 if not hard_fail else 1)
 
 
+class HarnessError(Exception):
+	"""An error the CLI reports as JSON rather than as a traceback.
+
+	Adopted from `serenity_sectormap.py`, which already runs this contract — every command in this
+	repo answers in JSON, and a traceback breaks that for whoever is parsing the output. It also
+	teaches nothing: the real session paths here contain spaces and non-ASCII (`sessions/260726.
+	반도체 인더스트리 딥리서치/`), so an unquoted path is exactly the input these commands will see, and
+	`FileNotFoundError` does not tell you the fix is a pair of quotes.
+
+	Treat the message as an interface. It is read at precisely the moment it matters and costs
+	nothing otherwise, so it should say what valid input looks like rather than merely what went
+	wrong."""
+
+	def __init__(self, payload, exit_code=1):
+		super().__init__(payload.get("detail", ""))
+		self.payload = payload
+		self.exit_code = exit_code
+
+
+class JsonArgumentParser(argparse.ArgumentParser):
+	"""Keep argparse failures inside the CLI's JSON-only error contract."""
+
+	def error(self, message):
+		raise HarnessError({"error": "invalid_arguments", "detail": message}, exit_code=2)
+
+
+# The doctrine's fixed tier vocabulary (serenity-analysis, "Rank-N protocol"). Anything outside it
+# is rejected by name rather than silently diffed.
+_TIER_VOCAB = {"1": "1", "2": "2", "3": "3", "exit": "EXIT", "excluded": "EXCLUDED", "unresolved": "UNRESOLVED"}
+
+
+def _canonical_tier(cell):
+	"""Reduce a tier cell to the doctrine's fixed vocabulary, or return None if it isn't one.
+
+	`rankdiff`'s agreement percentage is the harness's one free reproducibility measurement, and it
+	was doing plain string equality on these cells — so `Tier 1` in one run and `1 (core)` in another
+	read as a CHANGED tier and deflated the number that is supposed to detect real drift. A
+	measurement that reports drift from formatting is worse than no measurement, because the noise
+	is indistinguishable from the signal it exists to find.
+
+	Canonicalization only. Deciding *why* a tier moved — evidence delta vs. owned judgment revision
+	vs. cohort delta — needs both rankings' reasoning text and is the model's call, so this function
+	must never grow a reason field."""
+	if cell is None:
+		return None
+	s = re.sub(r"[*`_]", "", str(cell)).strip()
+	s = re.sub(r"^tier\s*", "", s, flags=re.IGNORECASE)   # "Tier 1" -> "1"
+	s = re.sub(r"\s*\(.*?\)\s*$", "", s).strip()          # "1 (core)" -> "1"
+	return _TIER_VOCAB.get(s.lower())
+
+
 def _parse_ranking(path):
 	"""Parse a `_ranking.md`'s fixed tier table (`| ticker | tier | rung | gates | why |`) and its
 	`Tier cut:` line. Pure fact-loading — diffing two files the analyst already wrote — so it lives
 	on the code side of the fact/judge seam and renders NO judgment about which ranking is right."""
+	if not os.path.isfile(path):
+		raise HarnessError({
+			"error": "file_not_found",
+			"detail": f"no _ranking.md at {path!r}. Real session folders contain spaces and non-ASCII, "
+			          f"so quote the path: rankdiff 'sessions/260726. 반도체 인더스트리 딥리서치/_ranking.md' …",
+		})
 	tiers, order, tier_cut = {}, [], None
+	unknown = []
 	for raw in open(path, encoding="utf-8"):
 		s = raw.strip()
 		if s.lower().startswith("tier cut:"):
@@ -407,16 +465,20 @@ def _parse_ranking(path):
 		tkr, tier = cells[0], cells[1]
 		if tkr.lower() == "ticker" or not tkr or set(tkr) <= set("-: "):  # header / separator row
 			continue
+		canon = _canonical_tier(tier)
+		if canon is None:
+			unknown.append({"ticker": tkr, "tier": tier})
+			continue
 		key = tkr.upper()
 		if key not in tiers:
 			order.append(key)
-		tiers[key] = tier
-	return tiers, order, tier_cut
+		tiers[key] = canon
+	return tiers, order, tier_cut, unknown
 
 
 def cmd_rankdiff(args):
-	a_tiers, _a_order, a_cut = _parse_ranking(args.a)
-	b_tiers, _b_order, b_cut = _parse_ranking(args.b)
+	a_tiers, _a_order, a_cut, a_unknown = _parse_ranking(args.a)
+	b_tiers, _b_order, b_cut, b_unknown = _parse_ranking(args.b)
 	a_keys, b_keys = set(a_tiers), set(b_tiers)
 	common = sorted(a_keys & b_keys)
 	agree = sum(1 for t in common if a_tiers[t] == b_tiers[t])
@@ -437,24 +499,112 @@ def cmd_rankdiff(args):
 		"tier_cut_a": a_cut,
 		"tier_cut_b": b_cut,
 		"tier_cut_differs": (a_cut or "") != (b_cut or ""),
+		# Rows whose tier is outside the doctrine's fixed vocabulary (1|2|3|EXIT|EXCLUDED|UNRESOLVED).
+		# Reported and EXCLUDED from the agreement math rather than diffed — an unrecognized tier
+		# cannot be compared meaningfully, and folding it in would deflate the one number this
+		# command exists to produce.
+		#
+		# Reported rather than rejected, deliberately. Refusing the whole diff over a few
+		# nonconforming rows destroys the agreement percentage for every OTHER row, including
+		# comparisons where the bad row isn't even in the intersection — and the archive legitimately
+		# contains rankings written before the vocabulary was enforced. A measurement that refuses to
+		# run is not safer than one that names what it skipped.
+		"unknown_tiers_a": a_unknown,
+		"unknown_tiers_b": b_unknown,
+		"excluded_from_agreement": len(a_unknown) + len(b_unknown),
 	}
 	json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
 	print()
 	sys.exit(0)
 
 
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_SESSION_TYPES = ("ranking", "analysis", "macro", "postmortem")
+
+
+def cmd_new_session(args):
+	"""Create `sessions/{yymmdd}.{slug}/` and print the two lines the archive contract requires.
+
+	The convention broke on its FIRST real use. The only session folder this repo has ever produced
+	is `sessions/260726. 반도체 인더스트리 딥리서치/` — a space and a Korean phrase, against an INDEX.md
+	header that says English only. It also actively corrupts the Stop hook: feeding `verdict_gate.py`
+	a `Saved:` line naming that real, correctly-archived folder produces "not a valid session path",
+	because the regex cannot match a space or Hangul after the dot. Finished work gets nagged to
+	re-archive.
+
+	Convention plus a soft nudge has now been tried, and its one trial produced a folder that fails
+	its own check. So the mechanism changes rather than the wording: the model transcribes generated
+	text instead of composing four rules from memory at the end of a long answer, and a bad slug is
+	rejected at the ARGUMENT BOUNDARY — before `mkdir`, not discovered afterward. A failure you can
+	only detect after the fact is one you will keep committing.
+
+	The date comes from wall-clock, never from model memory. A date recalled under output pressure is
+	exactly the class of error the harness bans everywhere else; there is no reason to make an
+	exception for the one number that names the folder."""
+	slug = args.slug
+	if not _SLUG_RE.match(slug):
+		raise HarnessError({
+			"error": "invalid_slug",
+			"detail": f"{slug!r} is not a kebab-case English slug (lowercase a-z, 0-9, single hyphens). "
+			          f"INDEX.md is English-only and verdict_gate's Saved:-mark regex cannot match a "
+			          f"space or non-ASCII, so a folder named in Korean is unreachable by its own "
+			          f"archive check. Transliterate the topic: '반도체 인더스트리 딥리서치' -> "
+			          f"'semiconductor-industry-deep-research'.",
+		}, exit_code=2)
+	root = os.path.join(_ROOT, "sessions")
+	stamp = __import__("datetime").datetime.now().strftime("%y%m%d")
+	folder = f"{stamp}.{slug}"
+	# Doctrine: suffix -2 on a name collision rather than writing into a folder this session did not
+	# create. Reusing someone else's folder silently merges two analyses under one date.
+	if os.path.isdir(os.path.join(root, folder)):
+		n = 2
+		while os.path.isdir(os.path.join(root, f"{folder}-{n}")):
+			n += 1
+		folder = f"{folder}-{n}"
+	os.makedirs(os.path.join(root, folder), exist_ok=False)
+	tickers = " ".join(t.strip().upper() for t in (args.tickers or "").split(",") if t.strip())
+	index_line = f"- [{folder}]({folder}/) — {args.type}: {tickers}".rstrip()
+	json.dump({
+		"folder": f"sessions/{folder}/",
+		"saved_line": f"Saved: sessions/{folder}/",
+		"index_line": index_line,
+		"index_file": "sessions/INDEX.md",
+		"note": "Paste saved_line at the end of the answer and append index_line to sessions/INDEX.md. "
+		        "The index carries NO verdicts — a line that says what you concluded anchors the next "
+		        "session before its fresh judgment forms.",
+	}, sys.stdout, ensure_ascii=False, indent=2)
+	print()
+	sys.exit(0)
+
+
 def main():
-	parser = argparse.ArgumentParser(prog="serenity_harness.py", description="Serenity harness self-check")
+	parser = JsonArgumentParser(prog="serenity_harness.py", description="Serenity harness self-check")
 	sub = parser.add_subparsers(dest="command", required=True)
 	sp = sub.add_parser("validate", help="Structural + evidence-boundary self-check")
 	sp.add_argument("--verbose", action="store_true", default=False, help="Include detail for passing checks too")
 	sp.set_defaults(func=cmd_validate)
 	rd = sub.add_parser("rankdiff", help="Deterministic tier-table diff of two _ranking.md files (no judgment)")
-	rd.add_argument("a", help="prior _ranking.md (A)")
-	rd.add_argument("b", help="current _ranking.md (B)")
+	rd.add_argument("a", help="prior _ranking.md (A) — quote the path; real session folders contain spaces")
+	rd.add_argument("b", help="current _ranking.md (B) — quote the path; real session folders contain spaces")
 	rd.set_defaults(func=cmd_rankdiff)
-	args = parser.parse_args()
-	args.func(args)
+	ns = sub.add_parser("new-session", help="Create sessions/{yymmdd}.{slug}/ and print the Saved: + INDEX.md lines")
+	ns.add_argument("--slug", required=True,
+		help="kebab-case ENGLISH topic slug, e.g. 'semiconductor-industry-deep-research'. Validated "
+		     "here rather than after mkdir: INDEX.md is English-only and the Saved:-mark regex cannot "
+		     "match a space or non-ASCII")
+	ns.add_argument("--type", choices=_SESSION_TYPES, default="analysis",
+		help="what the folder holds — the INDEX.md line's type field")
+	ns.add_argument("--tickers", default="",
+		help="comma-separated tickers for the INDEX.md line, e.g. 'MU,TSEM,LITE'. Tickers only — the "
+		     "index carries no verdicts")
+	ns.set_defaults(func=cmd_new_session)
+	try:
+		args = parser.parse_args()
+		args.func(args)
+	except HarnessError as exc:
+		json.dump(exc.payload, sys.stdout, ensure_ascii=False, indent=2)
+		print()
+		sys.exit(exc.exit_code)
 
 
 if __name__ == "__main__":
