@@ -1,0 +1,82 @@
+# 수집이 **조용히** 멈추면 빨간불로 알린다.
+#
+# 배경: scheduled-scrape 는 self-hosted 러너에서 돈다. 러너가 죽거나 맥이 하루 넘게
+#   꺼져 있으면 예약 run 은 24시간 큐 대기 후 *cancelled* 로 사라지는데, **취소는 실패가
+#   아니라서 알림이 가지 않는다.** 그러면 "아무 메일도 안 왔으니 잘 돌고 있나 보다"가
+#   몇 주씩 이어진다.
+#
+#   이건 가정이 아니라 이미 일어난 일이다. 이 워크플로를 만들기 전, 코퍼스는 2026-07-25
+#   이후 17일간 멈춰 있었고 아무도 몰랐다(원인은 X의 웹 번들 교체 + 쿠키 만료).
+#   조용한 실패를 잡는 장치가 없으면 다시 그렇게 된다.
+#
+# 왜 데이터가 아니라 run 이력을 보나: DB는 레포 안의 파일이라 커밋을 보고 신선도를 잴 수도
+#   있다. 하지만 조용한 날에는 커밋이 아예 없는 것이 정상이므로(new_rows=0 이면 커밋을
+#   생략한다) 커밋 최신성은 수집 건강과 다른 것을 잰다. 그래서 워크플로 자신의 **성공
+#   run 이력**을 본다. 이 워치독이 못 잡는 것은 "돌긴 하는데 결과가 이상한" 경우인데,
+#   그건 scheduled-scrape 가 스스로 빨간불(종료코드 1)로 알리므로 둘이 서로의 사각을 덮는다.
+#
+# 왜 ubuntu-latest 인가: 감시 대상이 내 맥이므로 감시자는 맥 밖에 있어야 한다.
+#   self-hosted 로 두면 러너가 죽는 순간 워치독도 같이 죽어 아무 소용이 없다.
+#   (덤으로 아래 `date -u -d` 는 GNU 전용이라 macOS 에서는 어차피 안 돈다.)
+
+name: scrape-watchdog
+
+on:
+  schedule:
+    # 12:00 KST = 03:00 UTC — 09:00 KST 실행이 끝났어야 할 시각의 세 시간 뒤에 점검한다.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      stale_days:
+        description: "임계(일). 비우면 아래 기본값. 빨간불 경로를 시험하려면 -1 을 준다."
+        required: false
+        type: string
+
+permissions:
+  actions: read
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # 하루 두 번 도는데 이틀이 비었다면 네 번을 놓친 것이고, 러너 사망·맥 장기 부재·
+      # 스케줄 자동 비활성 중 하나다. 하루로 잡으면 맥이 하룻밤 꺼진 것만으로 울어 곧
+      # 무시하게 되고, 사흘로 잡으면 주말을 통째로 놓친다.
+      #
+      # 디스패치 입력으로 덮어쓸 수 있게 둔 이유: **빨간불이 나오는 것을 본 적 없는
+      # 워치독은 워치독이 아니다.** -1 을 주면 실패 경로가 그대로 돈다.
+      STALE_DAYS: ${{ inputs.stale_days || '2' }}
+      WORKFLOW: scheduled-scrape.yml
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check last successful scrape
+        run: |
+          set -euo pipefail
+
+          # `|| true` 가 필요하다 — 워크플로가 아직 default 브랜치에 없으면 404 라서,
+          # 그대로 두면 set -e 가 아래 안내 메시지 대신 알 수 없는 에러로 죽는다.
+          latest="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].updated_at // empty' 2>/dev/null || true)"
+
+          if [ -z "$latest" ]; then
+            echo "::error::${WORKFLOW} 의 성공 run 이 하나도 없다 — 러너 등록이나 스케줄 활성 상태를 확인하라."
+            echo "::error:: 러너 확인: repo Settings → Actions → Runners"
+            echo "::error:: 맥에서: ~/actions-runner-serenity/svc.sh status"
+            exit 1
+          fi
+
+          age_days=$(( ( $(date -u +%s) - $(date -u -d "$latest" +%s) ) / 86400 ))
+          echo "최근 성공 run: $latest (${age_days}일 전)"
+
+          if [ "$age_days" -gt "$STALE_DAYS" ]; then
+            echo "::error::수집이 ${age_days}일째 성공하지 못했다 (임계 ${STALE_DAYS}일)."
+            echo "::error:: 1) 러너 생존: ~/actions-runner-serenity/svc.sh status"
+            echo "::error:: 2) 맥 전원·절전, 스케줄 활성(60일 무활동 시 자동 비활성)"
+            echo "::error:: 3) 쿠키 만료가 가장 흔하다 — 최근 run 의 job summary 에서 error 코드를 본다"
+            exit 1
+          fi
+
+          echo "수집 정상 — 최근 성공이 임계 안에 있다."

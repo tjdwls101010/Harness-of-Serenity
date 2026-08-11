@@ -630,6 +630,30 @@ def test_key_byte_indices_are_read_from_the_real_ondemand_bundle():
 	assert serenity_scrape._key_byte_indices(ONDEMAND_SNIPPET) == [0, 34, 37, 12]
 
 
+def test_detail_is_a_single_line_so_the_job_summary_renders(tmp_path, cookies, capsys):
+	"""X's 401 body carries embedded newlines.
+
+	`detail` is rendered into a markdown blockquote and passed through a GitHub
+	step output; a raw newline breaks both — the quote silently ends mid-sentence
+	and the remedy is the part that gets cut.
+	"""
+	client = FakeClient(FakePage([]), user_error=Unauthorized(
+		'status: 401, message: "{"errors":[{"message":"Could not authenticate you"}]}\n"'
+	))
+	_, doc, _ = run(tmp_path, client, capsys=capsys)
+
+	assert "\n" not in doc["detail"]
+	assert "\r" not in doc["detail"]
+
+
+def test_detail_truncates_a_hostile_exception_body(tmp_path, cookies, capsys):
+	# The Actions log is PUBLIC and twikit can echo a request back at us. Cap it.
+	client = FakeClient(FakePage([]), user_error=Unauthorized("x" * 5000))
+	_, doc, _ = run(tmp_path, client, capsys=capsys)
+
+	assert len(doc["detail"]) < 800
+
+
 def test_a_dead_session_names_both_of_its_two_causes(tmp_path, cookies, capsys):
 	"""The remedy has to cover both, because the symptom is identical.
 

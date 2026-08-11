@@ -273,12 +273,15 @@ def _error_code(exc: BaseException) -> str:
 
 
 def _safe_reason(exc: BaseException) -> str:
-	"""A one-line exception summary safe for a PUBLIC Actions log.
+	"""A ONE-LINE exception summary safe for a PUBLIC Actions log.
 
-	Truncated because twikit can echo a request — and this repo's logs and job
-	summaries are world-readable.
+	Truncated because twikit can echo a request back at us, and this repo's logs and
+	job summaries are world-readable. Whitespace-collapsed because X's 401 body
+	carries embedded newlines, and `detail` is rendered into a markdown blockquote
+	and passed through a GitHub step output — a raw newline breaks both, cutting the
+	message off at exactly the part that says what to do.
 	"""
-	return f"{type(exc).__name__}: {str(exc)[:200]}"
+	return f"{type(exc).__name__}: {' '.join(str(exc).split())[:200]}"
 
 
 def _detail_for(code: str, exc: BaseException | None, args) -> str:
