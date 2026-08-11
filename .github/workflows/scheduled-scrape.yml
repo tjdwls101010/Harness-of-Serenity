@@ -70,12 +70,12 @@ jobs:
     steps:
       # ref: main 이 필수다. 이게 없으면 feature 브랜치에서 workflow_dispatch 했을 때
       # 그 브랜치를 체크아웃하고 DB 커밋을 거기에 밀어 넣는다.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v9
         with:
           enable-cache: true
 
