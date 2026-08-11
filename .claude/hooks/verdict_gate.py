@@ -108,11 +108,27 @@ def _has(pattern, text):
 # bar and silencing the hook. `-` is deliberately absent from the decoration class — a bullet
 # (`- Downsides are already priced in`) is body text, and treating it as a boundary would truncate
 # the very block being measured.
-_SECTION_LABEL = re.compile(
-	r"^[\s*_#>`]*(?:Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structural position"
-	r"|Forward revenue)\s*(?::|$)",
-	re.IGNORECASE,
-)
+# A section header is a LINE-STRUCTURAL thing, and that single idea replaces what was three rounds of
+# decoration-character whack-a-mole. The pieces:
+#
+#   _DECOR  — what may precede the label on its line: bullet, emphasis, heading, blockquote. A bullet
+#             marker is safe to allow here ONLY because a separator is also required below; without
+#             that requirement, `- Downsides are priced in` (body text) would read as a header.
+#   _AFTER  — decoration BETWEEN the label and its separator. `**Downsides**: ` puts the closing
+#             emphasis before the colon, where `**Downsides:** ` puts it after — the two shapes were
+#             handled asymmetrically, so one worked and the other silently bypassed the whole check.
+#   _SEP    — what separates the label from its body: ASCII colon, FULLWIDTH colon (this doctrine is
+#             bilingual, so a Korean-keyboard colon is an ordinary typo, not an exotic one), an em or
+#             en dash (the doctrine's own separator style — its `Lens:` examples read
+#             `floor — EV/Rev 18`), or end-of-line for a bare `## Downsides` heading.
+#             ASCII `-` is deliberately NOT a separator: it is this doctrine's compound-word joiner
+#             ("asset-heavy") and its bullet marker, so accepting it would fire on ordinary prose.
+_DECOR = r"[ \t*_#>`~-]*"
+_AFTER = r"[ \t*_`~]*"
+_SEP = "[:：—–]"
+_LABELS = (r"Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structural position"
+           r"|Forward revenue")
+_SECTION_LABEL = re.compile(rf"^{_DECOR}(?:{_LABELS}){_AFTER}(?:{_SEP}|$)", re.IGNORECASE)
 _NULL_LEAD = re.compile(
 	r"^(none|n/?a|없음|can'?t think of(?:\s+(?:one|any|anything))?)\b\s*[:\-—,]*\s*",
 	re.IGNORECASE,
@@ -147,8 +163,23 @@ def _find_section_header(label, msg):
 	format the schema prescribes was the one that bypassed the check. The colon is optional ONLY on a
 	line that is nothing but the header; mid-sentence prose ("the downsides here are priced in") must
 	never read as a section header."""
-	return (re.search(r"\b" + label + r"\s*:", msg, re.IGNORECASE)
-	        or re.search(r"^[\s*_#>`]*" + label + r"\s*:?[ \t]*$", msg, re.IGNORECASE | re.MULTILINE))
+	found = list(re.finditer(rf"^{_DECOR}{label}{_AFTER}(?:{_SEP}|$)", msg,
+	                         re.IGNORECASE | re.MULTILINE))
+	# THE LAST match, and line-anchored — the two properties that matter, both learned the hard way.
+	#
+	# Unanchored `re.search` took the FIRST `Downsides:` anywhere in the message, including one buried
+	# mid-sentence. That broke in both directions on real text. A correct answer with a proper
+	# bulleted section got nudged as empty, because a throwaway earlier clause ("earlier I wrote
+	# Downsides: none, wrongly") was measured instead of the real section. And a genuinely empty
+	# section was missed, because an earlier mention happened to look substantial. Neither is exotic:
+	# quoting a section name as example text and correcting oneself mid-answer are both ordinary.
+	#
+	# Last-match is right because the answer contract fixes the order — the operative Downsides block
+	# is the one in the closing structure, after the Lens line, not a passing reference above it.
+	# Residual, accepted: an answer whose real section is followed by a LATER passing reference would
+	# measure the reference. That inverts the common case for the rare one, and unlike the first-match
+	# version it cannot be triggered by an ordinary preamble.
+	return found[-1] if found else None
 
 
 def _section_body(label, msg):
