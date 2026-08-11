@@ -51,12 +51,15 @@ operating value against parent MC"). The check is "an arithmetic expression is p
 specific operator is present." Because `-` is also this doctrine's compound-word joiner
 ("asset-heavy", "step-change"), a bare `+`/`-`/`\u2212` counts ONLY when numeric tokens sit tight
 against it with no word between — a looser bridge would fire on nearly every line of prose. `/` gets
-a wider, bounded word-bridge (\u226420 chars) on each side instead, because the doctrine's own real
-example needs one ("$4.2B rebuild cost / 12 reactors"); this is intentionally the looser of the two
-and can, in a contrived sentence, treat an unrelated nearby number and a ratio name's slash as
-arithmetic (e.g. a stray figure a few words before "EV/Rev of 18x"). Accepted, not fixed, per the
-standing instruction to prefer over-accepting a soft nudge over misfiring on correct arithmetic — a
-precise fix would need grammatical parsing this hook does not do.
+a bounded word-bridge (\u226420 chars) on each side, because the doctrine's own real example needs one
+("$4.2B rebuild cost / 12 reactors") — but the slash must ALSO be space-flanked, or else sit tight
+between two digits ("4.2/12"). That last requirement is what separates division from a ratio NAME:
+`EV/Rev` presses letters against the slash on both sides, and arithmetic essentially never does.
+Without it the bridge reached across intervening prose, so "down 12% recently, and EV/Rev of 18x = …"
+counted the stray price-decline figure as a numerator and passed the exact bare top-down multiple this
+check exists to reject. The docstring claimed a ratio name "still correctly fails either way" while it
+did not — a described behavior that was never true is worse than a documented gap, because nobody
+goes looking for it.
 
 Accepted limit — the `Lens:` numeric bar is LINE-LEVEL, not per-operand. A `Lens:` line must contain
 the operator *and* an `=` *and* at least one digit somewhere on that line — not one digit per leg. A
@@ -435,7 +438,8 @@ def main():
 	lens_line = lens_line_match.group(0) if lens_line_match else ""
 	lens_operator = _has(
 		r"[×÷*]"
-		r"|\d[\d,.]*\s?[%TtBbMmKk]?[^/\n]{0,20}/[^\d$₩€£\n]{0,20}[$₩€£]?\d"
+		r"|\d[\d,.]*\s?[%TtBbMmKk]?[^/\n]{0,20}\s/\s[^\d$₩€£\n]{0,20}[$₩€£]?\d"
+		r"|\d[\d,.]*\s?[%TtBbMmKk]?/[$₩€£]?\d"
 		r"|[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?\s*[+\-−]\s*[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?",
 		lens_line,
 	)
