@@ -154,28 +154,28 @@ behavior, not current behavior.
 
 ---
 
-## The session archive has no committed worked example
+## The committed session archive predates the pinned scorecard schema
 
 **Severity:** ⚪ Cosmetic / accepted
 
-**What happens.** The archive convention is fully specified, and a fresh clone contains no
-example of it. `git ls-files sessions/` returns exactly three paths: `INDEX.md` (zero entries) and
-the two `9901xx` hook-fixture folders. Real session folders are generated locally and are not
-published with the repository.
+**Resolved and replaced 2026-08-11.** A real session is now committed —
+`sessions/260726. 반도체 인더스트리 딥리서치/` — so the archive convention has a worked example: seven
+per-name scorecards, a `_ranking.md` with the tier table and `Tier cut:` line that `rankdiff`
+parses, a `_macro.md`, and a 30-layer `_sectormap.json`.
 
-**Why it matters.** Only for expectations, which is why this is ⚪ rather than 🟡 — nothing is
-broken, there is simply nothing to copy from:
+**What remains.** All seven scorecards predate enforcement and **do not conform** to the schema
+pinned in `.claude/agents/serenity-scorecard.md`. Every one carries a `tier:` field that the agent
+body explicitly forbids ("a scorecard that carries a tier is inviting itself to rank, and it can't
+see the cohort"), writes `archetype: Bottleneck` where the enum is lowercase `chokepoint`, uses
+free text where `stage` is an int 1–5, and omits `type` / `session` / `date` / `data_as_of` / `mc`
+/ `gate_strength`.
 
-- No reference `_ranking.md` exists, so the tier table, the `Tier cut:` line, and the deltas
-  section have no example. The column contract in
-  [Agent Harness](Agent-Harness.md#the-rank-n-protocol) is the specification, and it is exact
-  because `rankdiff` parses it.
-- `serenity_harness.py rankdiff` has nothing in a fresh clone to run against. Point it at two of
-  your own session folders once you have them.
-
-**Not a defect to fix in code.** Whether a maintainer's own analysis belongs in a public
-repository is a judgment call, and keeping it out is defensible. Noted here so the specification
-in [Session Archive](Session-Archive.md) is not mistaken for something demonstrated.
+**Read them as a convention example, not a schema example.** `harness scorecard-lint` flags all
+seven, deliberately: they are grandfathered by boundary date so `validate` does not redden over
+history it cannot fix. `date`, `data_as_of`, and `mc` are unrecoverable without re-running the
+pipeline, and back-filling them would produce a file that *looks* current while carrying expired
+numbers — which the spine's "numbers expire, structure doesn't" rule exists to prevent. The
+correct resolution is a re-run of the cohort, not a frontmatter patch.
 
 ---
 
