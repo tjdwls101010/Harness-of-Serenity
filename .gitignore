@@ -30,3 +30,8 @@ data/state_store.db/
 # --- Runtime loop/research artifacts & scratch (not deliverables) ---
 .omo/
 scratchpad_macro.json
+
+# Codex run registry + local .codex convenience symlink (the committed .codex/ layer was retired
+# 2026-08-11; these are local tooling state, not a harness component)
+.codex-runs/
+/.codex
