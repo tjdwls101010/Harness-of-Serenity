@@ -413,10 +413,15 @@ def cmd_sample(args) -> None:
 	chosen: list[dict] = []
 	gold_ids: set[str] = set()
 	gold_missing: list[str] = []
+	# The VOCABULARY is read whether or not the gold set is force-included. `--no-gold` means "do not
+	# add the curated twelve"; it never meant "ignore the label file and the known non-theses", and
+	# tying the two together made `--no-gold` silently return unlabelled cases INCLUDING ids listed
+	# as excluded.
 	vocab: set = set()
-	if not args.no_gold:
+	if os.path.isfile(args.gold):
 		with open(args.gold, encoding="utf-8") as _fh:
 			vocab = set((json.load(_fh).get("_meta") or {}).get("archetype_vocabulary") or [])
+	if not args.no_gold:
 		for g in _load_gold_set(args.gold):
 			gid = str(g["id"])
 			r = by_id.get(gid)
@@ -715,7 +720,8 @@ def cmd_report(args) -> None:
 	missed_tally: dict[str, int] = {}
 	unstable_scope = 0          # cases whose chokepoint scope came from the judge, not a fixed label
 	unlabeled = 0
-	unscored = 0                # cases carrying no judge result at all (a failed/killed judge)
+	unscored = 0                # cases that contributed no score at all, from any source
+	judge_missing = 0           # cases whose JUDGE failed, even if the hook still scored them
 	disagreements: list[str] = []
 	hook_scored = 0
 	hook_available = None
@@ -748,7 +754,12 @@ def cmd_report(args) -> None:
 				hook_status = "ok"
 				mech = _mechanical_scores(explain)
 				for k, v in mech.items():
-					if sc.get(k) in (0, 1) and sc.get(k) != v:
+					if k in sc and sc.get(k) != v:
+						# ANY difference, not only 0-vs-1. A judge `n/a` corrected to a real hook
+						# score is the most interesting disagreement available — the judge decided
+						# the item did not apply and the production hook says it did — and the old
+						# condition (`in (0, 1)`) skipped exactly that transition, so the overwrite
+						# happened silently while the counter reported zero disagreements.
 						disagreements.append(f"{c.get('ticker')}/{k}: judge={sc.get(k)} hook={v}")
 					sc[k] = v
 				if any(v in (0, 1) for v in mech.values()):
@@ -758,19 +769,28 @@ def cmd_report(args) -> None:
 		# judge died can still be scored on the two structural items by the live hook, and counting
 		# it as contributing nothing while its hook scores fed the aggregate printed a warning that
 		# contradicted the number directly above it.
+		if not (c.get("scores") or {}):
+			# The JUDGE is missing. Tracked separately from "nothing scored this case at all",
+			# because the hook can still score the two structural items from the response — which
+			# turned a killed judge into two scored FAILURES with no warning anywhere. Those hook
+			# scores are real measurements of the answer and stay in; what was wrong was saying
+			# nothing about a case whose judge never ran.
+			judge_missing += 1
 		if not any(sc.get(k) in (0, 1) for k in scored_keys):
 			unscored += 1
 
 		for k in scored_keys:
 			v = sc.get(k)
-			if k in _CHOKEPOINT_SCOPED:
-				if arch is not None:
-					# Mechanical split from the persisted label. Stable across passes by
-					# construction: the same case cannot be in scope one run and out the next.
-					if arch != "chokepoint":
-						continue
-				elif v in (0, 1):
+			if k in _CHOKEPOINT_SCOPED and arch != "chokepoint":
+				# Mechanical split from the persisted label. Stable by construction: the same case
+				# cannot be in scope one run and out the next. An UNLABELLED case is SKIPPED rather
+				# than scored on the judge's own scope guess — which is what the sampler's
+				# `unlabeled_archetype` note has always promised, while the code did the opposite
+				# and admitted those scores behind a counter. A documented contract the code
+				# contradicts is worse than either behaviour on its own.
+				if arch is None and v in (0, 1):
 					unstable_scope += 1
+				continue
 			if v in (0, 1):
 				met, tot = rates[k]
 				rates[k] = (met + int(v == 1), tot + 1)
@@ -796,11 +816,18 @@ def cmd_report(args) -> None:
 	# overall
 	overall_met = sum(m for m, _ in rates.values())
 	overall_tot = sum(t for _, t in rates.values())
-	overall = (overall_met / overall_tot) if overall_tot else 0.0
-	lines += [f"**Pooled reproduction rate: {overall:.0%}** ({overall_met}/{overall_tot} in-scope checks "
-			  f"met)", "",
-			  "Pooled across distinct moves, so it conflates them — usable as a coarse dashboard number "
-			  "and for spotting gross regressions, not as a claim about any single move.", ""]
+	if not overall_tot:
+		# NEVER render 0/0 as "0%". An empty measurement and a harness that failed every single check
+		# are completely different outcomes, and one of them is a quotable indictment that did not
+		# happen. This is the report's own version of the failure it exists to prevent.
+		lines += ["**No in-scope checks** — nothing in this file could be scored. That is an empty "
+				  "measurement, not a 0%.", ""]
+	else:
+		overall = overall_met / overall_tot
+		lines += [f"**Pooled reproduction rate: {overall:.0%}** ({overall_met}/{overall_tot} in-scope "
+				  f"checks met)", "",
+				  "Pooled across distinct moves, so it conflates them — usable as a coarse dashboard "
+				  "number and for spotting gross regressions, not as a claim about any single move.", ""]
 
 	lines += ["## Per-move reproduction", "", "| signature move | rate | met / in-scope |", "|---|---|---|"]
 	for k in scored_keys:
@@ -835,18 +862,24 @@ def cmd_report(args) -> None:
 			lines.append(f"- ⚠ **the hook failed on {hook_failures} case(s)** (timeout or crash). Those "
 						 f"cases kept their unverified judge scores for lens_run and "
 						 f"bear_and_falsifier, which is not what the row above claims for the rest.")
+	if judge_missing:
+		lines.append(f"- ⚠ **{judge_missing}/{len(cases)} case(s) had no JUDGE result.** Any hook-scored "
+					 f"structural items for them are still counted above — those are real — but their "
+					 f"four judge-only rows are absent. Re-run those cases before comparing this report "
+					 f"against another.")
 	if unscored:
-		lines.append(f"- ⚠ **{unscored}/{len(cases)} case(s) carry no judge result** and contributed to "
+		lines.append(f"- ⚠ **{unscored}/{len(cases)} case(s) contributed no score at all and contributed to "
 					 f"nothing above. Every rate on this page is computed over the remaining "
 					 f"{len(cases) - unscored}. Re-run those cases before comparing this report "
 					 f"against another.")
 	lines.append(f"- archetype labels: {len(cases) - unlabeled}/{len(cases)} cases carry a fixed "
 				 f"`archetype`, so their chokepoint scope is stable across passes.")
 	if unlabeled:
-		lines.append(f"- ⚠ {unlabeled} unlabeled case(s) contributed {unstable_scope} chokepoint-scoped "
-					 f"score(s) decided by the judge at scoring time. Those can flip n/a↔0 between two "
-					 f"passes of the identical answer. Fill `archetype` in during the one-time "
-					 f"inspection that freezes a standing sample.")
+		lines.append(f"- ⚠ {unlabeled} unlabeled case(s); {unstable_scope} chokepoint-scoped judge "
+					 f"score(s) were DISCARDED because their scope cannot be decided mechanically. "
+					 f"Scoring them off the judge's own per-pass guess is what let a borderline case "
+					 f"flip n/a↔0 between two scorings of the identical answer. Fill `archetype` in "
+					 f"during the one-time inspection that freezes a standing sample.")
 	lines.append("")
 
 	lines += ["## Per-case", "",

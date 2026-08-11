@@ -344,8 +344,7 @@ def test_a_case_with_no_judge_result_is_reported_not_silently_dropped(tmp_path):
                   "archetype": "macro", "response": "TLDR: x", "scores": None})
     p = _scored(tmp_path, cases)
     out = _run("report", "--results", str(p), "--n-floor", "1", "--no-hook").stdout
-    assert "1/3 case(s) carry no judge result" in out
-    assert "computed over the remaining 2" in out
+    assert "1/3 case(s) had no JUDGE result" in out
     # and the rates really are over 2, not 3
     row = next(l for l in out.splitlines() if l.startswith("| archetype_named"))
     assert "2 / 2" in row, row
@@ -591,3 +590,65 @@ def test_only_labeled_yields_a_stable_fully_labeled_standing_sample():
 
 
 _DEFAULT_N_FLOOR = 12
+
+
+# --- findings from the codex adversarial review -------------------------------------------------
+
+def test_an_empty_measurement_is_never_rendered_as_zero_percent(tmp_path):
+    """0/0 rendered as `0%`. An empty run and a harness that failed every check are completely
+    different outcomes, and one of them is a quotable indictment that did not happen."""
+    p = _scored(tmp_path, [{"id": "D", "ticker": "DEAD", "archetype": "chokepoint",
+                            "entry_type": "event", "scores": None}])
+    out = _run("report", "--results", str(p), "--no-hook", "--n-floor", "1").stdout
+    assert "No in-scope checks" in out
+    # The absence of a RENDERED RATE, not of the characters "0%" — the explanatory line itself
+    # contains "not a 0%", which is exactly the sentence doing the work.
+    assert "Pooled reproduction rate" not in out
+
+
+def test_a_missing_judge_is_reported_even_when_the_hook_still_scored_the_case(tmp_path):
+    """The hook can score the two structural items straight from the response, so a killed judge
+    became two scored FAILURES with no warning. The hook scores are real and stay in; the silence
+    about the missing judge was the defect."""
+    p = _scored(tmp_path, [{"id": "H", "ticker": "DEADHOOK", "archetype": "evolution",
+                            "entry_type": "event", "response": _FULL_ANSWER, "scores": None}])
+    out = _run("report", "--results", str(p), "--n-floor", "1").stdout
+    assert "had no JUDGE result" in out
+
+
+def test_a_judge_n_a_corrected_by_the_hook_is_counted_as_a_disagreement(tmp_path):
+    """The most interesting disagreement available — the judge says the item does not apply, the
+    production hook says it does — and the old condition (`in (0, 1)`) skipped exactly it, so the
+    overwrite happened silently while the counter reported zero."""
+    sc = {"archetype_named": 1, "lens_run": "n/a", "bear_and_falsifier": "n/a",
+          "priced_in_decomposed": 1}
+    resp = "TLDR: Rating: buy, PT $9. EV/Rev looks cheap. NFA"
+    p = _scored(tmp_path, [{"id": "J", "ticker": "JNA", "archetype": "evolution",
+                            "entry_type": "event", "response": resp, "scores": sc}])
+    out = _run("report", "--results", str(p), "--n-floor", "1").stdout
+    assert "judge=n/a hook=" in out
+    assert "disagreements: **0**" not in out
+
+
+def test_an_unlabeled_case_is_discarded_from_the_chokepoint_rows_not_scored(tmp_path):
+    """The sampler's own `unlabeled_archetype` note promised these are left unscored while the code
+    admitted them behind a counter. A documented contract the code contradicts is worse than either
+    behaviour alone, because the note is what a reader trusts."""
+    p = _scored(tmp_path, [{"id": "N", "ticker": "NA", "archetype": None, "entry_type": "event",
+                            "scores": {"recursive_bottom_hop": 0, "second_order_and_sibling": 0}}])
+    out = _run("report", "--results", str(p), "--no-hook", "--n-floor", "1").stdout
+    row = next(l for l in out.splitlines() if l.startswith("| recursive_bottom_hop"))
+    assert "0 / 0" in row, row
+    assert "DISCARDED" in out
+
+
+def test_no_gold_still_honours_labels_and_exclusions():
+    """`--no-gold` means "do not add the curated twelve". It never meant "ignore the label file and
+    the known non-theses" — but the vocabulary was only loaded when gold was enabled, and the label
+    cache only when the vocabulary was non-empty, so the flag silently turned both off and returned
+    ids explicitly listed as excluded."""
+    meta = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-gold",
+                           "--no-network").stdout)["meta"]
+    assert meta["gold_forced"] == 0
+    assert meta["archetype_labeled"] > 0, "labels must still apply without the gold floor"
+    assert meta["resolution"]["excluded_not_a_thesis"] > 0, "exclusions must still apply"
