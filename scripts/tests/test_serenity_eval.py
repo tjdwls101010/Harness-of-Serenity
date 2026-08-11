@@ -307,3 +307,28 @@ def test_disclaim_guard(content, ticker, expected):
     ev = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ev)
     assert ev._is_disclaimed(ticker, content) is expected
+
+
+def test_a_case_with_no_judge_result_is_reported_not_silently_dropped(tmp_path):
+    """A killed judge arrives as `scores: null`. It contributes to nothing, so without this the
+    pooled rate is computed over an unstated subset while the header still says "cases: 3".
+
+    Not hypothetical — a session limit killed five judges during the first pilot run and every one
+    came back exactly this way, which is how the gap was found."""
+    cases = [_case("AXTI", "chokepoint", dict(_FULL)),
+             _case("AAOI", "chokepoint", dict(_FULL))]
+    cases.append({"id": "EWY", "ticker": "EWY", "entry_type": "fear_dip",
+                  "archetype": "macro", "response": "TLDR: x", "scores": None})
+    p = _scored(tmp_path, cases)
+    out = _run("report", "--results", str(p), "--n-floor", "1", "--no-hook").stdout
+    assert "1/3 case(s) carry no judge result" in out
+    assert "computed over the remaining 2" in out
+    # and the rates really are over 2, not 3
+    row = next(l for l in out.splitlines() if l.startswith("| archetype_named"))
+    assert "2 / 2" in row, row
+
+
+def test_a_fully_scored_run_says_nothing_about_missing_judges(tmp_path):
+    """The warning has to be absent when it does not apply, or it becomes wallpaper."""
+    p = _scored(tmp_path, [_case("AXTI", "chokepoint", dict(_FULL))])
+    assert "carry no judge result" not in _run("report", "--results", str(p), "--no-hook").stdout

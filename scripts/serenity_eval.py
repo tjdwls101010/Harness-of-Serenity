@@ -604,6 +604,7 @@ def cmd_report(args) -> None:
 	missed_tally: dict[str, int] = {}
 	unstable_scope = 0          # cases whose chokepoint scope came from the judge, not a fixed label
 	unlabeled = 0
+	unscored = 0                # cases carrying no judge result at all (a failed/killed judge)
 	disagreements: list[str] = []
 	hook_scored = 0
 	hook_available = None
@@ -613,6 +614,12 @@ def cmd_report(args) -> None:
 		arch = c.get("archetype")
 		if arch is None:
 			unlabeled += 1
+		# A case whose judge failed arrives as `scores: null` and contributes to nothing. Silently
+		# it would just shrink every denominator while the header still says "cases: 12" — the
+		# pooled rate would be computed over an unstated subset. Observed live: a session limit
+		# killed five judges mid-pilot and every one of them came back exactly this way.
+		if not sc:
+			unscored += 1
 
 		# --- mechanical pre-pass: the live hook overrides the judge on the items it owns ---
 		if not args.no_hook and c.get("response"):
@@ -697,6 +704,11 @@ def cmd_report(args) -> None:
 					 f"bear_and_falsifier.")
 		lines.append(f"- judge/hook disagreements: **{len(disagreements)}**"
 					 + (" — " + "; ".join(disagreements[:8]) if disagreements else ""))
+	if unscored:
+		lines.append(f"- ⚠ **{unscored}/{len(cases)} case(s) carry no judge result** and contributed to "
+					 f"nothing above. Every rate on this page is computed over the remaining "
+					 f"{len(cases) - unscored}. Re-run those cases before comparing this report "
+					 f"against another.")
 	lines.append(f"- archetype labels: {len(cases) - unlabeled}/{len(cases)} cases carry a fixed "
 				 f"`archetype`, so their chokepoint scope is stable across passes.")
 	if unlabeled:
