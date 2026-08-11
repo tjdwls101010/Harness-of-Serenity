@@ -1,0 +1,12 @@
+{
+  "last_assistant_message": "TLDR: $NVDA long. NFI/NFA.\nLens: floor — EV/Rev 18 ÷ MC $3.2T = base; upside — content×volume ÷ MC = re-rate.\nSaved: sessions/990101.hook-fixture/\nDownsides： none that matter\nFalsifier: breaks if the ramp stalls two quarters running and supply catches up.\n",
+  "stop_hook_active": false,
+  "_expect": {
+    "contains": [
+      "Downsides"
+    ],
+    "excludes": [
+      "\"decision\": \"block\""
+    ]
+  }
+}
