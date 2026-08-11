@@ -745,6 +745,16 @@ def cmd_report(args) -> None:
 	# measurement before this (n=6, 72%→70%) was described by its own authors as a single stochastic
 	# judge flip, and it still got quoted afterwards as though it meant something.
 	lines += ["", "## What this run can and cannot claim", "",
+			  # 4.4 requires the age policy to be STATED rather than left implicit, because the two
+			  # available options measure different things and a reader cannot tell which was used.
+			  "**How thesis age is handled:** these cases are months old and the pipeline loads "
+			  "current data, so a blind run can see how the setup resolved. The sampler is not biased "
+			  "toward recent theses — the curated gold cases are fixed and old by construction, so "
+			  "that option does not exist for the archetype floor. Instead the blind prompt states "
+			  "the data-timing gap neutrally so every case is answered under the same conditions, and "
+			  "the rubric scores decomposition METHOD rather than directional agreement: a harness "
+			  "that reaches a different verdict because the setup has since resolved passes any item "
+			  "whose method ran properly.", "",
 			  "**Can:** gross regressions and breaks (visible well below the power threshold); the "
 			  "pooled cross-move number above as a coarse dashboard reading; a running trend across "
 			  "successive doctrine edits, which is where this instrument earns its keep.", "",

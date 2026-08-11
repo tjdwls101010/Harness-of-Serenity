@@ -149,7 +149,18 @@ const scored = await pipeline(
     `5. EXCEPTION to the archive rule, and only this one: do NOT create any session folder, write ` +
     `any file, or edit INDEX.md. This is an evaluation run in the live project directory. Return ` +
     `the full answer as your text — that IS the deliverable. Everything else in the doctrine applies ` +
-    `normally.\n\n` +
+    `normally.\n` +
+    // The question is date-anchored but the pipeline loads TODAY's data, which can be many months
+    // later — so a blind run can simply see how the setup resolved. Observed varying case to case in
+    // the first pilot: one run spotted the gap unprompted and rebuilt the as-of information set from
+    // reported filings, another reasoned straight from current figures about whether a catalyst had
+    // existed on the asked date. Noticing that your data postdates the question is not one of the
+    // six signature moves under test, so leaving it to chance adds variance to every score without
+    // measuring anything. Stated neutrally here — it says what is true about the data, never what to
+    // conclude from it.
+    `6. Data timing: the pipeline loads CURRENT market data, which may be months later than the date ` +
+    `in the question. Answer the question as asked — reason about the situation as of that date. ` +
+    `Where you use a figure that postdates it, say so explicitly rather than silently.\n\n` +
     `Question:\n${c.blind_prompt}`,
     { label: `run:${c.ticker}`, phase: 'Blind run', model: MODEL },
   ),
