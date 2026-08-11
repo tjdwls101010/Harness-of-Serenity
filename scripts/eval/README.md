@@ -64,7 +64,24 @@ The runner snapshots the real `sessions/` before and after and fails loudly if a
 
 `report` can only apply the chokepoint scope split mechanically for cases that carry an `archetype`. The twelve gold cases have one; the random remainder does not, and those cases are reported separately as scope-unstable.
 
-The fix is not more code — it is that the standing regression sample is **inspected once by a human and frozen**, not re-drawn every run. During that pass: fill `archetype` in for each unlabeled case, and eyeball the blind prompts for the cases a regex will always lose to (rhetorical anchoring — "not X, but something like it" is a normal way to write, and the disclaim guard only catches the obvious form). Commit the result. That one fixed cost is what buys a stable in-scope N for every future audit.
+**Why this step is not optional at large n.** Growing n buys statistical power for the four always-in-scope rubric rows and **none at all** for the two chokepoint-scoped ones: their stable in-scope N stays at the four curated chokepoint cases no matter how big the draw gets. Those two — `recursive_bottom_hop` and `second_order_and_sibling` — are the moves the harness's own retrospective calls the weakest-reproduced, which is most of what a larger n is being bought for. So an unlabelled n=100 is, for the rows that matter most, an n=4.
+
+The pass itself:
+
+```bash
+PY=scripts/.venv/bin/python
+$PY scripts/serenity_eval.py sample --n 100 --seed 7 > cases.json     # who needs a label
+# label them (scripts/eval/archetype_label_workflow.js does the fan-out), write the result to
+# scripts/eval/archetype_labels.json, then confirm:
+$PY scripts/serenity_eval.py sample --n 100 --seed 7 --no-network \
+  | $PY -c "import json,sys; m=json.load(sys.stdin)['meta']; print(m['archetype_labeled'], '/', m['n'])"
+```
+
+Also eyeball the blind prompts for the cases a regex will always lose to — rhetorical anchoring ("not X, but something like it" is a normal way to write, and the disclaim guard only catches the obvious form).
+
+Then **commit** `archetype_labels.json`. It is frozen from that point: a label that later looks wrong is corrected *in place, by hand, with its `why` updated* — never by re-running the pass, which would move other labels too and break comparability with every run already scored against it. Re-deriving scope at judge time is what let a borderline case flip `n/a`↔`0` between two scorings of the identical answer.
+
+Note the sample itself needs no freezing beyond this. `sample --n N --seed 7 --no-network` reproduces byte-identical cases from the committed resolution cache, so the command *is* the frozen sample and the label file is the judgment layered on top.
 
 ## What the numbers can and cannot claim
 
