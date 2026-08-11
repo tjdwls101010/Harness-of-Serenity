@@ -402,6 +402,20 @@ def _finish(
 	result: float,
 	**extra: Any,
 ) -> JsonObject:
+	# Every subcommand's result funnels through here, which is why the finiteness guard lives here
+	# rather than in each driver. `_number_type` and `_parse_inputs` already reject a non-finite
+	# INPUT, but a bare literal inside `custom --expr` bypasses both, and any driver can overflow to
+	# inf on a large enough product. json.dump would then emit `Infinity` / `NaN`, which RFC 8259
+	# does not permit — a strict consumer chokes, and this CLI's whole contract is "one JSON object,
+	# always." Practically unreachable with real market figures; guarded anyway because the failure
+	# is silent to the producer and fatal to the reader.
+	if not math.isfinite(result):
+		raise LensError({
+			"error": "non_finite_result",
+			"detail": f"{driver} produced {result!r}, which has no valid JSON representation. "
+			          f"Check the inputs for an overflowing magnitude — a real market figure will "
+			          f"not reach this.",
+		})
 	body: JsonObject = {
 		"driver": driver,
 		"fork": args.fork,

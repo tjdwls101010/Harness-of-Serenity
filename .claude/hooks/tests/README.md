@@ -1,7 +1,8 @@
 # Hook fixtures
 
-Committed stdin payloads that pin the branch behavior of the two prose-gating hooks — `verdict_gate.py`
-(Stop) and `evidence_discipline.py` (UserPromptSubmit). Each `.json` file is one scenario: the exact
+Committed stdin payloads that pin the branch behavior of every hook with branching logic — `verdict_gate.py`
+(Stop), `evidence_discipline.py` (UserPromptSubmit), `data_integrity_guard.py` and `scorecard_guard.py`
+(both PostToolUse). Each `.json` file is one scenario: the exact
 stdin a hook would receive at its lifecycle event. Before this directory existed the scenarios lived
 only as names in `harness-spec.md`, so "re-run the regressions" was not executable — these files fix that.
 
@@ -32,6 +33,41 @@ executable (`chmod +x`) for the `--command` form, since it execs them via their 
 `settings.json` invokes them through the venv python explicitly, so the bit is irrelevant there.
 
 ## Scenarios and expected outcomes
+
+**This section documents; it does not define.** `run_fixtures.py` discovers fixtures by directory and
+reads each expectation from the `_expect` key inside the file, so a fixture is authoritative about
+itself and this table can only ever be out of date — never wrong in a way that changes a result. Add
+a fixture by adding one file; update the table if you want the next reader to find it here.
+
+Paths inside a fixture use `{{SANDBOX}}`, which the runner substitutes with this checkout's
+`fixtures/` directory. A literal absolute path fails the suite by design: it passes only on the
+machine that wrote it, and its silent-expectation cases pass there for the wrong reason.
+
+### data_integrity_guard/ (PostToolUse/Bash) — flags are arithmetic, never a thesis judgment
+
+| Fixture | Expected |
+|---|---|
+| `clean_silent` | SILENT — a fully self-consistent payload; proves the hook is not always-on |
+| `mu_revenue_hard` | HARD — a 142% revenue-field gap, past the 75% timing ceiling |
+| `aapl_revenue_note` | note, and explicitly NOT HARD — a benign 12% TTM-vs-annual gap. Paired with the above, this is what proves the tiering discriminates rather than relabels |
+| `float_shares_hard` | HARD — float exceeds shares outstanding |
+| `margin_impossible_hard` | HARD — operating margin exceeds gross margin |
+| `inventory_room_hard` | HARD — inventory exceeds total assets minus cash |
+| `cash_fields_soft` | soft — the two cash fields disagree; definitionally allowed, so never HARD |
+| `non_analyze_silent` | SILENT — a Bash command that isn't an `analyze` run |
+
+### scorecard_guard/ (PostToolUse/Write·Edit·MultiEdit) — schema shape only, never analysis quality
+
+| Fixture | Expected |
+|---|---|
+| `conforming_silent` | SILENT — a scorecard matching the pinned schema |
+| `nonconforming_flags` | SOFT — the archive's real drift reproduced: forbidden `tier:`, capitalized `archetype`, free-text `stage`, six missing required fields |
+| `edit_also_guarded` | SOFT — a scorecard is *revised* by Edit, not only created by Write |
+| `multiedit_batch` | SOFT — MultiEdit carries a batch of paths |
+| `out_of_scope_path_silent` | SILENT — a `.md` outside `sessions/` |
+| `synthesis_file_silent` | SILENT — `_ranking.md` and friends carry their own shape, not this schema |
+| `other_tool_silent` | SILENT — a non-write tool |
+
 
 ### verdict_gate/ (Stop) — SILENT = exit 0 no output · SOFT = `additionalContext` nudge · HARD = `decision: block`
 
