@@ -67,7 +67,7 @@ This repository splits them and keeps them split:
 - **A self-check that actually runs** — `serenity_harness.py validate` performs 15 structural
   checks including a full replay of every golden fixture against the judgment-free contract.
 - **An agent harness on top** — an always-on reasoning spine, three focused skills, two
-  subagents, and four lifecycle hooks that enforce evidence discipline at runtime.
+  subagents, and the lifecycle hooks that enforce evidence discipline at runtime.
 - **Reproducibility measurement** — a seeded, stratified eval that scores whether the harness
   reproduces the *method* on real past cases, deliberately grading moves rather than numbers.
 

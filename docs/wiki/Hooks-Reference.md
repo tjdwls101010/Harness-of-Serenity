@@ -1,6 +1,6 @@
 # Hooks Reference
 
-The four lifecycle hooks in `.claude/hooks/`, what each inspects, and exactly when it blocks,
+The lifecycle hooks in `.claude/hooks/`, what each inspects, and exactly when it blocks,
 warns, or stays silent.
 
 ## Why hooks exist
@@ -16,6 +16,7 @@ A hook fires regardless. These are the four points where that determinism is wor
 | `SessionStart` | `session_status.py` | The harness is structurally sound before any work begins |
 | `UserPromptSubmit` | `evidence_discipline.py` | Market questions start from the pipeline, not from memory |
 | `PostToolUse` (Bash) | `data_integrity_guard.py` | The numbers are arithmetically self-consistent |
+| `PostToolUse` (Write/Edit) | `scorecard_guard.py` | A written scorecard matches its pinned schema |
 | `Stop` | `verdict_gate.py` | The answer carries its required structural elements |
 
 ## Shared contract
@@ -32,7 +33,7 @@ All four:
 | **SOFT** | `additionalContext` in the JSON response | Guidance injected; the model may act on it |
 | **HARD** | `{"decision": "block", "reason": "..."}` | The answer is rejected and must be revised |
 
-There is exactly **one hard block** across all four hooks. Everything else nudges. That ratio is
+There is exactly **one hard block** across the whole layer. Everything else nudges. That ratio is
 deliberate — a hook that blocks often becomes a hook people disable.
 
 Hooks are wired in `.claude/settings.json` in **exec-form** (a `command` plus an `args` array,

@@ -56,14 +56,16 @@ run** — only hard failures exit non-zero.
 | 5 | `pipeline_entry` | `serenity_pipeline` imports and the three command functions are importable |
 | 6 | `evidence_invariants` | **The real regression** — see below |
 | 7 | `macro_sanitizer` | A synthetic poisoned macro payload comes out clean |
-| 8 | `xbrl_module_boundary` | No `_sec_xbrl` module outside `legacy` has been imported into the active path |
+| 8 | `xbrl_module_boundary` | No `_sec_xbrl` module outside `legacy` has been imported into the active path. Renamed from `sec_consolidation`, which also asserted two things that were `True` by construction for every possible input |
 | 9 | `judgment_boundary` | No module matching `pipeline.legacy` appears in `sys.modules` |
 | 10–11 | `sec_layer:*` | `serenity_filings.py` and the filings agent exist (**soft** — warns, never fails) |
-| 12 | `hooks` | `.claude/settings.json` maps the exact four events to the exact four scripts, and each script file exists |
+| 12 | `hooks` | Every expected event is wired, every hook script exists, and every script is actually referenced in `settings.json` — a script present but unwired fires never, which looks exactly like a healthy silent hook |
 | 13 | `agent:serenity-scorecard` | The agent file exists, declares all four required tools, and its body contains the schema sentinels |
 | 14 | `session_archive_doctrine` | `CLAUDE.md` contains the archive section and the `Saved:` token |
 | 15 | `sessions_index` | `sessions/INDEX.md` exists and declares itself verdict-free |
 | 16 | `hook_fixtures` | **The hooks behave** — runs `run_fixtures.py` and adopts its exit code. Check 12 asserts the wiring exists; this asserts it works |
+| 17 | `scorecard_conformance` | Committed scorecards match the pinned schema. **Warn-only**, and grandfathered before a boundary date — a red that cannot be cleared is one people learn to dismiss |
+| 18 | `prose_growth` | Doctrine size vs. a recorded baseline. **Warn-only, never a cap** — it converts a hunch into a signal; growth is fine, *unexamined* growth is not |
 
 Frontmatter is parsed with a regex rather than a YAML library — a deliberate choice to keep the
 validator dependency-free so it can run before anything is installed.
