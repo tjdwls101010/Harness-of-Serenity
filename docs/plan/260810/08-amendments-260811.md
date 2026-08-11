@@ -82,6 +82,18 @@ The sound mechanism was already in the hook: `verdict_gate.py:168`, `base = os.e
 
 **`rankdiff` tier canonicalization found real drift on its first run.** The archive's `_ranking.md` carries `EXIT/TRIM`, outside the doctrine's fixed vocabulary. Contrary to the plan's "reject with a named error," unknown tiers are **reported and excluded from the agreement math**, not rejected: refusing the whole diff over a few rows destroys the agreement percentage for every other row — including comparisons where the bad row is not even in the intersection — and the archive legitimately contains rankings written before the vocabulary existed. A measurement that refuses to run is not safer than one that names what it skipped.
 
+## Two defects found by USE, not by review
+
+Both surfaced from subagents doing the work reporting back, and neither would have been found by reading the diff. Worth recording because the mechanism generalizes better than either fix.
+
+**A dev report about `verdict_gate` was hard-blocked by `verdict_gate`.** The agent's own summary quoted its fixtures' example vocabulary — a price target, a rating, "overweight", "priced-in" — which sets `other_finance_signal` without any cashtag. The 2.4a suppression is scoped to the cashtag-only path by design, so it never applied. This is the plan's own stated 16th case for the 2.4 group ("the harness's own development… this repo talks about tickers, valuation, and dilution constantly *as subject matter*") arriving in production rather than in a fixture.
+
+Fixed with a marker deliberately narrower than `dev_context`: a **literal repository filename or path**, not a topic word. "harness" or "refactor" can appear in a real market answer; `verdict_gate.py` or `.claude/hooks/` cannot. That tightness is what makes it safe to apply against the layer's only hard block.
+
+And the first attempt at it was itself over-broad — `fixtures?/` matched `sessions/990101.hook-fixture/` inside a genuine `Saved:` mark, so a real archived verdict stopped blocking. **The fixture suite caught it on the first run.** The transferable lesson is in the code where the pattern was removed: a path fragment general enough to feel safe is general enough to match the archive, and this guard suppresses a hard block, so over-matching is the expensive direction.
+
+**A shared definition handed to two agents carried an error, and the agent flagged it rather than following it silently.** The agreed market-anchor keeper-list included `목표가`. Every other entry is an ACTION (매수/매도/살까/팔까/물타/존버) or a scope-setter (종목, 장 어때); `목표가` is simply "price target" in Korean — the same token being dropped in English on the very same pass. Keeping it left the identical bug open for a Korean dev prompt. The agent applied the rule it was given, noticed the list contradicted the rule, and asked instead of resolving it alone. **A shared definition duplicated across two files is worth more when its holders are told the rule behind it, not just the list** — the list is what drifted; the rule is what caught it.
+
 ## Still open, deliberately
 
 - **02.6** — moves to the phase-04 session.
