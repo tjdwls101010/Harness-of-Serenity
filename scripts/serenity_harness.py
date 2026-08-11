@@ -792,7 +792,14 @@ def cmd_new_session(args):
 			          f"archive check. Transliterate the topic: '반도체 인더스트리 딥리서치' -> "
 			          f"'semiconductor-industry-deep-research'.",
 		}, exit_code=2)
-	root = os.path.join(_ROOT, "sessions")
+	# CLAUDE_PROJECT_DIR when set, matching how every hook resolves the project it is acting on.
+	# Without this the target was pinned to the module's own repo root, so the command wrote to the
+	# live archive no matter where it was invoked — which made it untestable except by creating real
+	# session folders in the real `sessions/`. Writing test debris into the directory whose entire
+	# documented purpose is durable analysis is the same mistake that got the hook scaffolding
+	# deleted; a command that cannot be exercised without polluting its own target will be exercised
+	# by nobody.
+	root = os.path.join(os.environ.get("CLAUDE_PROJECT_DIR") or _ROOT, "sessions")
 	stamp = __import__("datetime").datetime.now().strftime("%y%m%d")
 	folder = f"{stamp}.{slug}"
 	# Doctrine: suffix -2 on a name collision rather than writing into a folder this session did not

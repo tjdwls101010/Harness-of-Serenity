@@ -100,8 +100,17 @@ def _has(pattern, text):
 # and the next begins (a bulleted `Downsides:` block runs until `Falsifier:`, `Rating:`, etc.). This
 # is a fixed list grounded in CLAUDE.md's own "How the answer reads" template, not an open-ended name
 # list, so it stays a structural boundary rather than semantic parsing.
+# Leading `[\s*_#>`]*` absorbs markdown decoration (`**Downsides:**`, `## Downsides`, `> Lens:`) and
+# the trailing `(?::|$)` accepts a header that is the whole line with no colon at all — which is the
+# shape the pinned scorecard schema uses. Both were required before, and both are the shapes a model
+# actually emits, so a decorated or heading-style header was not recognized as a section boundary:
+# the next section got absorbed into the previous one's body, inflating a null block past the reason
+# bar and silencing the hook. `-` is deliberately absent from the decoration class — a bullet
+# (`- Downsides are already priced in`) is body text, and treating it as a boundary would truncate
+# the very block being measured.
 _SECTION_LABEL = re.compile(
-	r"^\s*(?:Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structural position|Forward revenue)\s*:",
+	r"^[\s*_#>`]*(?:Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structural position"
+	r"|Forward revenue)\s*(?::|$)",
 	re.IGNORECASE,
 )
 _NULL_LEAD = re.compile(
@@ -109,7 +118,37 @@ _NULL_LEAD = re.compile(
 	re.IGNORECASE,
 )
 _MIN_SECTION_LEN = 6   # a bare label with nothing after it at all, anywhere
-_MIN_REASON_LEN = 30   # a null token's trailing clause must clear this to count as "said why"
+# A null token's trailing clause must clear this to count as "said why". Heuristic, and flagged as
+# such rather than dressed up: unlike the 0.75 revenue-divergence threshold in data_integrity_guard,
+# which is derivable from TTM-vs-annual timing math, there is nothing to derive here — "long enough
+# to be a reason" has no closed form. 30 characters is roughly a short clause; it is chosen to sit
+# BELOW anything a real reason needs and above a bare token, and it is SOFT-only, so the cost of it
+# being slightly wrong is one nudge on a terse answer, never a block. If it starts firing on real
+# concise answers, lower it — do not add a vocabulary list of "acceptable reasons," which would be
+# the semantic judgment this layer declines.
+_MIN_REASON_LEN = 30
+# Markdown decoration a line may carry before its section label. `-` is deliberately NOT here: a
+# bullet (`- Downsides are already priced in`) is body text, and treating it as a section boundary
+# would truncate the very block being measured.
+
+
+def _find_section_header(label, msg):
+	"""The match for `<label>`'s section header, or None. THE single definition of "this answer has
+	a real <label> section" — used by both the gate in `_section_missing` and the body walk in
+	`_section_body`.
+
+	It is one function because it was briefly two, and they disagreed: the gate accepted only a
+	colon form while the body-finder had been widened to accept headings, so a heading-style answer
+	skipped the null-content check entirely and the widening did nothing. Two implementations of one
+	predicate is how the predicate stops being one.
+
+	Two shapes, because the doctrine uses both: `Downsides:` inline (CLAUDE.md's answer contract) and
+	`## Downsides` with NO colon (the pinned scorecard schema's own section headers) — so the one
+	format the schema prescribes was the one that bypassed the check. The colon is optional ONLY on a
+	line that is nothing but the header; mid-sentence prose ("the downsides here are priced in") must
+	never read as a section header."""
+	return (re.search(r"\b" + label + r"\s*:", msg, re.IGNORECASE)
+	        or re.search(r"^[\s*_#>`]*" + label + r"\s*:?[ \t]*$", msg, re.IGNORECASE | re.MULTILINE))
 
 
 def _section_body(label, msg):
@@ -119,7 +158,7 @@ def _section_body(label, msg):
 	(`Downsides: none`) is the failure mode being closed. Checking only the same line would misflag
 	every real bulleted answer as empty, so both shapes are scanned.
 	"""
-	m = re.search(r"\b" + label + r"\s*:", msg, re.IGNORECASE)
+	m = _find_section_header(label, msg)
 	if not m:
 		return None
 	lines = msg[m.end():].split("\n")
@@ -128,6 +167,14 @@ def _section_body(label, msg):
 		if i == 0:
 			body_lines.append(line)
 			continue
+		# Match the boundary against the line with markdown decoration stripped. `**Falsifier:**` and
+		# `## Downsides` are the DEFAULT shapes a model emits — the pinned scorecard schema itself
+		# writes `## Downsides` — and matching only a bare `Falsifier:` at line start meant a bolded
+		# header was not seen as a boundary at all. The next section then got absorbed into this
+		# one's body, inflating a genuinely-null block past the reason bar and silencing the hook:
+		# the module's own motivating example (`Downsides: none that matter`) walked straight back in
+		# through a formatting variant. Structural checks have to survive the formatting the model
+		# actually produces, not the formatting the example was written in.
 		if not line.strip() or _SECTION_LABEL.match(line):
 			break
 		body_lines.append(line)
@@ -161,7 +208,7 @@ def _section_missing(label, broad_pattern, msg):
 	falsifier phrased as prose without a header ("this breaks if utilization stalls") still counts —
 	narrowing THAT path too would mean judging whether prose IS a falsifier, which this hook declines.
 	"""
-	if re.search(r"\b" + label + r"\s*:", msg, re.IGNORECASE):
+	if _find_section_header(label, msg):
 		return _is_null_section(_section_body(label, msg))
 	return not _has(broad_pattern, msg)
 
