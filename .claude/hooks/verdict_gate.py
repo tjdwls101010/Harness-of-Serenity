@@ -170,6 +170,9 @@ def _has(pattern, text):
 #             ASCII `-` is deliberately NOT a separator: it is this doctrine's compound-word joiner
 #             ("asset-heavy") and its bullet marker, so accepting it would fire on ordinary prose.
 _DECOR = r"[ \t*_#>`~-]*"
+# The same character class as a plain string, for `str.strip()` rather than a regex — used to ask
+# "is this line anything but decoration?" One definition, so the two cannot drift apart.
+_DECOR_CHARS = " \t*_#>`~-"
 _AFTER = r"[ \t*_`~]*"
 _SEP = "[:：—–]"
 _LABELS = (r"Downsides?|Falsifier|Rating|Saved|Lens|Winner[\s-]*gates?|Structural position"
@@ -293,8 +296,25 @@ def _section_body(label, msg):
 		# the module's own motivating example (`Downsides: none that matter`) walked straight back in
 		# through a formatting variant. Structural checks have to survive the formatting the model
 		# actually produces, not the formatting the example was written in.
-		if not line.strip() or boundary.match(line):
+		if boundary.match(line):
 			break
+		if not line.strip():
+			# A blank line ends the body — but only once the body has actually STARTED. A blank
+			# line between a bolded header and its first bullet is ordinary markdown (arguably the
+			# more correct form), and treating it as the end meant `**Downsides:**\n\n- real bullet`
+			# measured a body of `**`, failed the length bar, and nudged a properly-formatted
+			# answer for having no Downsides block.
+			#
+			# Found by the reproduction eval on a real blind run, not by a fixture — which is the
+			# point of having the eval: the fixtures all happened to be written in the tight form,
+			# so every one of them passed while the shape a model actually emits was broken.
+			#
+			# "Started" ignores decoration, because the header's own line remainder is frequently
+			# just the closing `**` of a bolded label; counting that as content would defeat the
+			# whole fix on exactly the shape it exists for.
+			if any(l.strip(_DECOR_CHARS) for l in body_lines):
+				break
+			continue
 		body_lines.append(line)
 	return "\n".join(body_lines)
 
@@ -467,16 +487,37 @@ def evaluate(msg, base):
 	# merely has a dash and two unrelated numbers nearby. A bare ratio NAME ("EV/Rev = 12x", no real
 	# division shown) still correctly fails either way — that is the whole point. See the module
 	# docstring for the accepted limits on both the line-level numeric bar and the `/` bridge.
-	lens_line_match = re.search(r"Lens:[^\n]*", msg, re.IGNORECASE)
-	lens_line = lens_line_match.group(0) if lens_line_match else ""
-	lens_operator = _has(
+	# EVERY `Lens:` occurrence is tested, and the check passes if ANY of them carries a real driver
+	# computation. It used to test only the FIRST — the same unanchored-first-match defect already
+	# fixed in `_find_section_header`, but never applied here, to the most doctrine-central check in
+	# the harness (N10).
+	#
+	# Found by the reproduction eval, on two of twelve real blind runs. A model that runs the lens
+	# properly routinely writes a HEADER first — `**Lens: RUN, both legs — margin-inversion
+	# drop-through**` — or states the formula before substituting into it, and puts the arithmetic on
+	# the lines below. Measuring occurrence one scored both of those as "no lens run" while a fully
+	# computed forked lens sat three lines underneath.
+	#
+	# ANY, not LAST, and the difference is not arbitrary. A section header is matched to MEASURE the
+	# body underneath it, so exactly one occurrence has to be chosen as operative. This check asks a
+	# different question — "did the answer emit at least one machine-checkable driver line?" — which
+	# is existential. A forked lens legitimately emits two, and doctrine asks for both.
+	lens_lines = re.findall(r"Lens:[^\n]*", msg, re.IGNORECASE) or [""]
+	lens_operator_re = (
 		r"[×÷*]"
 		r"|\d[\d,.]*\s?[%TtBbMmKk]?[^/\n]{0,20}\s/\s[^\d$₩€£\n]{0,20}[$₩€£]?\d"
 		r"|\d[\d,.]*\s?[%TtBbMmKk]?/[$₩€£]?\d"
-		r"|[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?\s*[+\-−]\s*[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?",
-		lens_line,
+		r"|[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?\s*[+\-−]\s*[$₩€£]?\d[\d,.]*\s?[%TtBbMmKk]?"
 	)
-	lens_marker = lens_operator and "=" in lens_line and _has(r"\d", lens_line)
+	# All three conditions must hold on the SAME line. Scanning them independently across the whole
+	# set would let a bare `**Lens: RUN, both legs**` header supply the `=`-free half while an
+	# unrelated line supplies the operator, which is a weaker bar than the one-line version this
+	# replaced — the point of widening to every occurrence is to stop missing a real driver line,
+	# never to let one be assembled from fragments.
+	lens_marker = any(
+		_has(lens_operator_re, line) and "=" in line and _has(r"\d", line)
+		for line in lens_lines
+	)
 
 	signals = {
 		"has_tldr": has_tldr,

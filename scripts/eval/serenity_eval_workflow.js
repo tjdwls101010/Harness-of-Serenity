@@ -25,6 +25,10 @@ export const meta = {
 const CASES_SCHEMA = {
   type: 'object', additionalProperties: false, required: ['cases'],
   properties: {
+    // The sampler's own meta rides back with the cases. Without it the scored file carried only
+    // `model`, so `report` printed `seed: None` — and a run whose seed is unrecorded cannot be
+    // compared against another run, which is the entire point of seeding the sampler.
+    meta: { type: 'object', additionalProperties: true },
     cases: {
       type: 'array',
       items: {
@@ -47,6 +51,7 @@ const CASES_SCHEMA = {
 }
 
 let cases = (args && Array.isArray(args.cases)) ? args.cases : []
+let sampledMeta = null
 if (!cases.length) {
   const n = (args && args.n) || 6
   const seed = (args && args.seed) || 7
@@ -59,17 +64,20 @@ if (!cases.length) {
   const sampled = await agent(
     `Run this EXACT Bash command and return its stdout as structured data. The JSON it prints has a ` +
     `"cases" array; return every case's id, ticker, date, entry_type, archetype, gold_tests and ` +
-    `blind_prompt VERBATIM. Do NOT return thesis_text — omit that field entirely:\n\n` +
+    `blind_prompt VERBATIM, plus the top-level "meta" object verbatim (the seed lives there and a ` +
+    `run whose seed is unrecorded cannot be compared against another). Do NOT return thesis_text — ` +
+    `omit that field entirely:\n\n` +
     `scripts/.venv/bin/python scripts/serenity_eval.py sample --n ${n} --seed ${seed}`,
     { label: 'sample', phase: 'Blind run', schema: CASES_SCHEMA },
   )
   cases = (sampled && Array.isArray(sampled.cases)) ? sampled.cases : []
+  if (sampled && sampled.meta) sampledMeta = sampled.meta
 }
 if (!cases.length) {
   log('No cases — pass {n, seed} or {cases:[…]} as args.')
   return { error: 'no cases' }
 }
-const payload = { meta: (args && args.meta) || null, cases }
+const payload = { meta: (args && args.meta) || sampledMeta || null, cases }
 log(`Blind-running ${cases.length} cases through the harness, then judging vs the answer key.`)
 
 // Judge output shape — mirrors scripts/serenity_eval.py RUBRIC exactly so `report` can aggregate it.

@@ -76,6 +76,9 @@ _CHOKEPOINT_SCOPED = {"recursive_bottom_hop", "second_order_and_sibling"}
 # case row is the failure being prevented: it reads as a result.
 _DEFAULT_N_FLOOR = 12
 
+# How many one-off misses the report lists before summarising the rest. A 12-case run produced ~60.
+_ONEOFF_SHOWN = 12
+
 # ---------------------------------------------------------------------------
 # The scoring rubric — signature-move reproduction. Single source of truth.
 # ---------------------------------------------------------------------------
@@ -828,7 +831,20 @@ def cmd_report(args) -> None:
 		lines.append("No move was missed in ≥2 cases — no doctrine delta warranted (per-miss patching guard).")
 	oneoffs = sorted((m for m, n in missed_tally.items() if n == 1))
 	if oneoffs:
-		lines += ["", "Monitoring items (one-off misses — do NOT add a rule): " + ", ".join(oneoffs)]
+		# One line per item, capped. A 12-case run produced ~60 of these and the first version
+		# comma-joined them into a single paragraph — which buried the doctrine-delta section this
+		# report exists for under a wall of text nobody reads. They are the richest qualitative
+		# output here, so they are shown, not summarised away; the full set stays in the scored
+		# JSON, which is the artifact anyway.
+		lines += ["", f"### Monitoring items — {len(oneoffs)} one-off miss(es)", "",
+				  "Each appeared in exactly ONE case, so none warrants a doctrine change (the "
+				  "per-miss-patching guard). Read them for texture, not for action."]
+		for m in oneoffs[:_ONEOFF_SHOWN]:
+			lines.append(f"- {m[:200]}")
+		if len(oneoffs) > _ONEOFF_SHOWN:
+			lines.append(f"- …and {len(oneoffs) - _ONEOFF_SHOWN} more — full list in "
+						 f"`{os.path.basename(args.results)}` under each case's "
+						 f"`scores.missed_signature_moves`.")
 
 	# Printed on every report, not left to the reader's statistical literacy. The one recorded
 	# measurement before this (n=6, 72%→70%) was described by its own authors as a single stochastic

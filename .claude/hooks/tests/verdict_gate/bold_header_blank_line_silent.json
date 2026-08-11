@@ -1,0 +1,8 @@
+{
+  "last_assistant_message": "TLDR: $AXTI is the InP chokepoint and it's mispriced imo. NFI/NFA.\n\nStructural position: chokepoint -> the hop under the substrate is high-purity feedstock.\nLens: floor — EV/Rev 8.5 ÷ MC $850M = defensible base; upside — content×volume ÷ MC = the re-rate leg.\n\n**Downsides:**\n\n- dilution overhang from the December raise (priced-in)\n- China permit cadence is the real swing factor (not priced)\n\n**Falsifier:**\n\n- breaks if 6-inch InP yields close the supply gap inside a year.\n\nRating: overweight, shares.\n\nSaved: sessions/990101.hook-fixture/",
+  "stop_hook_active": false,
+  "_expect": {
+    "silent": true
+  },
+  "_why": "A blank line between `**Downsides:**` and its first bullet is ordinary markdown — arguably the more correct form — and the body-collector stopped at the first blank line, so it measured a body of `**`, failed the length bar, and nudged a properly-formatted answer for having no Downsides block. Found by the reproduction eval on a real blind run: every fixture here happened to be written in the tight form, so all of them passed while the shape a model actually emits was broken."
+}
