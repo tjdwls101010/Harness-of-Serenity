@@ -1,9 +1,0 @@
-{
-  "last_assistant_message": "TLDR: $NVDA long. NFI/NFA.\nLens: down 12% recently, and EV/Rev of 18x = the same old consensus multiple, not a real driver.\nDownsides:\n- valuation priced-in (addressed)\nFalsifier: breaks if the ramp stalls two quarters running.\nSaved: sessions/990101.hook-fixture/\n",
-  "stop_hook_active": false,
-  "_expect": {
-    "contains": [
-      "machine-checkable"
-    ]
-  }
-}

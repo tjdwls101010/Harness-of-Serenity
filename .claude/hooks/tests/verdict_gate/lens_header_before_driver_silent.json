@@ -1,8 +1,0 @@
-{
-  "last_assistant_message": "TLDR: $RDDT asymmetrical long here imo. NFI/NFA.\n\n**Lens: RUN, both legs — margin-inversion drop-through**\n\nLens: custom((rrOI × (1-tax)) × mult ÷ mc) [floor] — rrOI=926,928,598, tax=0.21, mult=25, mc=30,537,175,040 = 0.59936\nDownsides:\n- dilution overhang (priced-in)\n- permit cadence (not priced)\nFalsifier: breaks if 6-inch yields close the gap.\nRating: overweight, shares. NFI/NFA.\n\nSaved: sessions/990101.hook-fixture/",
-  "stop_hook_active": false,
-  "_expect": {
-    "silent": true
-  },
-  "_why": "The Lens check took the FIRST `Lens:` occurrence anywhere in the message — the same unanchored-first-match defect already fixed in `_find_section_header`, never applied to the most doctrine-central check in the harness (N10). A model that runs the lens properly routinely writes a bold HEADER first and puts the arithmetic on the lines below, so measuring occurrence one scored a fully computed forked lens as 'no lens run'. Found by the reproduction eval on two of twelve real blind runs, not by any fixture."
-}

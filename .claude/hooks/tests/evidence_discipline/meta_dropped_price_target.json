@@ -1,6 +1,0 @@
-{
-  "prompt": "refactor how serenity_pipeline.py rounds the price target before writing the scorecard row",
-  "_expect": {
-    "silent": true
-  }
-}

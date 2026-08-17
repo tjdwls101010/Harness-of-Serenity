@@ -1,7 +1,0 @@
-{
-  "last_assistant_message": "TL;DR: refactored the parser; all tests pass now.\nChanged `parse()` to handle the empty-input case and added a guard, then re-ran the suite.",
-  "stop_hook_active": false,
-  "_expect": {
-    "silent": true
-  }
-}
