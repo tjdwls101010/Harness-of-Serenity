@@ -1,9 +1,0 @@
-{
-  "tool_name": "Write",
-  "tool_input": {
-    "file_path": "{{SANDBOX}}/sessions/990104.scorecard-bad/_ranking.md"
-  },
-  "_expect": {
-    "silent": true
-  }
-}

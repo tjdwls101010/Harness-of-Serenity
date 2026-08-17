@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:method-claim-synthesis:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "format", "candidate_digest_content_hash", "candidate_digest_sha256", "claims"],
+  "properties": {
+    "schema_id": {"type": "string", "const": "urn:serenity:schema:method-claim-synthesis:1"},
+    "format": {"type": "string", "const": "serenity-method-claim-synthesis/1"},
+    "candidate_digest_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidate_digest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "claims": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/claim"}}
+  },
+  "$defs": {
+    "notes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "shown_code_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis", "label"],
+      "properties": {
+        "axis": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1}
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "claim", "provenance_tag", "shown_unit_refs", "shown_code_refs", "counterexample_refs", "counterexample_search_scope", "counterexample_status", "why", "uncertainty_notes", "contradiction_notes"],
+      "properties": {
+        "claim_id": {"type": "string", "minLength": 1},
+        "claim": {"type": "string", "minLength": 1},
+        "provenance_tag": {"type": "string", "enum": ["sourced", "unverified"]},
+        "shown_unit_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "shown_code_refs": {"type": "array", "items": {"$ref": "#/$defs/shown_code_ref"}},
+        "counterexample_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "counterexample_search_scope": {"type": ["string", "null"]},
+        "counterexample_status": {"type": ["string", "null"], "enum": ["found", "none_found", null]},
+        "why": {"type": "string", "minLength": 1},
+        "uncertainty_notes": {"$ref": "#/$defs/notes"},
+        "contradiction_notes": {"$ref": "#/$defs/notes"}
+      }
+    }
+  }
+}

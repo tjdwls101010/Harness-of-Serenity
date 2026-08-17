@@ -1,46 +1,10 @@
-# Core - YFinance
-yfinance>=0.2.36
-pandas>=2.0.0
-numpy>=1.24.0
-lxml>=5.0.0
+# Serenity v2 runtime: provider interfaces are verified against these exact releases.
+yfinance==1.4.1
+edgartools==5.35.1
+ibd-rs-rating==0.3.0
+jsonschema>=4.23.0,<5
+python-dotenv>=1.0.0,<2
+pytest>=9.1.1,<10
 
-# Environment management
-python-dotenv>=1.0.0
-
-# FRED API
-fredapi>=0.5.2
-
-# Finviz scraper
-finvizfinance>=0.14.6
-finviz>=2.0.0
-
-# SEC EDGAR
-sec-edgar-downloader>=5.0.0
-# sec-analyzer is NOT listed: its only importer is scripts/pipeline/legacy/_commands.py,
-# and serenity_harness.py validate asserts pipeline.legacy never enters sys.modules.
-# The pin here was unsatisfiable from PyPI anyway (the installed build was an editable
-# checkout at a path that died when this repo moved).
-
-# RS Rating (IBD-style relative strength)
-ibd-rs-rating
-
-# HTTP requests for CBOE/CFTC direct API
-requests>=2.31.0
-
-# Macro/sentiment libraries (modules/fear_greed.py, modules/fedwatch.py)
-fear-greed>=0.1.1
-cme-fedwatch>=0.1.2
-
-# twikit is deliberately NOT here. scripts/serenity_scrape.py (the thesis-DB scraper)
-# declares it as a PEP 723 inline dependency and runs under `uv run`, so its tree —
-# a Js2Py fork, m3u8, webvtt-py, pyotp — stays out of this file. The point is
-# blast radius: that tree is scraping-only and pinned to an exact twikit version
-# (the script monkeypatches two of its private internals), and if it ever fails to
-# resolve, `pip install -r requirements.txt` must still bring up the analysis
-# pipeline. Nothing in scripts/.venv imports twikit, including its own tests.
-
-# Test runner. Install into scripts/.venv, not system python: the tests shell out to
-# serenity_pipeline.py with sys.executable, so a runner outside the venv resolves an
-# interpreter that has no yfinance. Invoke as `scripts/.venv/bin/python -m pytest`
-# (the venv's own bin/pip and bin/pytest console scripts carry a stale shebang).
-pytest>=8.0.0
+# serenity_scrape.py owns its isolated PEP 723 twikit environment; do not add twikit
+# or its transitive scraper tree here.

@@ -1,9 +1,0 @@
-{
-  "tool_name": "Write",
-  "tool_input": {
-    "file_path": "{{SANDBOX}}/sessions/990103.scorecard-ok/NVDA.md"
-  },
-  "_expect": {
-    "silent": true
-  }
-}

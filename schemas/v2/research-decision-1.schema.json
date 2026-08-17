@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:research-decision:1",
+  "title": "Serenity final research decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "decision_id", "run_id", "lineage_id", "version", "as_of", "created_at", "scope", "action", "thesis", "materiality", "priced_in", "strongest_bear_case", "falsifiers", "hypothesis_ids", "evidence_result_ids", "required_evidence", "lens_results", "conditions", "vehicle", "conviction", "uncertainty"],
+  "properties": {
+    "schema_id": {"const": "urn:serenity:schema:research-decision:1"},
+    "decision_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "lineage_id": {"$ref": "#/$defs/id"},
+    "version": {"type": "integer", "minimum": 1},
+    "as_of": {"$ref": "#/$defs/date"},
+    "created_at": {"$ref": "#/$defs/dateTime"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "subjects"],
+      "properties": {
+        "kind": {"enum": ["macro", "sector", "single-name", "cohort"]},
+        "subjects": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "action": {"enum": ["RECOMMEND_NOW", "ENTER_ON_TRIGGER", "MONITOR", "PASS", "BLOCKED"]},
+    "thesis": {"type": "string", "minLength": 1},
+    "materiality": {"enum": ["material", "partial", "noise", "unresolved"]},
+    "priced_in": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "not_included"],
+      "properties": {
+        "included": {"type": "array", "items": {"type": "string"}},
+        "not_included": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "strongest_bear_case": {"type": "string", "minLength": 1},
+    "falsifiers": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "hypothesis_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+    "evidence_result_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+    "required_evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/requiredEvidence"}},
+    "lens_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lens_result_id", "validity", "fact_refs"],
+        "properties": {
+          "lens_result_id": {"$ref": "#/$defs/id"},
+          "validity": {"enum": ["valid", "invalid", "insufficient_evidence", "not_applicable"]},
+          "fact_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true}
+        }
+      }
+    },
+    "conditions": {"type": "array", "items": {"$ref": "#/$defs/condition"}},
+    "vehicle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["common-stock", "adr", "etf", "option", "none"]},
+        "ticker": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string"}
+      }
+    },
+    "conviction": {"enum": ["low", "medium", "high"]},
+    "uncertainty": {"type": "string", "minLength": 1},
+    "numeric_target": {"$ref": "#/$defs/numericTarget"},
+    "supersedes": {"$ref": "#/$defs/id"},
+    "changed_because": {"type": "string", "minLength": 1},
+    "finalized_at": {"$ref": "#/$defs/dateTime"},
+    "content_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "allOf": [
+    {
+      "if": {"required": ["supersedes"]},
+      "then": {"required": ["changed_because"]}
+    },
+    {
+      "if": {"properties": {"action": {"const": "ENTER_ON_TRIGGER"}}, "required": ["action"]},
+      "then": {
+        "properties": {
+          "conditions": {
+            "minItems": 1,
+            "contains": {"properties": {"primary": {"const": true}}, "required": ["primary"]},
+            "minContains": 1,
+            "maxContains": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "date": {"type": "string", "format": "date"},
+    "dateTime": {"type": "string", "format": "date-time"},
+    "requiredEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_result_id", "purpose", "action_critical"],
+      "properties": {
+        "evidence_result_id": {"$ref": "#/$defs/id"},
+        "purpose": {"type": "string", "minLength": 1},
+        "action_critical": {"type": "boolean"}
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition_id", "condition", "primary", "observable", "evidence_ref", "expires_at", "on_met_state", "status"],
+      "properties": {
+        "condition_id": {"$ref": "#/$defs/id"},
+        "condition": {"type": "string", "minLength": 1},
+        "primary": {"type": "boolean"},
+        "observable": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "operator", "value", "unit"],
+          "properties": {
+            "field": {"type": "string", "minLength": 1},
+            "operator": {"enum": ["gt", "gte", "lt", "lte", "eq", "ne", "crosses_above", "crosses_below"]},
+            "value": {},
+            "unit": {"type": "string", "minLength": 1}
+          }
+        },
+        "evidence_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_result_id", "source_uri", "canonical_id"],
+          "properties": {
+            "evidence_result_id": {"$ref": "#/$defs/id"},
+            "source_uri": {"type": "string", "format": "uri"},
+            "canonical_id": {"type": "string", "minLength": 1}
+          }
+        },
+        "expires_at": {"$ref": "#/$defs/dateTime"},
+        "on_met_state": {"enum": ["REASSESS_REQUIRED", "REVIEW_READY", "THESIS_INVALIDATED"]},
+        "status": {"enum": ["met", "unmet", "monitoring", "not_applicable"]}
+      }
+    },
+    "numericTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "currency", "timeframe", "lens_result_id", "lens_validity", "fact_refs"],
+      "properties": {
+        "value": {"type": "number"},
+        "currency": {"type": "string", "minLength": 1},
+        "timeframe": {"type": "string", "minLength": 1},
+        "lens_result_id": {"$ref": "#/$defs/id"},
+        "lens_validity": {"const": "valid"},
+        "fact_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}, "uniqueItems": true}
+      }
+    }
+  }
+}

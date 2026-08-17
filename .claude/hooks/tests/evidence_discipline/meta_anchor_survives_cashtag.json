@@ -1,8 +1,0 @@
-{
-  "prompt": "check $NVDA's earnings trend, and while you're at it refactor the pipeline script too",
-  "_expect": {
-    "contains": [
-      "[evidence-discipline]"
-    ]
-  }
-}

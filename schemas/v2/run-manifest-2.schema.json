@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:run-manifest:2",
+  "title": "Serenity v2 run manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "run_id", "content_hash", "status", "mode", "question", "subjects", "as_of", "started_at", "updated_at", "actor", "source_policy", "events", "artifacts"],
+  "properties": {
+    "schema_id": {"const": "urn:serenity:schema:run-manifest:2"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "content_hash": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["OPEN", "CLOSED", "ABANDONED", "FINALIZED"]},
+    "mode": {"enum": ["macro-event", "discovery", "single-name", "cohort"]},
+    "question": {"type": "string", "minLength": 1},
+    "subjects": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "as_of": {"$ref": "#/$defs/date"},
+    "started_at": {"$ref": "#/$defs/dateTime"},
+    "updated_at": {"$ref": "#/$defs/dateTime"},
+    "actor": {"type": "object", "additionalProperties": false, "required": ["kind", "id"], "properties": {"kind": {"enum": ["human", "model", "system"]}, "id": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}}},
+    "source_policy": {"type": "object", "additionalProperties": false, "required": ["policy_id", "allow_network"], "properties": {"policy_id": {"type": "string", "minLength": 1}, "allow_network": {"type": "boolean"}, "historical_cutoff": {"$ref": "#/$defs/dateTime"}, "allowed_providers": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}}},
+    "current_phase": {"type": "string", "minLength": 1},
+    "close_reason": {"type": "string", "minLength": 1},
+    "abandon_reason": {"type": "string", "minLength": 1},
+    "events": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["at", "type"], "properties": {"at": {"$ref": "#/$defs/dateTime"}, "type": {"type": "string", "minLength": 1}, "detail": {"type": "string"}}}},
+    "artifacts": {"type": "object", "additionalProperties": {"$ref": "#/$defs/artifact"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "date": {"type": "string", "format": "date"},
+    "dateTime": {"type": "string", "format": "date-time"},
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["path", "content_hash"], "properties": {"path": {"type": "string", "minLength": 1}, "content_hash": {"$ref": "#/$defs/sha256"}, "schema_id": {"type": "string", "minLength": 1}}}
+  }
+}

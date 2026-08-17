@@ -1,0 +1,109 @@
+{
+  "format": "serenity-method-augmentations/1",
+  "claims": [
+    {
+      "claim_id": "aug-structural-concentration-and-priced-in",
+      "claim": "Frame the research edge as a falsifiable search for where economic power structurally concentrates, then test separately whether the listed vehicle and current price already capture that structure; a real bottleneck, profit pool, or emerging standard is not itself an action.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "This is the product objective approved for v2 and a deliberate organizing principle, not a claim that the bounded corpus synthesis established one universal archetype.",
+      "why": "It keeps structural business quality, investable expression, valuation, timing, and action from collapsing into the same conclusion.",
+      "uncertainty_notes": [
+        "Economic concentration can be physical, financial, regulatory, strategic, or absent; no fixed chain template applies to every business."
+      ],
+      "contradiction_notes": [
+        "A structurally scarce node may still be fully priced, inaccessible, dilution-funded, or inferior to a sibling vehicle."
+      ]
+    },
+    {
+      "claim_id": "aug-identity-time-provenance-boundary",
+      "claim": "Admit a decision-grade numeric fact only when the security or series identity, effective or observed period, actual availability time, canonical source, transform, and raw payload hash are preserved; represent missing, stale, conflicting, and unavailable inputs explicitly instead of backfilling them from memory or search.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "v2 adds a deterministic typed-data boundary to prevent silent ticker, period, vintage, and transport drift that prose research alone cannot reliably detect.",
+      "why": "A plausible wrong number can invert downstream arithmetic while looking more trustworthy than an explicit evidence gap.",
+      "uncertainty_notes": [
+        "Some free providers expose only date-level availability or no raw transport bytes, so conservative handling may reduce apparent coverage."
+      ],
+      "contradiction_notes": [
+        "A human may be able to inspect a useful value that the reproducible provider boundary must still mark unavailable."
+      ]
+    },
+    {
+      "claim_id": "aug-adaptive-evidence-not-decision-code",
+      "claim": "Use code to pin identity, collect typed facts or filing evidence, preserve source bytes, and execute declared arithmetic; form competing hypotheses first and request only evidence that can distinguish them. Never bake an archetype, composite winner score, conviction, ranking verdict, or buy or sell judgment into a provider or pipeline.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "This is the v2 principle-over-rail and interface-over-document architecture chosen to preserve narrative scenario work without allowing code-generated judgment to drift invisibly.",
+      "why": "A fixed all-purpose pipeline can omit an unanticipated scenario, while a score that resembles a verdict invites the analyst to stop reasoning.",
+      "uncertainty_notes": [
+        "Adaptive requests can be slower and less mechanically uniform than a frozen fan-out pipeline."
+      ],
+      "contradiction_notes": [
+        "A thin deterministic baseline is still necessary so adaptive research cannot silently choose the wrong issuer or time period."
+      ]
+    },
+    {
+      "claim_id": "aug-fact-referenced-lens-validity",
+      "claim": "Permit a numeric target or priced-in arithmetic only through a saved lens whose operands resolve by fact reference, unit, and source; preserve the formula and validity state, and prevent an invalid or insufficient-evidence result from supporting an action. A condition becoming true changes the state to reassessment, never directly to a trade.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "v2 turns arithmetic traceability and action-state separation into machine-checkable interfaces rather than prose conventions.",
+      "why": "A named valuation framework without substituted source-bound inputs is not a calculation, and a correct calculation still does not decide the trade by itself.",
+      "uncertainty_notes": [
+        "A schema-valid formula can remain economically inappropriate; model judgment must still defend the chosen denominator and sensitivity."
+      ],
+      "contradiction_notes": [
+        "Conventional multiples may be the right lens in some cases, so re-anchoring is earned by evidence rather than required for novelty."
+      ]
+    },
+    {
+      "claim_id": "aug-immutable-action-lifecycle",
+      "claim": "Keep substantive work OPEN until one immutable typed decision is finalized, including an honest BLOCKED decision, or the run is abandoned with a durable reason. Preserve version, supersession, action-critical evidence, strongest bear case, falsifiers, and for conditional entry exactly one observable primary trigger with source, expiry, and non-trade transition state.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "v2 adds an explicit lifecycle so polished answer prose, corrections, and later observations cannot leave multiple incompatible current actions.",
+      "why": "The user needs one recoverable current state and the exact evidence that would change it, not a narrative whose first and last recommendations disagree.",
+      "uncertainty_notes": [
+        "A complete action contract does not prove that the analyst chose an economically good trigger."
+      ],
+      "contradiction_notes": [
+        "MONITOR, PASS, BLOCKED, and no-clean-vehicle are complete outcomes even when they feel less decisive than a recommendation."
+      ]
+    },
+    {
+      "claim_id": "aug-physical-chain-and-vehicle-contract",
+      "claim": "For a claimed physical bottleneck, trace the recursive bottom hop, concentration direction, sibling economics, and a specific second-order allocation actor; distinguish direct ownership and revenue capture from theme exposure, group shared drivers and failure nodes, and return no clean US-listed vehicle when the evidence does not support one.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "This is the v2 Physical AI user-outcome contract and an engineering guard against promoting a familiar thematic proxy to bottleneck owner.",
+      "why": "The headline component can sit above the true scarce step, while several apparent recommendations can be the same hidden bet or have no proven revenue link.",
+      "uncertainty_notes": [
+        "Ownership and concentration can change as customers qualify alternatives or fund replication."
+      ],
+      "contradiction_notes": [
+        "A theme proxy may remain a useful vehicle, but it must be labelled as such and cannot inherit the owner's scarcity economics."
+      ]
+    },
+    {
+      "claim_id": "aug-blind-method-and-evaluation-boundary",
+      "claim": "Reconstruct reusable method moves from blind text and reviewed media before opening prior doctrine, and evaluate frozen evidence packets without CLAUDE, the tweet corpus, sessions, scores, or answer keys. Use terra for independent fan-out and reserve one sol step for final synthesis or material disagreement adjudication.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "v2 adds a cleanroom QA design to prevent circularly rediscovering the old harness and mistaking same-instruction agreement for independent quality evidence.",
+      "why": "A model exposed to the desired conclusion can satisfy a rubric without demonstrating that the evidence or current runtime supports it.",
+      "uncertainty_notes": [
+        "Transcript auditing and macOS path denial reduce observed leakage but are not a proof about every host-level side channel."
+      ],
+      "contradiction_notes": [
+        "Production harness fidelity and independent packet review are different tests and must not be collapsed into one score."
+      ]
+    },
+    {
+      "claim_id": "aug-product-and-history-boundary",
+      "claim": "Limit recommendations to US-listed common stock, ADRs, and ETFs; do not provide portfolio weights, position sizes, or personalized advice. Treat the historical tweet database as an answer key available only for an explicit post-analysis cross-validation request, never as a routine research source or preloaded ticker verdict.",
+      "provenance_tag": "augmented",
+      "augmentation_rationale": "These are explicit user and product boundaries adopted for the harness rather than investment principles inferred from the corpus.",
+      "why": "An inaccessible security, hidden allocation instruction, or stale historical call fails the user's actual decision boundary even if the underlying analysis is interesting.",
+      "uncertainty_notes": [
+        "ADR and ETF accessibility does not by itself establish liquidity, tax, tracking, or revenue-capture quality."
+      ],
+      "contradiction_notes": [
+        "A foreign pure-play can still be named as the economic winner, but the actionable expression must be resolved separately."
+      ]
+    }
+  ]
+}

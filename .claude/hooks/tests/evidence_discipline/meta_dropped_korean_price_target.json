@@ -1,6 +1,0 @@
-{
-  "prompt": "serenity_pipeline.py 리팩터하면서 목표가 계산 로직도 같이 고쳐줘",
-  "_expect": {
-    "silent": true
-  }
-}

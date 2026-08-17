@@ -263,12 +263,7 @@ jobs:
           # 만들면 그건 조용히 안 돌게 된다.
           git push || { git pull --rebase --autostash && git push; }
 
-      # 종료코드를 그대로 잡 결과로 삼는다. 스크립트가 이미
-      # `return 0 if invariants_ok else 1` 이므로 초록/빨강이 정확하다.
-      # 여기서 판정을 새로 만들면 진실이 둘로 갈라진다.
-      #
-      # 이름이 "Propagate verdict" 가 아닌 이유: 이 레포는 결정적 코드가 verdict·rating
-      # 같은 판정어를 내는 것을 금지한다(scripts/pipeline/_evidence.py). 이 스텝은
-      # 그 규칙의 사정권 밖이지만, 굳이 충돌하는 단어를 쓸 이유도 없다.
+      # 스크레이퍼가 계산한 불변조건 종료 코드를 job 결과로 그대로 전달한다.
+      # 워크플로가 별도 판단을 만들면 수집 CLI와 GitHub 상태가 어긋날 수 있다.
       - name: Propagate exit code
         run: exit ${{ steps.scrape.outputs.code }}

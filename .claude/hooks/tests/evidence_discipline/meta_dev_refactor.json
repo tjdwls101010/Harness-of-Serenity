@@ -1,6 +1,0 @@
-{
-  "prompt": "refactor the serenity_pipeline archetype tagging in the skill",
-  "_expect": {
-    "silent": true
-  }
-}

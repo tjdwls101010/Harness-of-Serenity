@@ -1,0 +1,51 @@
+{
+  "format": "serenity-method-synthesis-evidence/1",
+  "executed_at": "2026-08-17T07:13:44.466459Z",
+  "model": "gpt-5.6-sol",
+  "role": "final_method_synthesizer",
+  "invocation_count": 1,
+  "single_final_synthesis": true,
+  "broad_fan_out": "forbidden",
+  "isolation": {
+    "level": "os_enforced",
+    "repo_read_denial": "enforced",
+    "sandbox_boundary": "macos_outer_repo_and_prior_results_denied__codex_inner_danger_full_access"
+  },
+  "candidate_digest": {
+    "content_hash": "3056087bca1f24c5ee660bfce20a47bfdc93961f7b8e1f090efdd8949632d6f3",
+    "sha256": "a2dd0883ae5aa804d7346ee2695b5be58da463a74ce5a1851e8f71ac0f495cb7"
+  },
+  "package_sha256": {
+    "candidate-digest.json": "a2dd0883ae5aa804d7346ee2695b5be58da463a74ce5a1851e8f71ac0f495cb7",
+    "method-claim-synthesis.schema.json": "06f4766104cb5dfe429bd0209776383b326c2c7d88c79d6ea9ed6bf411789d46",
+    "package-manifest.json": "8f7efe26dbcaebb0d0aafe557d91255f4ede0793c30ee6af8b29d5b25be67dd5",
+    "prompt.json": "0ca76e50f5b5a79a79868aafae3669eaa28c07a792781fb5e856b44f2e09fe07"
+  },
+  "historical_execution_record": {
+    "sha256": "16dd72e6a5aac1b47226b5fab82613d4847ee6d6cf18fa77b0bf790640aa0506",
+    "returncode": 0,
+    "status": "forbidden_read_observed",
+    "validation_error": "forbidden_read_observed: transcript reads outside the case",
+    "preserved_unchanged": true
+  },
+  "read_only_revalidation": {
+    "status": "valid",
+    "reason": "The original path scanner treated jq's exact // alternative operator as an absolute filesystem path. The repaired scanner exempts only that exact token; it does not exempt //host, external paths, the repository, parent traversal, search, network, or extra commands.",
+    "transcript_sha256": "59c67fc354da377398506688ae2e228fb1a95e7654457784324151151d82886a",
+    "output_sha256": "957fbe3d34be6491b03d204498295e1400af4b5be7749ab7d13bff33b42ad267",
+    "transcript_audit": {
+      "tool_events": 5,
+      "packet_read_events": 5,
+      "forbidden_read_events": 0
+    },
+    "relaunch_performed": false,
+    "record_rewritten": false
+  },
+  "final_claim_ledger": {
+    "content_hash": "dba5fe018b2061048cb97d0207b363f6ac0ecddef6735bef7f1f2fdbc369aaab",
+    "sha256": "3fb956960298c4eb58a4086ff3eb143b583aa21c91b2d987a8e51a67f1b9229d",
+    "sourced_claims": 12,
+    "augmented_claims": 8,
+    "unverified_claims": 0
+  }
+}

@@ -1,8 +1,0 @@
-{
-  "prompt": "should i buy $NVDA here or wait for a dip?",
-  "_expect": {
-    "contains": [
-      "[evidence-discipline]"
-    ]
-  }
-}

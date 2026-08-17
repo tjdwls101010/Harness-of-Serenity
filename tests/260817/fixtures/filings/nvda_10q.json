@@ -1,0 +1,20 @@
+{
+  "filing": {
+    "form": "10-Q",
+    "filing_date": "2026-08-14",
+    "report_date": "2026-07-27",
+    "accession": "0001045810-26-000123",
+    "primary_document": "nvda-20260727.htm"
+  },
+  "data": {
+    "filings": [
+      {
+        "form": "10-Q",
+        "filing_date": "2026-08-14",
+        "report_date": "2026-07-27",
+        "accession": "0001045810-26-000123",
+        "primary_document": "nvda-20260727.htm"
+      }
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:evidence-result:1",
+  "title": "Serenity typed evidence result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "result_id", "run_id", "request_id", "hypothesis_ids", "capability_id", "availability", "provider", "source", "temporal", "fetched_at", "raw_content_sha256", "transform_version", "identity_bindings", "fact_refs", "value", "content_hash"],
+  "properties": {
+    "schema_id": {"const": "urn:serenity:schema:evidence-result:1"},
+    "result_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "request_id": {"$ref": "#/$defs/id"},
+    "hypothesis_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "capability_id": {"type": "string", "minLength": 3},
+    "availability": {"$ref": "#/$defs/availability"},
+    "provider": {"type": "string", "minLength": 1},
+    "source": {"$ref": "#/$defs/source"},
+    "temporal": {"$ref": "#/$defs/temporal"},
+    "fetched_at": {"type": "string", "format": "date-time"},
+    "raw_content_sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "transform_version": {"type": "string", "minLength": 1},
+    "identity_bindings": {"type": "object", "additionalProperties": {"type": "string"}},
+    "fact_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "value": {},
+    "conflicts": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "content_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {"if": {"properties": {"availability": {"const": "available"}}}, "then": {"properties": {"value": {"not": {"type": "null"}}, "raw_content_sha256": {"$ref": "#/$defs/sha256"}}}, "else": {"properties": {"value": {"type": "null"}}}}
+  ],
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "availability": {"enum": ["available", "not_disclosed", "not_applicable", "unavailable", "invalid", "not_requested", "stale", "conflict"]},
+    "nullableDate": {"oneOf": [{"type": "string", "format": "date"}, {"type": "null"}]},
+    "nullableDateTime": {"oneOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
+    "nullableString": {"type": ["string", "null"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri", "parameters", "canonical_id"],
+      "properties": {
+        "uri": {"type": "string", "format": "uri"},
+        "parameters": {"type": "object"},
+        "canonical_id": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "temporal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effective_at", "period_start", "period_end", "observed_at", "available_at", "source_version"],
+      "properties": {
+        "effective_at": {"$ref": "#/$defs/nullableDate"},
+        "period_start": {"$ref": "#/$defs/nullableDate"},
+        "period_end": {"$ref": "#/$defs/nullableDate"},
+        "observed_at": {"$ref": "#/$defs/nullableDate"},
+        "available_at": {"$ref": "#/$defs/nullableDateTime"},
+        "source_version": {"$ref": "#/$defs/nullableString"}
+      }
+    }
+  }
+}

@@ -1,8 +1,0 @@
-{
-  "last_assistant_message": "TLDR: $RDDT looks cheap here, overweight. NFI/NFA.\n\n**Lens: RUN = both legs**\nLens: EV/Rev × content, priced off the cohort\nDownsides:\n- dilution overhang (priced-in)\n- permit cadence (not priced)\nFalsifier: breaks if 6-inch yields close the gap.\nRating: overweight, shares. NFI/NFA.\n\nSaved: sessions/990101.hook-fixture/",
-  "stop_hook_active": false,
-  "_expect": {
-    "contains": "machine-checkable `Lens:` line"
-  },
-  "_why": "The paired guard for lens_header_before_driver_silent. Widening to every occurrence must not let the marker be ASSEMBLED from fragments — here one line supplies an `=` and another supplies an operator, and neither is a driver computation. The operator, the `=` and a digit all have to appear on the SAME line, which is the bar the one-line version enforced for free and the widening could easily have dropped."
-}

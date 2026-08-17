@@ -1,178 +1,177 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/tjdwls101010/tjdwls101010/main/Images/Harness%20of%20Serenity.png" alt="Harness of Serenity" width="640">
-</p>
+<div align="center">
 
-<h1 align="center">Harness of Serenity</h1>
+# Harness of Serenity
 
-<p align="center">
-  <em>A research harness that makes deterministic code load the facts and leaves every judgment to the analyst.</em>
-</p>
+**A typed research runtime for US-listed equity research and conditional-entry analysis.**
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+">
-  <img src="https://img.shields.io/badge/status-personal%20research%20tool-orange.svg" alt="Status: personal research tool">
-</p>
+[Overview](#1-overview) · [Features](#2-features) · [Quick Start](#3-quick-start) · [Usage](#4-usage) · [Docs](#5-documentation)
 
----
+</div>
 
-## What this is
+## 1. Overview
 
-Ask a language model "is $NVDA a buy?" and it will happily quote you a market cap. The number
-might be last quarter's. It might belong to a different company that shares the ticker prefix.
-Nothing downstream will catch it, because a wrong number that *looks* right reads exactly like a
-right one — and it inverts the conclusion silently.
+This project exists to keep a hard but useful boundary in investment research: software pins identity, facts, sources, availability, and arithmetic; the analyst forms competing explanations and decides what the evidence means. It is for research on US-listed common stock, ADRs, and ETFs, including sector discovery, single-ticker work, and physical supply-chain bottlenecks.
 
-Harness of Serenity fixes that by drawing one hard line through the middle of equity research:
+The output can support a research call or a conditional entry trigger, but it does not allocate a portfolio, place trades, or provide personal financial advice. A valid result may just as honestly be `MONITOR`, `PASS`, or `BLOCKED` when the evidence is missing or conflicts.
 
-- **Code loads facts.** A deterministic Python pipeline pulls market data, macro gauges, and SEC
-  filing disclosures and emits them as JSON. Same inputs, same bytes, every run. Identity pinned:
-  the right ticker, the right period.
-- **The analyst judges.** Whether a company owns a real chokepoint, which valuation lens its
-  capital structure demands, what the price already reflects — none of that lives in code, ever.
+## 2. Features
 
-The split is enforced mechanically, not by convention. A validator replays sixteen frozen
-fixtures and fails if a single verdict-shaped key (`rating`, `risk_score`, `regime`,
-`objective_screen`) leaks into the evidence layer. That is the whole idea: a judgment baked into
-code drifts silently run to run, and one stale criterion among a hundred can invert a call
-without anyone noticing.
+- One public lifecycle CLI, [`scripts/serenity.py`](scripts/serenity.py), with JSON-only stdout and explicit run state.
+- Versioned schemas under [`schemas/v2`](schemas/v2) for fact snapshots, provider envelopes, evidence, hypotheses, lenses, graphs, decisions, prospective records, and evaluation.
+- Source-aware evidence: each result carries an availability state and provenance; time-sensitive work distinguishes when something was effective, observed, available, and fetched.
+- Official issuer narrative as typed evidence: SEC filings and already-resolved issuer IR documents retain identity, publication time, exact response bytes, and source hashes before any management claim or cross-company read-through is interpreted.
+- Adaptive research rather than a frozen scoring pipeline: the analyst records competing hypotheses and requests evidence that could distinguish them.
+- Reproducible arithmetic: a declared lens runs only from saved facts, and numeric targets require a valid lens with traceable inputs.
+- Separate corpus, method, harness, and evaluation tools so historical tweets, doctrine, and test answers do not silently enter a routine research decision.
+- Candidate-first Codex evaluation: one family-routed Terra candidate uses the shared Harness, then two cleanroom Terra reviewers judge its typed artifact from raw evidence without seeing the Harness or an answer key; Sol is reserved for material disagreement.
 
-> **This is research tooling, not financial advice.** It structures analysis; it does not
-> outsource it. See [Disclaimer](#disclaimer).
+## 3. Quick Start
 
-## Why the boundary is the point
-
-Most analysis tools blur three separate jobs into one stream of output: gathering numbers,
-interpreting structure, and deciding what the price already reflects. Blur them and you cannot
-tell which step was wrong when the call misses.
-
-This repository splits them and keeps them split:
-
-| The code may emit | The code must never emit |
-| --- | --- |
-| market cap, price, multiples, margins | a buy/sell rating |
-| cash, debt, total assets, inventory | an archetype tag ("this is a chokepoint") |
-| raw macro gauges (VIX, net liquidity, ERP) | a regime label ("risk-on") |
-| SEC filing facts, quoted and cited | a conviction score or price target |
-| side-by-side comparison metrics | a ranking verdict |
-
-## Highlights
-
-- **One JSON evidence surface** — `macro`, `analyze TICKER`, `discover A B C`, and an offline
-  `evidence --fixture` replay, all from a single CLI.
-- **27 data modules** behind it, each a standalone subprocess that fails into structured JSON
-  rather than a traceback, so one dead upstream never takes down a whole dossier.
-- **A separate SEC layer** (`serenity_filings.py`) that reproduces filing numbers byte-stably via
-  edgartools XBRL with the concept cited — no LLM anywhere in the extraction path.
-- **A self-check that actually runs** — `serenity_harness.py validate` performs 15 structural
-  checks including a full replay of every golden fixture against the judgment-free contract.
-- **An agent harness on top** — an always-on reasoning spine, three focused skills, two
-  subagents, and the lifecycle hooks that enforce evidence discipline at runtime.
-- **Reproducibility measurement** — a seeded, stratified eval that scores whether the harness
-  reproduces the *method* on real past cases, deliberately grading moves rather than numbers.
-
-## Quick start
-
-**Prerequisites:** Python 3.12 or newer (the evidence layer uses PEP 695 type aliases), Git, and
-network access. A free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) unlocks
-the macro gauges; everything else works without a key.
+Prerequisites: Python 3.12 or newer, Git, and network access for live providers. The deterministic/offline lifecycle does not need a market-data key, and no Docker or OrbStack runtime is required.
 
 ```bash
 git clone https://github.com/tjdwls101010/Harness-of-Serenity.git
 cd Harness-of-Serenity
 
 python3 -m venv scripts/.venv
-scripts/.venv/bin/pip install -r scripts/requirements.txt
-cp .env.example .env          # then add FRED_API_KEY and EDGAR_IDENTITY
+scripts/.venv/bin/python -m pip install -r scripts/requirements.txt
+cp .env.example .env
 ```
 
-Confirm the harness is wired correctly — this needs no network and no keys:
+Codex uses the bundled tracked `.codex -> .claude` symlink, so it loads the same harness without copying a second configuration tree. Git preserves symlinks on platforms that support them; if a platform disables symlink checkout, enable its symlink support and clone again before using Codex.
+
+Create an offline research run. The command emits one JSON object; keep its `run_id` for the next lifecycle commands.
 
 ```bash
-scripts/.venv/bin/python scripts/serenity_harness.py validate
+scripts/.venv/bin/python scripts/serenity.py run start \
+  --mode single-name \
+  --question "What evidence would change the NVDA thesis?" \
+  --subject NVDA \
+  --as-of 2026-08-17 \
+  --offline
 ```
 
-A healthy run reports `"ok": true` with 15 passing checks. Now pull a real evidence dossier:
+The runtime writes active work below `.serenity/runs/<run_id>/`. A normal research flow snapshots the security, stores competing hypotheses, requests/collects evidence, runs a declared lens if needed, validates an analyst-authored decision, and only then finalizes it. Use `--help` on every command before supplying your own JSON documents.
 
-```bash
-scripts/.venv/bin/python scripts/serenity_pipeline.py analyze TSM
-```
+## 4. Usage
 
-You get one JSON object: `key_facts` (market cap, price, margins, float, short interest),
-`fundamental_inputs`, `valuation_inputs`, `market_structure_inputs`, `catalyst_inputs`, and
-`filing_evidence` — plus an `evidence_contract` block declaring in-band that judgment belongs to
-you, not to the code that produced the payload.
-
-**Do not truncate that output.** The fields most tempting to cut — financing terms, country
-revenue share, inventory composition — are usually the ones a thesis turns on.
-
-## Usage overview
+Set the interpreter once for the examples below.
 
 ```bash
 PY=scripts/.venv/bin/python
-
-# Raw macro gauges — no regime label, deliberately
-$PY scripts/serenity_pipeline.py macro
-
-# Full single-name dossier
-$PY scripts/serenity_pipeline.py analyze NVDA
-
-# Batch: run macro once, then reuse it across names
-$PY scripts/serenity_pipeline.py analyze AVGO --skip-macro
-
-# Side-by-side comparator (routing, not a ranking verdict)
-$PY scripts/serenity_pipeline.py discover TSM ASML ARM
-
-# SEC filings: numbers and text, deterministically
-$PY scripts/serenity_filings.py segments TSM --axis StatementGeographicalAxis
-$PY scripts/serenity_filings.py section TSM --form 10-K --named business
 ```
 
-Flag-by-flag detail lives in the [Pipeline Reference](docs/wiki/Pipeline-Reference.md) and
-[Filings and SEC](docs/wiki/Filings-and-SEC.md) pages.
+### 4.1. Research lifecycle
 
-## Documentation
+```bash
+# Inspect or end an active run.
+$PY scripts/serenity.py run status RUN_ID
+$PY scripts/serenity.py run abandon RUN_ID --reason "research stopped"
 
-The full documentation lives in **[docs/wiki](docs/wiki/README.md)**. Start here:
+# Persist deterministic identity/fact evidence from a frozen packet, or omit
+# --frozen-packet on a network-permitted run to use the live provider seam.
+$PY scripts/serenity.py snapshot security RUN_ID --frozen-packet path/to/snapshot.json
 
-| Page | For |
-| --- | --- |
-| [Overview](docs/wiki/Overview.md) | The problem, the approach, and the non-goals |
-| [Getting Started](docs/wiki/Getting-Started.md) | Install → configure → first dossier, end to end |
-| [Concepts](docs/wiki/Concepts.md) | The vocabulary: evidence contract, archetype, lens, gates |
-| [Architecture](docs/wiki/Architecture.md) | How the layers fit and how a run flows through them |
-| [Pipeline Reference](docs/wiki/Pipeline-Reference.md) | Every subcommand, flag, and output field |
-| [Known Limitations](docs/wiki/Known-Limitations.md) | Verified defects and rough edges, stated plainly |
+# Record competing hypotheses before asking for adaptive evidence.
+$PY scripts/serenity.py hypothesis put RUN_ID --document path/to/hypotheses.json
+$PY scripts/serenity.py evidence request RUN_ID \
+  --hypothesis-id hyp-demand-holds \
+  --capability-id sec.filings \
+  --document path/to/evidence-request.json
+$PY scripts/serenity.py evidence collect RUN_ID evidence-request-001
 
-## Project status
+# Run declared arithmetic and validate/finalize an analyst-authored decision.
+$PY scripts/serenity.py lens run RUN_ID --spec path/to/lens-spec.json
+$PY scripts/serenity.py decision validate RUN_ID \
+  --decision path/to/decision.json \
+  --evidence-manifest path/to/evidence-manifest.json
+$PY scripts/serenity.py decision finalize RUN_ID \
+  --decision path/to/decision.json \
+  --evidence-manifest path/to/evidence-manifest.json \
+  --analysis path/to/analysis.json
+```
 
-A working personal research harness, published because the pattern it demonstrates — a
-mechanically enforced boundary between deterministic evidence and model judgment — generalizes
-well beyond equities.
+For issuer narrative, Web search may locate an official issuer-owned URL but does not make the snippet or page a fact. First create the run's fact snapshot through the live SEC/OpenFIGI provider seam; a `--frozen-packet` snapshot remains useful for deterministic tests but cannot authorize a live issuer fetch. Save a request document like the following on a network-permitted run whose provider allowlist includes `issuer-ir`, then request capability `issuer-ir.document` and collect it through the same evidence command. Collection reopens the content-hashed SEC submissions payload from the private raw cache and exact-matches its CIK, issuer name, official website domains, snapshot ID, and request before any network call. The provider then binds publication time, every redirect hop, final URL, response metadata, and exact raw bytes; the analyst separately decides whether a management claim is corroborated or has a cross-company read-through.
 
-**What that means for you:** it works and it is used, but there is no CI, no stability guarantee,
-no release cadence, and no support commitment. Interfaces may change without a deprecation
-period. Fork it freely; pin a commit if you depend on it.
+```json
+{
+  "question": "What operating constraint and partner relationship did management disclose?",
+  "evidence_type": "issuer-narrative",
+  "provider_policy": {
+    "providers": ["issuer-ir"],
+    "allow_network": true,
+    "historical_cutoff": "2026-08-17T23:59:59Z"
+  },
+  "acceptance_criteria": ["Preserve the official source, publication time, raw hash, and exact narrative location."],
+  "requested_at": "2026-08-17T00:00:00Z",
+  "provider_parameters": {
+    "identity": {"ticker": "TICKER", "cik": "0000000000", "issuer": "Issuer legal name"},
+    "document": {"url": "https://investor.example.com/official-document", "kind": "prepared_remarks"},
+    "origin_binding": {"issuer_domain": "investor.example.com", "binding_source_ref": "snapshot-SNAPSHOT_ID"}
+  }
+}
+```
 
-Pull requests are welcome. There is exactly one rule a contribution must not break: deterministic
-code may load, normalize, and verify facts, but it may never emit a verdict, score, archetype
-tag, regime label, or rating.
+```bash
+$PY scripts/serenity.py evidence request RUN_ID \
+  --hypothesis-id hyp-operating-constraint \
+  --capability-id issuer-ir.document \
+  --document path/to/issuer-ir-request.json
+$PY scripts/serenity.py evidence collect RUN_ID evidence-request-ISSUER_IR
+```
 
-## Contributing
+Do not use `evidence read --document` to inject an issuer narrative result. That manual frozen-result seam cannot prove the live SEC origin or exact response bytes, so `issuer-ir.document` is accepted only through `evidence collect`.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the test commands, and the boundary rule every
-PR is checked against. By participating you agree to the
-[Code of Conduct](CODE_OF_CONDUCT.md). To report a security issue, follow
-[SECURITY.md](SECURITY.md) rather than opening a public issue.
+`graph put` stores a typed sector graph for a supply-chain or Physical AI question. `outcomes register` and `outcomes refresh` record later measurements of a finalized decision; they do not trade or rewrite the original thesis.
 
-## License
+```bash
+$PY scripts/serenity.py graph put RUN_ID --file path/to/sector-graph.json
+$PY scripts/serenity.py outcomes register \
+  --decision records/decisions/LINEAGE/v001/decision.json \
+  --benchmark-json path/to/benchmark.json \
+  --checkpoint-schedule-json path/to/outcome-schedule.json
+$PY scripts/serenity.py outcomes refresh outcome-001 --observation path/to/observation.json
+```
 
-Released under the MIT License. See [LICENSE](LICENSE).
+All commands return one JSON object on stdout. Exit code `0` includes a valid typed unavailable result; `2` is usage/schema, `3` identity/lifecycle, `4` provider, `5` persistence/hash conflict, and `70` an unexpected internal error.
 
-## Disclaimer
+### 4.2. Data availability, time, and provenance
 
-Harness of Serenity is educational and research infrastructure. It does not provide investment,
-legal, tax, or financial advice, and it makes no guarantee of data availability, data accuracy,
-or investment outcomes. Market data comes from third-party sources that can be delayed,
-incomplete, or wrong. Every output is an input to your own judgment — verify anything you would
-act on.
+An absent number is never silently treated as zero or current. Evidence states whether it is `available`, `not_disclosed`, `not_applicable`, `unavailable`, `invalid`, `not_requested`, `stale`, or `conflict`, and preserves provider identity, source identifiers, raw-content hash, and retrieval metadata. Historical evaluation uses `available_at` as its cutoff boundary; a period end or event date alone does not prove that the information was available then.
+
+Live FRED evidence needs `FRED_API_KEY`. SEC requests need a contactable user agent through `SERENITY_SEC_USER_AGENT` or the legacy `EDGAR_IDENTITY`; an unresolved identity blocks a final research decision rather than allowing a silently wrong ticker. `issuer-ir.document` fetches one already-resolved official issuer URL and never crawls, selects the “latest” document, or turns a CEO statement into an investment conclusion. The owned `ibd-rs-rating==0.3.0` adapter preserves raw records and dates as evidence only; it is not a score gate or recommendation.
+
+### 4.3. Maintenance and evaluation CLIs
+
+These tools are intentionally separate from the public research lifecycle. Their detailed contracts are available from their own help text.
+
+```bash
+# Inventory/audit corpus-method evidence; it never produces a recommendation.
+$PY scripts/serenity_corpus.py --help
+$PY scripts/serenity_corpus.py inventory --db data/analysis_Serenity.db
+
+# Build, validate, and independently code the source-method corpus.
+$PY scripts/serenity_method.py --help
+$PY scripts/serenity_method_runner.py --help
+
+# Run deterministic evaluation by default; live candidate/reviewer execution is opt-in and cleanroom-isolated.
+$PY scripts/serenity_eval.py --help
+$PY scripts/serenity_eval.py
+
+# Check static v2 harness wiring without provider/network research.
+$PY scripts/serenity_harness.py validate
+```
+
+`serenity_eval.py --execute-cli` first runs a family-routed candidate against the tracked `CLAUDE.md`/skill snapshot, then sends only the typed candidate artifact and permitted evidence into two independent no-Harness reviewer cleanrooms. Live provider captures are transport checkpoints by default and become citable semantic evidence only through an explicit identity- and cutoff-valid invariant binding.
+
+## 5. Documentation
+
+The implementation decision record is [`docs/plans/260817`](docs/plans/260817/00-README.md). It defines the runtime contracts, corpus/method boundary, harness and evaluation design, cutover verification, and recorded cutover evidence; the current hash-valid 18-case result is [`evaluation-report.v2.json`](docs/plans/260817/evaluation-report.v2.json) (`e4e5ae498606ff4489cc06e5e0e587b9b7422165c57cb65d3ccf143878f1fb2d`): 18 Terra candidates, 36 independent Terra reviews, and no Sol adjudication because no material invariant-level disagreement remained. Earlier diagnostic runs are retained separately in the cutover evidence. The current public command surface is authoritative through `scripts/serenity.py --help` and each subcommand’s `--help`.
+
+## 6. Contributing
+
+Contributions are welcome when they preserve the fact-versus-judgment boundary and use the public seams. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, test expectations, provider injection, and the repository’s Korean-language Git/PR convention.
+
+## 7. License
+
+Released under the [MIT License](LICENSE).

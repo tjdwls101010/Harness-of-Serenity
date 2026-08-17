@@ -98,7 +98,7 @@ _X_TIME_FORMAT = "%a %b %d %H:%M:%S %z %Y"
 
 # Matches a cashtag only when a LETTER follows the `$`, which is what keeps `$217`
 # and `$30s` out of the corpus. Frozen on purpose — see the characterization tests
-# in scripts/tests/test_serenity_scrape.py before touching it.
+# in tests/260817/corpus/test_scrape.py before touching it.
 _TICKER_RE = re.compile(r"\$([A-Za-z]+)")
 
 

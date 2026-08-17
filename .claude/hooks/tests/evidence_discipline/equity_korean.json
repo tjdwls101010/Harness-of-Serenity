@@ -1,8 +1,0 @@
-{
-  "prompt": "엔비디아 지금 사도 되나? 뭐 살까 고민중",
-  "_expect": {
-    "contains": [
-      "[evidence-discipline]"
-    ]
-  }
-}
