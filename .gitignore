@@ -26,12 +26,12 @@ references/
 
 # Runtime state cache (not a deliverable)
 data/state_store.db/
+.serenity/
+/sessions/
 
 # --- Runtime loop/research artifacts & scratch (not deliverables) ---
 .omo/
 scratchpad_macro.json
 
-# Codex run registry + local .codex convenience symlink (the committed .codex/ layer was retired
-# 2026-08-11; these are local tooling state, not a harness component)
+# Codex run registry is local runtime state. The bundled `.codex -> .claude` symlink is tracked.
 .codex-runs/
-/.codex
