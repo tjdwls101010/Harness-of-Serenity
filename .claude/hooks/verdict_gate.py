@@ -206,6 +206,10 @@ _NULL_LEAD = re.compile(
 	r"^(none|n/?a|없음|can'?t think of(?:\s+(?:one|any|anything))?)\b\s*[:\-—,]*\s*",
 	re.IGNORECASE,
 )
+# A markdown list item: a bullet or ordered marker followed by whitespace. Used to keep a real
+# bullet from being read as a section boundary — see `_section_body`.
+_LIST_ITEM = re.compile(r"^\s*(?:[-*+]\s|\d+[.)]\s)")
+
 _MIN_SECTION_LEN = 6   # a bare label with nothing after it at all, anywhere
 # A null token's trailing clause must clear this to count as "said why". Heuristic, and flagged as
 # such rather than dressed up: unlike the 0.75 revenue-divergence threshold in data_integrity_guard,
@@ -296,7 +300,15 @@ def _section_body(label, msg):
 		# the module's own motivating example (`Downsides: none that matter`) walked straight back in
 		# through a formatting variant. Structural checks have to survive the formatting the model
 		# actually produces, not the formatting the example was written in.
-		if boundary.match(line):
+		if not _LIST_ITEM.match(line) and boundary.match(line):
+			# A BULLET is content, never a boundary. `- Forward revenue: customer pushouts could cut
+			# the next two guides` is a perfectly ordinary first Downsides bullet, and it begins with
+			# a word that is also a section label — so the boundary matched, the body came back
+			# empty, and a compliant answer got nudged for having no Downsides block. `_DECOR` eats
+			# the leading `- `, which is what let a bullet look like a header in the first place.
+			#
+			# The separator is what distinguishes them: a list marker is followed by whitespace
+			# (`- `, `1. `), a bolded header is not (`**Downsides:**`), and a heading uses `#`.
 			break
 		if not line.strip():
 			# A blank line ends the body — but only once the body has actually STARTED. A blank
@@ -328,7 +340,18 @@ def _is_null_section(body):
 	"""
 	if body is None:
 		return True
-	stripped = re.sub(r"^[\s:\-—*•]+", "", body)
+	# Peel decoration in layers, because a bullet carries several: `- [ ] None`, `1. None identified.`,
+	# `| none |`, `` `none` ``. Only the dash/bullet form was handled, so every other shape a model
+	# actually emits sailed past the null check that is this function's entire purpose — found by an
+	# adversarial review, not by a fixture, because every fixture was written in the one shape.
+	# Ordered-list stripping is anchored to `\d+[.)]` + whitespace so it cannot eat a real numeric
+	# body ("12% dilution risk" keeps its number).
+	stripped = body
+	for _ in range(3):
+		stripped = re.sub(r"^[\s:\-—–*•>|`]+", "", stripped)
+		stripped = re.sub(r"^\d+[.)]\s+", "", stripped)
+		stripped = re.sub(r"^\[[ xX]?\]\s*", "", stripped)
+	stripped = re.sub(r"[\s|`*_]+$", "", stripped)
 	stripped = re.sub(r"\s+", " ", stripped).strip()
 	if len(stripped) < _MIN_SECTION_LEN:
 		return True
@@ -502,7 +525,10 @@ def evaluate(msg, base):
 	# body underneath it, so exactly one occurrence has to be chosen as operative. This check asks a
 	# different question — "did the answer emit at least one machine-checkable driver line?" — which
 	# is existential. A forked lens legitimately emits two, and doctrine asks for both.
-	lens_lines = re.findall(r"Lens:[^\n]*", msg, re.IGNORECASE) or [""]
+	# `[^\r\n]` not `[^\n]`: a lone CR is a line separator on classic Mac line endings, so a
+	# `[^\n]*` match ran straight through it and let two Lens lines merge into one — which is
+	# exactly the fragment-assembly the same-line rule below exists to prevent.
+	lens_lines = re.findall(r"Lens:[^\r\n]*", msg, re.IGNORECASE) or [""]
 	lens_operator_re = (
 		r"[×÷*]"
 		r"|\d[\d,.]*\s?[%TtBbMmKk]?[^/\n]{0,20}\s/\s[^\d$₩€£\n]{0,20}[$₩€£]?\d"

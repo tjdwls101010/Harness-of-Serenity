@@ -148,3 +148,22 @@ def test_pipeline_evidence_sanitizes_non_null_macro_payload(tmp_path: Path) -> N
 		if any(token in value.lower() for token in FORBIDDEN_VALUE_TOKENS)
 	]
 	assert payload["macro_inputs"] == {"raw_inputs": {"vix_spot": 20, "dxy": 105}}
+
+
+def test_agents_md_symlink_is_tracked_and_points_at_claude_md():
+    """`AGENTS.md` -> `CLAUDE.md` is the entire cross-CLI mirror: an AGENTS-convention tool loads the
+    same spine with no hand-maintained translation to drift.
+
+    It exists as a test because it was deleted by accident and nobody noticed. The `.codex/` sweep
+    removed it along with the layer being retired, while `harness-spec.md` went on documenting it as
+    live — and the phase-00 plan had said in as many words that this symlink STAYS. It resurfaced
+    only because a codex run recreated it on disk as an untracked file, which would have masked the
+    deletion permanently. `audit_harness.py` reported no drift throughout: it compares components it
+    knows how to enumerate, and a deleted symlink documented in prose is not one of them."""
+    import subprocess
+    root = Path(__file__).resolve().parents[2]
+    out = subprocess.run(["git", "ls-files", "-s", "AGENTS.md"], cwd=root,
+                         capture_output=True, text=True).stdout.strip()
+    assert out, "AGENTS.md is not tracked — the cross-CLI mirror is gone"
+    assert out.split()[0] == "120000", f"AGENTS.md must be a symlink, got mode {out.split()[0]}"
+    assert (root / "AGENTS.md").resolve() == (root / "CLAUDE.md").resolve()

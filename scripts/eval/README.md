@@ -64,7 +64,40 @@ The runner snapshots the real `sessions/` before and after and fails loudly if a
 
 `report` can only apply the chokepoint scope split mechanically for cases that carry an `archetype`. The twelve gold cases have one; the random remainder does not, and those cases are reported separately as scope-unstable.
 
-The fix is not more code — it is that the standing regression sample is **inspected once by a human and frozen**, not re-drawn every run. During that pass: fill `archetype` in for each unlabeled case, and eyeball the blind prompts for the cases a regex will always lose to (rhetorical anchoring — "not X, but something like it" is a normal way to write, and the disclaim guard only catches the obvious form). Commit the result. That one fixed cost is what buys a stable in-scope N for every future audit.
+**Why this step is not optional at large n.** Growing n buys statistical power for the four always-in-scope rubric rows and **none at all** for the two chokepoint-scoped ones: their stable in-scope N stays at the four curated chokepoint cases no matter how big the draw gets. Those two — `recursive_bottom_hop` and `second_order_and_sibling` — are the moves the harness's own retrospective calls the weakest-reproduced, which is most of what a larger n is being bought for. So an unlabelled n=100 is, for the rows that matter most, an n=4.
+
+**The standing sample, as it exists today:**
+
+```bash
+scripts/.venv/bin/python scripts/serenity_eval.py sample --n 100 --seed 7 --only-labeled
+# -> n=63, 63/63 labelled, all seven archetypes, chokepoint 17
+```
+
+**It is a census, not a seeded sample, and the `--seed` in that command does nothing to it.** 74 labelled cases exist and `--n 100` asks for more than that, so every one is taken; seeds 7, 99 and 12345 produce identical membership and differ only in ordering. That is the right shape for a regression panel — you want the same cases every time — but it means the panel supports statements about *itself*, not about the corpus. It is not a random draw from the thesis DB and cannot carry prevalence or representativeness claims. Say "the standing panel scored X", never "the harness reproduces X% of his method".
+
+`--only-labeled` restricts the pool to cases carrying a label, and that is what makes the sample a **fixed point** rather than a moving target. Without it, excluding a non-thesis pushes the draw deeper into the pool and pulls in fresh unlabelled cases, which need another labelling round, which excludes more, which pulls in more. Measured on the first attempt: 26 exclusions caused 57 of 100 cases to come back unlabelled. With the pool restricted, the sample settles immediately and is reproducible by a command instead of by committing a blob of cases.
+
+n=63 rather than 100 is the honest price of dropping the non-theses and the wrong-subject cases, and it is still a good trade: **chokepoint is 17**, above the `--n-floor` of 12, so the two chokepoint-scoped rubric rows report a real percentage for the first time. Those are the moves the retrospective calls weakest-reproduced, and an unlabelled n=100 would have left them at an effective n=4.
+
+**Redoing the pass from scratch** (only needed if the DB grows or the vocabulary changes):
+
+```bash
+PY=scripts/.venv/bin/python
+$PY scripts/serenity_eval.py sample --n 100 --seed 7 > cases.json       # who needs a label
+# 1. label:  scripts/eval/archetype_label_workflow.js   (fan-out, one archetype per case)
+# 2. triage: scripts/eval/thesis_triage_workflow.js     (which of those are theses at all)
+# write both into scripts/eval/archetype_labels.json (`labels` + `excluded`), then confirm:
+$PY scripts/serenity_eval.py sample --n 100 --seed 7 --only-labeled --no-network \
+  | $PY -c "import json,sys; m=json.load(sys.stdin)['meta']; print(m['archetype_labeled'],'/',m['n'])"
+```
+
+**Step 3 — subject audit** (`scripts/eval/subject_audit_workflow.js`) is a separate pass again, and skipping it undoes the other two. It asks whether each case's ticker is the company its thesis *argues*, not merely one it mentions. Measured: **19% of the random cases were wrong** — a thesis arguing SIVE filed under AMD, one arguing LITE filed under GOOGL, one whose chokepoint is Macronix/Winbond filed under NVDA. Neither earlier pass caught it, and the reason is exact: the labelling pass described the THESIS (its own reasons read *"despite the AMD tag"*), and the triage asked whether the POST is a scoreable thesis. Neither ever asked whether the SUBJECT is right, so a well-argued thesis about company X tagged with company Y sailed through both. A re-subject target that does not resolve (a foreign code, an unlisted name) is EXCLUDED rather than pinned — swapping a wrong-company question for a no-data one is the same failure in a different costume.
+
+Step 2 is not optional, and the reason is worth knowing before you skip it. The first labelling pass was told *"there is no 'unclear' option"* — so `cycle_meta` silently became the bucket for everything that is not one name's argument, and swallowed **26 posts that are not investment theses at all**: a five-ticker idea-share list of one-liners, a table of 23 tickers' daily moves whose tagged ticker is not in the table, a follower-milestone thank-you note, trade logs, research-in-progress scans. Each of those becomes an answer key for "what's your read on TICKER?", i.e. a guaranteed miss on every rubric row for reasons unrelated to the harness — and a meaningless low score is worse than a missing case, because it reads as a finding. Removing the escape hatch did not make the labels decisive; it relocated the uncertainty into the broadest bucket and made it invisible.
+
+Also eyeball the blind prompts for the cases a regex will always lose to — rhetorical anchoring ("not X, but something like it" is a normal way to write, and the disclaim guard only catches the obvious form).
+
+Then **commit** `archetype_labels.json`. It is frozen from that point: a label that later looks wrong is corrected *in place, by hand, with its `why` updated* — never by re-running the pass, which would move other labels too and break comparability with every run already scored against it. Re-deriving scope at judge time is what let a borderline case flip `n/a`↔`0` between two scorings of the identical answer.
 
 ## What the numbers can and cannot claim
 

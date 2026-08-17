@@ -50,11 +50,28 @@ const CASES_SCHEMA = {
   },
 }
 
-let cases = (args && Array.isArray(args.cases)) ? args.cases : []
+// `args` can arrive as a JSON-ENCODED STRING rather than a value. Verified the hard way: a run
+// passed {n: 12, seed: 7} and logged "Sampling 6 cases" — `args.n` was undefined and silently fell
+// through to the default, which is the worst shape of this bug because the workflow still runs and
+// still returns results, just not the ones asked for. Parse defensively and read from the result.
+function _args(a) {
+  if (typeof a === 'string') { try { return JSON.parse(a) } catch (e) { return null } }
+  return a
+}
+const ARGS = _args(args)
+
+let cases = (ARGS && Array.isArray(ARGS.cases)) ? ARGS.cases : []
 let sampledMeta = null
 if (!cases.length) {
-  const n = (args && args.n) || 6
-  const seed = (args && args.seed) || 7
+  const n = (ARGS && ARGS.n) || 6
+  const seed = (ARGS && ARGS.seed) || 7
+  // Default ON: a run meant to be compared against another run must draw from the STANDING
+  // sample, where every case carries a fixed archetype and the non-theses have been filtered
+  // out. Drawing from the raw pool gives a different case set each time the label file grows,
+  // and silently mixes in posts that are not single-name theses at all — both of which make a
+  // before/after comparison meaningless. Pass {standing:false} for an ad-hoc exploratory run.
+  const standing = (ARGS && ARGS.standing === false) ? '' : ' --only-labeled'
+
   log(`Sampling ${n} cases (seed ${seed}) via serenity_eval.py …`)
   // `thesis_text` is deliberately NOT requested here. It is the answer key, it runs to several KB
   // per case, and asking a model to reproduce ~55KB of it verbatim through a schema is a lossy step
@@ -67,17 +84,29 @@ if (!cases.length) {
     `blind_prompt VERBATIM, plus the top-level "meta" object verbatim (the seed lives there and a ` +
     `run whose seed is unrecorded cannot be compared against another). Do NOT return thesis_text — ` +
     `omit that field entirely:\n\n` +
-    `scripts/.venv/bin/python scripts/serenity_eval.py sample --n ${n} --seed ${seed}`,
+    `scripts/.venv/bin/python scripts/serenity_eval.py sample --n ${n} --seed ${seed}${standing}`,
     { label: 'sample', phase: 'Blind run', schema: CASES_SCHEMA },
   )
   cases = (sampled && Array.isArray(sampled.cases)) ? sampled.cases : []
   if (sampled && sampled.meta) sampledMeta = sampled.meta
+  // Integrity check on the transcription step. The agent re-types the sampler's case list through a
+  // schema, and at n=100 that is ~35KB of structured output — a silently truncated list would just
+  // produce a smaller run whose report still looks entirely normal, which is the exact shape of
+  // every other bug this instrument was built to stop reporting. `meta.n` is the sampler's own
+  // count, so the two disagreeing means cases were lost in transit and the run must not proceed.
+  const declared = sampledMeta && sampledMeta.n
+  if (declared && declared !== cases.length) {
+    log(`ABORT: sampler reported n=${declared} but ${cases.length} cases came back — cases were `
+      + `lost in transcription. Re-run; do NOT score a truncated sample.`)
+    return { error: 'case count mismatch', declared, received: cases.length }
+  }
+  log(`Sampled ${cases.length} cases (sampler meta.n=${declared}).`)
 }
 if (!cases.length) {
   log('No cases — pass {n, seed} or {cases:[…]} as args.')
   return { error: 'no cases' }
 }
-const payload = { meta: (args && args.meta) || sampledMeta || null, cases }
+const payload = { meta: (ARGS && ARGS.meta) || sampledMeta || null, cases }
 log(`Blind-running ${cases.length} cases through the harness, then judging vs the answer key.`)
 
 // Judge output shape — mirrors scripts/serenity_eval.py RUBRIC exactly so `report` can aggregate it.
@@ -132,7 +161,7 @@ THREE RULES THAT DECIDE MORE SCORES THAN THE ITEMS ABOVE DO:
 // unrecoverable after the fact: nothing in the scored JSON records which model produced an answer.
 // Default to the production model, not a cheap one — the eval measures the harness as it actually
 // runs, and scoring a weaker model's answers measures the model.
-const MODEL = (args && args.model) || 'opus'
+const MODEL = (ARGS && ARGS.model) || 'opus'
 
 const scored = await pipeline(
   cases,

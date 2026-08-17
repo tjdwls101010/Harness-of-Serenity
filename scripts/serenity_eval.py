@@ -62,6 +62,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _DEFAULT_DB = os.path.join(_HERE, os.pardir, "data", "analysis_Serenity.db")
 _DEFAULT_GOLD = os.path.join(_HERE, "eval", "gold_set.json")
 _DEFAULT_RESOLUTION_CACHE = os.path.join(_HERE, "eval", "ticker_resolution_cache.json")
+_DEFAULT_ARCHETYPE_LABELS = os.path.join(_HERE, "eval", "archetype_labels.json")
 _VERDICT_GATE = os.path.join(_HERE, os.pardir, ".claude", "hooks", "verdict_gate.py")
 
 # The two rubric items a non-chokepoint name legitimately has no answer for. Scoring a disruptor 0
@@ -236,6 +237,32 @@ def _load_gold_set(path: str) -> list[dict]:
 	return cases
 
 
+def _load_archetype_labels(path: str, vocab: set) -> dict:
+	"""id -> archetype, for the RANDOM remainder the gold set does not cover.
+
+	This is the "inspect once and freeze" step, kept as a cache rather than a frozen cases.json so
+	the sampler stays the single source of the case list and this file carries only the judgment
+	added on top. Without it, growing n buys statistical power for the four always-in-scope rows and
+	NONE for the two chokepoint-scoped ones: their stable in-scope N stays at the four curated
+	chokepoint cases forever, and those two are precisely the moves the retrospective calls the
+	weakest-reproduced.
+
+	A label outside the declared vocabulary is a hard error, not a skip — a typo would silently drop
+	that case from the chokepoint rows, which is the failure the whole archetype mechanism exists to
+	prevent."""
+	if not os.path.isfile(path):
+		return {}, set(), {}
+	with open(path, encoding="utf-8") as fh:
+		data = json.load(fh) or {}
+	labels = data.get("labels") or {}
+	bad = [f"{k}={v!r}" for k, v in labels.items() if v not in vocab]
+	if bad:
+		print(f"error: archetype labels outside the declared vocabulary in {path}: "
+			  f"{', '.join(bad[:10])}", file=sys.stderr)
+		sys.exit(2)
+	return labels, set(data.get("excluded") or []), (data.get("subjects") or {})
+
+
 def _load_resolution_cache(path: str) -> dict:
 	if not os.path.isfile(path):
 		return {}
@@ -386,6 +413,14 @@ def cmd_sample(args) -> None:
 	chosen: list[dict] = []
 	gold_ids: set[str] = set()
 	gold_missing: list[str] = []
+	# The VOCABULARY is read whether or not the gold set is force-included. `--no-gold` means "do not
+	# add the curated twelve"; it never meant "ignore the label file and the known non-theses", and
+	# tying the two together made `--no-gold` silently return unlabelled cases INCLUDING ids listed
+	# as excluded.
+	vocab: set = set()
+	if os.path.isfile(args.gold):
+		with open(args.gold, encoding="utf-8") as _fh:
+			vocab = set((json.load(_fh).get("_meta") or {}).get("archetype_vocabulary") or [])
 	if not args.no_gold:
 		for g in _load_gold_set(args.gold):
 			gid = str(g["id"])
@@ -423,10 +458,14 @@ def cmd_sample(args) -> None:
 			  f"{', '.join(gold_missing)}", file=sys.stderr)
 		sys.exit(2)
 
+	labels, excluded, subjects = (_load_archetype_labels(args.archetype_labels, vocab)
+							 if vocab else ({}, set(), {}))
+
 	# Substantive single-name theses only: a tagged ticker, real length, a first-party post/subscriber
 	# (not a reply), and a resolvable primary ticker.
 	pool = []
 	disclaimed = 0
+	skipped_excluded = 0
 	for r in rows:
 		if r.get("type") not in ("post", "subscriber"):
 			continue
@@ -441,14 +480,37 @@ def cmd_sample(args) -> None:
 		if _is_disclaimed(ticker, content):
 			disclaimed += 1
 			continue
+		if args.only_labeled and str(r.get("id")) not in labels:
+			# Restrict the pool to cases the freeze pass has already labelled. Without this, an
+			# exclusion pushes the draw deeper into the pool and pulls in fresh unlabelled cases,
+			# which need another labelling round, which excludes more, which pulls in more — the
+			# sample never settles. Restricting the pool makes the standing sample the fixed point
+			# of that loop, reachable by a command rather than by committing a blob of cases.
+			continue
+		if str(r.get("id")) in excluded:
+			# Not a scoreable single-name thesis, decided once during the freeze pass. The blind
+			# prompt asks "what's your read on TICKER?" and this post becomes the answer key — so a
+			# ticker list, a table of daily moves, or a research-in-progress scan yields a
+			# guaranteed miss on every rubric row for reasons that have nothing to do with the
+			# harness. That is measuring nothing, dressed as a low score.
+			skipped_excluded += 1
+			continue
+		rid = str(r.get("id"))
 		pool.append({
 			"id": r.get("id"),
-			"ticker": ticker,
+			# A pinned subject, where the freeze pass found the thesis argues a DIFFERENT named
+			# company than the one it is tagged with. Same fix the curated twelve got by hand; the
+			# random remainder never had it, so 19% of cases asked about the wrong company.
+			"ticker": subjects.get(rid, ticker),
+			"subject_pinned": rid in subjects,
 			"date": r.get("created_at"),
 			"type": r.get("type"),
 			"entry_type": _entry_type(content),
-			"archetype": None,
-			"archetype_source": None,
+			# A cached label if the one-time inspection has covered this case, else null. Null is
+			# honest, not a placeholder: `report` leaves the two chokepoint-scoped items unscored
+			# for it and says how many cases that was, rather than letting the judge re-decide.
+			"archetype": labels.get(rid),
+			"archetype_source": "cached" if rid in labels else None,
 			"gold": False,
 			"thesis_text": content,
 		})
@@ -528,11 +590,13 @@ def cmd_sample(args) -> None:
 			"min_len": args.min_len,
 			"eligible_pool": len(pool),
 			"gold_forced": sum(1 for c in chosen if c.get("gold")),
+			"archetype_labeled": sum(1 for c in chosen if c.get("archetype")),
 			"entry_type_distribution": dist,
 			"archetype_distribution": arch,
 			"resolution": {
 				"rejected": rejected,
 				"disclaimed_skipped": disclaimed,
+				"excluded_not_a_thesis": skipped_excluded,
 				"cache": os.path.relpath(args.resolution_cache, os.path.join(_HERE, os.pardir)),
 				"network": not args.no_network,
 			},
@@ -661,7 +725,8 @@ def cmd_report(args) -> None:
 	missed_tally: dict[str, int] = {}
 	unstable_scope = 0          # cases whose chokepoint scope came from the judge, not a fixed label
 	unlabeled = 0
-	unscored = 0                # cases carrying no judge result at all (a failed/killed judge)
+	unscored = 0                # cases that contributed no score at all, from any source
+	judge_missing = 0           # cases whose JUDGE failed, even if the hook still scored them
 	disagreements: list[str] = []
 	hook_scored = 0
 	hook_available = None
@@ -694,7 +759,12 @@ def cmd_report(args) -> None:
 				hook_status = "ok"
 				mech = _mechanical_scores(explain)
 				for k, v in mech.items():
-					if sc.get(k) in (0, 1) and sc.get(k) != v:
+					if k in sc and sc.get(k) != v:
+						# ANY difference, not only 0-vs-1. A judge `n/a` corrected to a real hook
+						# score is the most interesting disagreement available — the judge decided
+						# the item did not apply and the production hook says it did — and the old
+						# condition (`in (0, 1)`) skipped exactly that transition, so the overwrite
+						# happened silently while the counter reported zero disagreements.
 						disagreements.append(f"{c.get('ticker')}/{k}: judge={sc.get(k)} hook={v}")
 					sc[k] = v
 				if any(v in (0, 1) for v in mech.values()):
@@ -704,19 +774,28 @@ def cmd_report(args) -> None:
 		# judge died can still be scored on the two structural items by the live hook, and counting
 		# it as contributing nothing while its hook scores fed the aggregate printed a warning that
 		# contradicted the number directly above it.
+		if not (c.get("scores") or {}):
+			# The JUDGE is missing. Tracked separately from "nothing scored this case at all",
+			# because the hook can still score the two structural items from the response — which
+			# turned a killed judge into two scored FAILURES with no warning anywhere. Those hook
+			# scores are real measurements of the answer and stay in; what was wrong was saying
+			# nothing about a case whose judge never ran.
+			judge_missing += 1
 		if not any(sc.get(k) in (0, 1) for k in scored_keys):
 			unscored += 1
 
 		for k in scored_keys:
 			v = sc.get(k)
-			if k in _CHOKEPOINT_SCOPED:
-				if arch is not None:
-					# Mechanical split from the persisted label. Stable across passes by
-					# construction: the same case cannot be in scope one run and out the next.
-					if arch != "chokepoint":
-						continue
-				elif v in (0, 1):
+			if k in _CHOKEPOINT_SCOPED and arch != "chokepoint":
+				# Mechanical split from the persisted label. Stable by construction: the same case
+				# cannot be in scope one run and out the next. An UNLABELLED case is SKIPPED rather
+				# than scored on the judge's own scope guess — which is what the sampler's
+				# `unlabeled_archetype` note has always promised, while the code did the opposite
+				# and admitted those scores behind a counter. A documented contract the code
+				# contradicts is worse than either behaviour on its own.
+				if arch is None and v in (0, 1):
 					unstable_scope += 1
+				continue
 			if v in (0, 1):
 				met, tot = rates[k]
 				rates[k] = (met + int(v == 1), tot + 1)
@@ -742,11 +821,18 @@ def cmd_report(args) -> None:
 	# overall
 	overall_met = sum(m for m, _ in rates.values())
 	overall_tot = sum(t for _, t in rates.values())
-	overall = (overall_met / overall_tot) if overall_tot else 0.0
-	lines += [f"**Pooled reproduction rate: {overall:.0%}** ({overall_met}/{overall_tot} in-scope checks "
-			  f"met)", "",
-			  "Pooled across distinct moves, so it conflates them — usable as a coarse dashboard number "
-			  "and for spotting gross regressions, not as a claim about any single move.", ""]
+	if not overall_tot:
+		# NEVER render 0/0 as "0%". An empty measurement and a harness that failed every single check
+		# are completely different outcomes, and one of them is a quotable indictment that did not
+		# happen. This is the report's own version of the failure it exists to prevent.
+		lines += ["**No in-scope checks** — nothing in this file could be scored. That is an empty "
+				  "measurement, not a 0%.", ""]
+	else:
+		overall = overall_met / overall_tot
+		lines += [f"**Pooled reproduction rate: {overall:.0%}** ({overall_met}/{overall_tot} in-scope "
+				  f"checks met)", "",
+				  "Pooled across distinct moves, so it conflates them — usable as a coarse dashboard "
+				  "number and for spotting gross regressions, not as a claim about any single move.", ""]
 
 	lines += ["## Per-move reproduction", "", "| signature move | rate | met / in-scope |", "|---|---|---|"]
 	for k in scored_keys:
@@ -764,6 +850,17 @@ def cmd_report(args) -> None:
 	lines.append("")
 
 	lines += ["## Instrument health", ""]
+	declared = (meta or {}).get("n")
+	if isinstance(declared, int) and declared != len(cases):
+		# The sampler recorded how many cases it produced. If fewer arrived here, the run LOST some
+		# between sampling and scoring — a blind run that errored, a judge whose result was dropped —
+		# and every rate below is computed over the survivors while the header cheerfully reports the
+		# smaller count as though it were the whole sample. The workflow guards the transcription
+		# step; nothing guarded the far end until now.
+		lines.append(f"- ⚠ **{declared - len(cases)} case(s) went missing between sampling and "
+					 f"scoring** — the sampler recorded n={declared}, this file has {len(cases)}. "
+					 f"Every number below is over the survivors. Find out what dropped before "
+					 f"comparing this report against another.")
 	if args.no_hook:
 		lines.append("- mechanical pre-pass: **skipped** (`--no-hook`); lens_run and bear_and_falsifier "
 					 "are judge scores only.")
@@ -781,18 +878,24 @@ def cmd_report(args) -> None:
 			lines.append(f"- ⚠ **the hook failed on {hook_failures} case(s)** (timeout or crash). Those "
 						 f"cases kept their unverified judge scores for lens_run and "
 						 f"bear_and_falsifier, which is not what the row above claims for the rest.")
+	if judge_missing:
+		lines.append(f"- ⚠ **{judge_missing}/{len(cases)} case(s) had no JUDGE result.** Any hook-scored "
+					 f"structural items for them are still counted above — those are real — but their "
+					 f"four judge-only rows are absent. Re-run those cases before comparing this report "
+					 f"against another.")
 	if unscored:
-		lines.append(f"- ⚠ **{unscored}/{len(cases)} case(s) carry no judge result** and contributed to "
+		lines.append(f"- ⚠ **{unscored}/{len(cases)} case(s) contributed no score at all and contributed to "
 					 f"nothing above. Every rate on this page is computed over the remaining "
 					 f"{len(cases) - unscored}. Re-run those cases before comparing this report "
 					 f"against another.")
 	lines.append(f"- archetype labels: {len(cases) - unlabeled}/{len(cases)} cases carry a fixed "
 				 f"`archetype`, so their chokepoint scope is stable across passes.")
 	if unlabeled:
-		lines.append(f"- ⚠ {unlabeled} unlabeled case(s) contributed {unstable_scope} chokepoint-scoped "
-					 f"score(s) decided by the judge at scoring time. Those can flip n/a↔0 between two "
-					 f"passes of the identical answer. Fill `archetype` in during the one-time "
-					 f"inspection that freezes a standing sample.")
+		lines.append(f"- ⚠ {unlabeled} unlabeled case(s); {unstable_scope} chokepoint-scoped judge "
+					 f"score(s) were DISCARDED because their scope cannot be decided mechanically. "
+					 f"Scoring them off the judge's own per-pass guess is what let a borderline case "
+					 f"flip n/a↔0 between two scorings of the identical answer. Fill `archetype` in "
+					 f"during the one-time inspection that freezes a standing sample.")
 	lines.append("")
 
 	lines += ["## Per-case", "",
@@ -893,6 +996,13 @@ def main() -> int:
 						"scoped rubric items may end up with an in-scope N of zero.")
 	s.add_argument("--resolution-cache", default=_DEFAULT_RESOLUTION_CACHE,
 				   help="Committed cache of ticker-resolution answers (keeps `sample` deterministic)")
+	s.add_argument("--archetype-labels", default=_DEFAULT_ARCHETYPE_LABELS,
+				   help="Committed id->archetype labels for the random remainder, filled during the "
+						"one-time inspection that freezes a standing sample")
+	s.add_argument("--only-labeled", action="store_true",
+				   help="Draw the remainder only from cases carrying an archetype label. This is what "
+						"makes a standing regression sample stable — every case has a fixed scope, and "
+						"the draw cannot wander into unlabelled territory when an exclusion shifts it.")
 	s.add_argument("--no-network", action="store_true",
 				   help="Resolve from the cache only; a cache miss drops the candidate and is "
 						"reported under meta.resolution.rejected, never silently accepted")

@@ -145,10 +145,23 @@ def test_unresolvable_tickers_never_reach_the_random_remainder(sample25, bad):
 
 
 def test_a_rejected_candidate_is_named_in_the_report_not_silently_dropped():
+    """Asserts the PROPERTY — every rejection is real and carries a stated reason — rather than a
+    specific ticker.
+
+    The earlier version named SIVE and XFAB. That broke the first time the thesis DB grew (52 rows
+    added by another session): an UNLABELLED draw shifts when the pool changes, so XFAB was no
+    longer reached before the buckets filled and FORM was rejected in its place. Nothing was wrong
+    with the code. A test pinned to an instance of the data fails on data growth and teaches people
+    to edit the assertion; one pinned to the invariant does not. (The standing sample is immune to
+    this by construction — see `--only-labeled` — but this test deliberately exercises the raw draw.)"""
     meta = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network").stdout)["meta"]
-    assert meta["resolution"]["rejected"], "rejections must be reported, not silently absorbed"
-    assert {r["ticker"] for r in meta["resolution"]["rejected"]} >= {"SIVE", "XFAB"}
-    assert all(r.get("reason") for r in meta["resolution"]["rejected"])
+    rejected = meta["resolution"]["rejected"]
+    assert rejected, "rejections must be reported, not silently absorbed"
+    assert all(r.get("reason") for r in rejected), "a rejection without a reason is a silent drop"
+    cache = json.loads((SCRIPTS_DIR / "eval" / "ticker_resolution_cache.json").read_text())["tickers"]
+    for r in rejected:
+        assert not cache.get(r["ticker"], {}).get("ok"), \
+            f"{r['ticker']} was rejected but the cache says it resolves"
 
 
 def test_a_thesis_that_disclaims_its_only_ticker_is_skipped():
@@ -331,8 +344,7 @@ def test_a_case_with_no_judge_result_is_reported_not_silently_dropped(tmp_path):
                   "archetype": "macro", "response": "TLDR: x", "scores": None})
     p = _scored(tmp_path, cases)
     out = _run("report", "--results", str(p), "--n-floor", "1", "--no-hook").stdout
-    assert "1/3 case(s) carry no judge result" in out
-    assert "computed over the remaining 2" in out
+    assert "1/3 case(s) had no JUDGE result" in out
     # and the rates really are over 2, not 3
     row = next(l for l in out.splitlines() if l.startswith("| archetype_named"))
     assert "2 / 2" in row, row
@@ -490,3 +502,194 @@ def test_the_data_timing_note_rides_inside_blind_prompt_so_both_modes_get_it():
         assert "AS OF that date" in c["blind_prompt"]
     js = _strip_comments_js(_WORKFLOW_JS.read_text(encoding="utf-8"))
     assert "Data timing:" not in js, "the wrapper must not restate it — one source, not two"
+
+
+# --- the archetype label cache (the "inspect once and freeze" step) ------------------------------
+
+def test_cached_labels_are_applied_to_the_random_remainder(tmp_path):
+    """Without this, growing n buys statistical power for the four always-in-scope rubric rows and
+    NONE for the two chokepoint-scoped ones: their stable in-scope N stays at the four curated
+    chokepoint cases forever, and those two are the moves the retrospective calls weakest.
+
+    The ids are taken from a draw made under THIS test's own label file, not from the shared
+    `sample25` fixture. They diverged once the committed file grew an `excluded` list: the fixture's
+    draw skips those cases and a draw with an empty custom file does not, so ids picked from one
+    were simply absent from the other and nothing was marked cached."""
+    empty = tmp_path / "empty.json"
+    empty.write_text(json.dumps({"labels": {}}), encoding="utf-8")
+    baseline = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network",
+                               "--archetype-labels", str(empty)).stdout)["cases"]
+    ids = [c["id"] for c in baseline if not c.get("gold")][:4]
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {i: "disruption" for i in ids}}), encoding="utf-8")
+    out = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network",
+                          "--archetype-labels", str(lf)).stdout)
+    cached = [c for c in out["cases"] if c.get("archetype_source") == "cached"]
+    assert {c["id"] for c in cached} == set(ids)
+    assert all(c["archetype"] == "disruption" for c in cached)
+    assert out["meta"]["archetype_labeled"] == 12 + len(ids)
+
+
+def test_a_label_outside_the_declared_vocabulary_is_a_hard_error(tmp_path):
+    """A typo would silently drop that case from the two chokepoint-scoped rows with no error
+    anywhere — quietly reintroducing the uncontrolled in-scope N the whole mechanism removes."""
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {"123": "not_an_archetype"}}), encoding="utf-8")
+    p = _run("sample", "--n", "12", "--seed", "7", "--no-network",
+             "--archetype-labels", str(lf), expect_ok=False)
+    assert p.returncode == 2
+    assert "outside the declared vocabulary" in p.stderr
+
+
+def test_a_missing_label_file_is_not_an_error(tmp_path):
+    """Absent labels are the honest default — the gold floor still works and `report` says how many
+    cases went unscoped. Only a WRONG label is fatal."""
+    p = _run("sample", "--n", "12", "--seed", "7", "--no-network",
+             "--archetype-labels", str(tmp_path / "nope.json"))
+    assert json.loads(p.stdout)["meta"]["archetype_labeled"] == 12
+
+
+def test_an_excluded_case_never_enters_the_sample(tmp_path, sample25):
+    """A post that is not a scoreable single-name thesis (a ticker list, a table of daily moves, a
+    follower-milestone note) still has a tagged ticker and clears the length filter, so nothing
+    stopped it. The blind prompt then asks "what's your read on TICKER?" and that post becomes the
+    answer key — a guaranteed miss on every rubric row for reasons unrelated to the harness. A low
+    score that means nothing is worse than a missing case, because it looks like a finding."""
+    victim = next(c["id"] for c in sample25 if not c.get("gold"))
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {}, "excluded": [victim]}), encoding="utf-8")
+    out = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-network",
+                          "--archetype-labels", str(lf)).stdout)
+    assert victim not in {c["id"] for c in out["cases"]}
+    assert out["meta"]["resolution"]["excluded_not_a_thesis"] >= 1
+    assert out["meta"]["n"] == 25, "an exclusion must be back-filled, not left as a hole"
+
+
+def test_exclusion_cannot_remove_a_gold_case(tmp_path, gold):
+    """The curated floor is hand-picked and its archetype spread is the whole point. Exclusion is a
+    filter on the RANDOM draw; letting it reach the floor would silently empty an archetype."""
+    gid = gold["cases"][0]["id"]
+    lf = tmp_path / "labels.json"
+    lf.write_text(json.dumps({"labels": {}, "excluded": [gid]}), encoding="utf-8")
+    out = json.loads(_run("sample", "--n", "12", "--seed", "7", "--no-network",
+                          "--archetype-labels", str(lf)).stdout)
+    assert gid in {c["id"] for c in out["cases"]}
+
+
+def test_only_labeled_yields_a_stable_fully_labeled_standing_sample():
+    """The fixed point of the freeze loop. Without it, excluding a case pushes the draw deeper into
+    the pool and pulls in fresh UNLABELLED cases, which need another labelling round, which excludes
+    more, which pulls in more — the sample never settles. Restricting the pool makes the standing
+    sample reachable by a command instead of by committing a blob of cases."""
+    cases = _sample(100, 7, "--only-labeled")
+    assert all(c.get("archetype") for c in cases), "every case must carry a fixed scope"
+    # the two chokepoint-scoped rubric rows only report a percentage above the n-floor; that is the
+    # whole return on the labelling pass, so it is asserted rather than hoped for.
+    assert sum(1 for c in cases if c["archetype"] == "chokepoint") >= _DEFAULT_N_FLOOR
+    assert [c["id"] for c in cases] == [c["id"] for c in _sample(100, 7, "--only-labeled")]
+
+
+_DEFAULT_N_FLOOR = 12
+
+
+# --- findings from the codex adversarial review -------------------------------------------------
+
+def test_an_empty_measurement_is_never_rendered_as_zero_percent(tmp_path):
+    """0/0 rendered as `0%`. An empty run and a harness that failed every check are completely
+    different outcomes, and one of them is a quotable indictment that did not happen."""
+    p = _scored(tmp_path, [{"id": "D", "ticker": "DEAD", "archetype": "chokepoint",
+                            "entry_type": "event", "scores": None}])
+    out = _run("report", "--results", str(p), "--no-hook", "--n-floor", "1").stdout
+    assert "No in-scope checks" in out
+    # The absence of a RENDERED RATE, not of the characters "0%" — the explanatory line itself
+    # contains "not a 0%", which is exactly the sentence doing the work.
+    assert "Pooled reproduction rate" not in out
+
+
+def test_a_missing_judge_is_reported_even_when_the_hook_still_scored_the_case(tmp_path):
+    """The hook can score the two structural items straight from the response, so a killed judge
+    became two scored FAILURES with no warning. The hook scores are real and stay in; the silence
+    about the missing judge was the defect."""
+    p = _scored(tmp_path, [{"id": "H", "ticker": "DEADHOOK", "archetype": "evolution",
+                            "entry_type": "event", "response": _FULL_ANSWER, "scores": None}])
+    out = _run("report", "--results", str(p), "--n-floor", "1").stdout
+    assert "had no JUDGE result" in out
+
+
+def test_a_judge_n_a_corrected_by_the_hook_is_counted_as_a_disagreement(tmp_path):
+    """The most interesting disagreement available — the judge says the item does not apply, the
+    production hook says it does — and the old condition (`in (0, 1)`) skipped exactly it, so the
+    overwrite happened silently while the counter reported zero."""
+    sc = {"archetype_named": 1, "lens_run": "n/a", "bear_and_falsifier": "n/a",
+          "priced_in_decomposed": 1}
+    resp = "TLDR: Rating: buy, PT $9. EV/Rev looks cheap. NFA"
+    p = _scored(tmp_path, [{"id": "J", "ticker": "JNA", "archetype": "evolution",
+                            "entry_type": "event", "response": resp, "scores": sc}])
+    out = _run("report", "--results", str(p), "--n-floor", "1").stdout
+    assert "judge=n/a hook=" in out
+    assert "disagreements: **0**" not in out
+
+
+def test_an_unlabeled_case_is_discarded_from_the_chokepoint_rows_not_scored(tmp_path):
+    """The sampler's own `unlabeled_archetype` note promised these are left unscored while the code
+    admitted them behind a counter. A documented contract the code contradicts is worse than either
+    behaviour alone, because the note is what a reader trusts."""
+    p = _scored(tmp_path, [{"id": "N", "ticker": "NA", "archetype": None, "entry_type": "event",
+                            "scores": {"recursive_bottom_hop": 0, "second_order_and_sibling": 0}}])
+    out = _run("report", "--results", str(p), "--no-hook", "--n-floor", "1").stdout
+    row = next(l for l in out.splitlines() if l.startswith("| recursive_bottom_hop"))
+    assert "0 / 0" in row, row
+    assert "DISCARDED" in out
+
+
+def test_no_gold_still_honours_labels_and_exclusions():
+    """`--no-gold` means "do not add the curated twelve". It never meant "ignore the label file and
+    the known non-theses" — but the vocabulary was only loaded when gold was enabled, and the label
+    cache only when the vocabulary was non-empty, so the flag silently turned both off and returned
+    ids explicitly listed as excluded."""
+    meta = json.loads(_run("sample", "--n", "25", "--seed", "7", "--no-gold",
+                           "--no-network").stdout)["meta"]
+    assert meta["gold_forced"] == 0
+    assert meta["archetype_labeled"] > 0, "labels must still apply without the gold floor"
+    assert meta["resolution"]["excluded_not_a_thesis"] > 0, "exclusions must still apply"
+
+
+def test_a_resubjected_case_asks_about_the_company_its_thesis_argues(tmp_path):
+    """`_primary_ticker` takes the first regex-valid tag — tagging order, not relevance. The curated
+    twelve were pinned by hand; the remainder never was, and a subject audit found 19% of random
+    cases asked about the wrong company (a thesis arguing SIVE filed under AMD, one arguing LITE
+    filed under GOOGL). Neither the labelling pass nor the triage caught it: triage asked whether
+    the POST is a scoreable thesis, never whether the SUBJECT is right."""
+    cases = _sample(100, 7, "--only-labeled")
+    pinned = [c for c in cases if c.get("subject_pinned")]
+    assert pinned, "the committed label file carries subject overrides; none reached the sample"
+    for c in pinned:
+        assert c["ticker"] in c["blind_prompt"], "the pin must reach the question actually asked"
+
+
+def test_a_resubject_target_that_cannot_resolve_is_excluded_not_pinned(gold):
+    """Four of the six re-subject targets were foreign codes (7853, 3363, P4O) or unresolvable
+    (SIVE). Re-pointing a case at a ticker the pipeline cannot load would swap a wrong-company
+    question for a no-data one — the same 'measures nothing' failure in a different costume."""
+    lab = json.loads((SCRIPTS_DIR / "eval" / "archetype_labels.json").read_text(encoding="utf-8"))
+    cache = json.loads((SCRIPTS_DIR / "eval" / "ticker_resolution_cache.json").read_text())["tickers"]
+    for cid, sub in (lab.get("subjects") or {}).items():
+        assert cid not in set(lab.get("excluded") or []), f"{cid} is both pinned and excluded"
+        entry = cache.get(sub)
+        assert entry is None or entry.get("ok"), f"pinned subject {sub} does not resolve"
+
+
+def test_cases_lost_between_sampling_and_scoring_are_reported(tmp_path):
+    """The workflow guards the transcription step; nothing guarded the far end. A blind run that
+    errors or a judge whose result is dropped simply shrinks the file, and every rate is then
+    computed over the survivors while the header reports the smaller count as if it were the whole
+    sample."""
+    p = _scored(tmp_path, [_case("AXTI", "chokepoint", dict(_FULL))], meta={"n": 5, "seed": 7})
+    out = _run("report", "--results", str(p), "--n-floor", "1", "--no-hook").stdout
+    assert "went missing between sampling and scoring" in out
+    assert "n=5" in out and "has 1" in out
+
+
+def test_a_complete_run_says_nothing_about_missing_cases(tmp_path):
+    p = _scored(tmp_path, [_case("AXTI", "chokepoint", dict(_FULL))], meta={"n": 1, "seed": 7})
+    assert "went missing" not in _run("report", "--results", str(p), "--no-hook").stdout

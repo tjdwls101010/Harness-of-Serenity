@@ -1,0 +1,8 @@
+{
+  "last_assistant_message": "TLDR: $AXTI asymmetrical long here imo. NFI/NFA.\n\nLens: content — $12 × 40M ÷ $4.8B = 10% of MC\nDownsides:\n- Forward revenue: customer pushouts could cut the next two guides (not priced-in)\n- dilution from the December raise remains live (addressed)\nFalsifier: breaks if 6-inch yields close the supply gap inside a year.\nRating: overweight, shares. NFI/NFA.\n\nSaved: sessions/990101.hook-fixture/",
+  "stop_hook_active": false,
+  "_expect": {
+    "silent": true
+  },
+  "_why": "A BULLET is content, never a section boundary. `_DECOR` eats the leading `- `, so an ordinary first Downsides bullet that happens to begin with a word which is also a section label (`Forward revenue:`) matched the boundary, truncated the body to nothing, and nudged a fully compliant answer for having no Downsides block. Found by adversarial review."
+}
