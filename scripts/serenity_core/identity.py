@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from serenity_v2.providers.base import ProviderEnvelope
-from serenity_v2.providers.openfigi import OpenFigiProvider
-from serenity_v2.providers.sec import SecIdentityProvider
+from serenity_core.providers.base import ProviderEnvelope
+from serenity_core.providers.openfigi import OpenFigiProvider
+from serenity_core.providers.sec import SecIdentityProvider
 
 
 US_EXCHANGE_MARKERS = ("NASDAQ", "NYSE", "AMERICAN", "ARCA", "CBOE", "OTC", "IEX")

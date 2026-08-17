@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from serenity_v2.providers.base import ProviderEnvelope
-from serenity_v2.raw_cache import RawPayloadConflictError, RawPayloadStore, cache_provider_raw_payloads
+from serenity_core.providers.base import ProviderEnvelope
+from serenity_core.raw_cache import RawPayloadConflictError, RawPayloadStore, cache_provider_raw_payloads
 
 
 FROZEN_NOW = datetime(2026, 8, 17, tzinfo=timezone.utc)

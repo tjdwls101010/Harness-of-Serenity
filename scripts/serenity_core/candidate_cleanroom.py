@@ -17,7 +17,7 @@ from typing import Any, Callable, Sequence
 
 from jsonschema import Draft202012Validator, ValidationError
 
-from serenity_v2.schema import SchemaViolation, validate_document
+from serenity_core.schema import SchemaViolation, validate_document
 
 
 CANDIDATE_CASE_SCHEMA_ID = "urn:serenity:schema:candidate-case:1"

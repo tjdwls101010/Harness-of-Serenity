@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.decision import finalize_decision, validate_decision
-from serenity_v2.runtime import SerenityError, canonical_hash
-from serenity_v2.schema import validate_document
+from serenity_core.decision import finalize_decision, validate_decision
+from serenity_core.runtime import SerenityError, canonical_hash
+from serenity_core.schema import validate_document
 
 
 def write_json(path: Path, value: dict) -> None:

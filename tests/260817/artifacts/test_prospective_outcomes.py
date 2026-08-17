@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from serenity_v2.outcomes import OutcomesError, OutcomesStore
-from serenity_v2.runtime import canonical_hash
+from serenity_core.outcomes import OutcomesError, OutcomesStore
+from serenity_core.runtime import canonical_hash
 
 
 ROOT = Path(__file__).resolve().parents[3]

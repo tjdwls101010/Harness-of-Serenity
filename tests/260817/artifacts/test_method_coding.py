@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.method import (
+from serenity_core.method import (
     MethodArtifactError,
     MethodArtifactStore,
     aggregate_method_codings,

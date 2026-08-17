@@ -7,10 +7,10 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
-from serenity_v2.providers.base import ProviderEnvelope
-from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
-from serenity_v2.research import ResearchArtifactValidationError, load_evidence_catalog
-from serenity_v2.schema import SchemaViolation, validate_document
+from serenity_core.providers.base import ProviderEnvelope
+from serenity_core.providers.issuer_ir import VerifiedIssuerOrigin
+from serenity_core.research import ResearchArtifactValidationError, load_evidence_catalog
+from serenity_core.schema import SchemaViolation, validate_document
 
 
 EVIDENCE_REQUEST_SCHEMA_ID = "urn:serenity:schema:evidence-request:1"
@@ -216,19 +216,19 @@ class EvidenceProviderRegistry:
         if factory is not None:
             return factory(provider_id=provider_id, config=dict(self._config.get(provider_id, {})), clock=self._clock)
         if provider_id == "alfred-fred":
-            from serenity_v2.providers.fred import FredProvider
+            from serenity_core.providers.fred import FredProvider
 
             api_key = self._config.get(provider_id, {}).get("api_key")
             return FredProvider(api_key=api_key if isinstance(api_key, str) else None, clock=self._clock)
         if provider_id == "sec":
-            from serenity_v2.providers.filings import FilingsProvider
+            from serenity_core.providers.filings import FilingsProvider
 
             return FilingsProvider(clock=self._clock)
         if provider_id == "issuer-ir":
-            from serenity_v2.providers.issuer_ir import IssuerIRProvider
+            from serenity_core.providers.issuer_ir import IssuerIRProvider
 
             return IssuerIRProvider(clock=self._clock)
-        from serenity_v2.providers.public_data import public_data_catalog
+        from serenity_core.providers.public_data import public_data_catalog
 
         provider_config = self._public_data_config(provider_id)
         catalog = public_data_catalog(clock=self._clock, config=provider_config)

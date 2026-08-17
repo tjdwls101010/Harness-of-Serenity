@@ -7,7 +7,7 @@ import subprocess
 import pytest
 from jsonschema import Draft202012Validator
 
-from serenity_v2.candidate_cleanroom import CandidateCleanroomError, build_candidate_cleanroom, launch_candidate_cleanroom, revalidate_candidate_result
+from serenity_core.candidate_cleanroom import CandidateCleanroomError, build_candidate_cleanroom, launch_candidate_cleanroom, revalidate_candidate_result
 
 
 ROOT = Path(__file__).resolve().parents[3]

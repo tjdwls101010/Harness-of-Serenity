@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
-from serenity_v2.schema import validate_document
+from serenity_core.schema import validate_document
 
 
 FACT_SNAPSHOT_SCHEMA_ID = "urn:serenity:schema:fact-snapshot:2"

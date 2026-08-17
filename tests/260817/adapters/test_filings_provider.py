@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.providers.filings import FilingsProvider
+from serenity_core.providers.filings import FilingsProvider
 
 
 FROZEN_NOW = datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc)

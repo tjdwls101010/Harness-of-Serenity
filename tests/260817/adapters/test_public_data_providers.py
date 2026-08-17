@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.providers.public_data import HttpResponse, public_data_catalog
-from serenity_v2.schema import validate_document
+from serenity_core.providers.public_data import HttpResponse, public_data_catalog
+from serenity_core.schema import validate_document
 
 
 FROZEN_NOW = datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc)

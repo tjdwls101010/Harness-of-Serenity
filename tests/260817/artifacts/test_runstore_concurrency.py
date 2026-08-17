@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.runtime import RunStore, SerenityError
+from serenity_core.runtime import RunStore, SerenityError
 
 
 def _concurrent_start(root: str, barrier, results) -> None:

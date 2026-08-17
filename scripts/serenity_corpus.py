@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
-from serenity_v2.corpus import CorpusError, apply_reviews, audit_media, build_review_packets, extract_media, ingest_media, scan_corpus
+from serenity_core.corpus import CorpusError, apply_reviews, audit_media, build_review_packets, extract_media, ingest_media, scan_corpus
 
 
 EXIT_CODES = "Exit codes: 0 success; 2 usage/schema; 3 unavailable input; 4 provider/helper unavailable; 5 persistence conflict; 70 internal."

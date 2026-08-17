@@ -21,14 +21,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from serenity_v2.candidate_cleanroom import CandidateCleanroomError, CandidateLaunch, CandidatePackage, build_candidate_cleanroom, launch_candidate_cleanroom
-from serenity_v2.cleanroom import CleanroomError, CleanroomLaunch, CleanroomPackage, build_cleanroom, launch_cleanroom
-from serenity_v2.lens import run_lens
-from serenity_v2.runtime import canonical_hash
-from serenity_v2.schema import SchemaViolation, validate_document
-from serenity_v2.sector_graph import SectorGraphValidationError, validate_sector_graph
-from serenity_v2.snapshot import SnapshotBlockedError, SnapshotIntegrityError, build_security_snapshot, validate_security_snapshot
-from serenity_v2.storage import atomic_write_json
+from serenity_core.candidate_cleanroom import CandidateCleanroomError, CandidateLaunch, CandidatePackage, build_candidate_cleanroom, launch_candidate_cleanroom
+from serenity_core.cleanroom import CleanroomError, CleanroomLaunch, CleanroomPackage, build_cleanroom, launch_cleanroom
+from serenity_core.lens import run_lens
+from serenity_core.runtime import canonical_hash
+from serenity_core.schema import SchemaViolation, validate_document
+from serenity_core.sector_graph import SectorGraphValidationError, validate_sector_graph
+from serenity_core.snapshot import SnapshotBlockedError, SnapshotIntegrityError, build_security_snapshot, validate_security_snapshot
+from serenity_core.storage import atomic_write_json
 
 
 FAMILIES = frozenset({"discovery", "single-ticker", "physical-ai", "near-miss", "degraded-data", "displacement-fear"})
@@ -247,7 +247,7 @@ def _failure_counts(checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _reviewable_runtime_artifact(service: str, result: dict[str, Any]) -> dict[str, Any]:
     """Bind a production graph result without handing its conclusion fields to a reviewer."""
-    if service != "serenity_v2.sector_graph.validate_sector_graph" or result.get("schema_id") != "urn:serenity:schema:sector-graph:1":
+    if service != "serenity_core.sector_graph.validate_sector_graph" or result.get("schema_id") != "urn:serenity:schema:sector-graph:1":
         return result
     observations: list[dict[str, Any]] = []
     for edge in result.get("edges", []):
@@ -298,14 +298,14 @@ def _run_runtime_scenario(*, qa_case: dict[str, Any], packet: dict[str, Any], ex
         if action_id in outcomes:
             raise EvaluationError("runtime_scenario action ids must be unique")
         service = action.get("service")
-        if service == "serenity_v2.lens.run_lens":
+        if service == "serenity_core.lens.run_lens":
             try:
                 result = run_lens(action.get("lens_spec"), action.get("fact_snapshot"))
             except Exception as exc:  # the frozen packet records a service error as evidence, never hides it
                 result = {"schema_id": "urn:serenity:evaluation:runtime-error:1", "service": service, "error": str(exc)}
             outcomes[action_id] = _runtime_lens_expectation_matches(result, action.get("expect"))
             artifacts[action_id] = result
-        elif service == "serenity_v2.snapshot.validate_security_snapshot":
+        elif service == "serenity_core.snapshot.validate_security_snapshot":
             snapshot = action.get("snapshot")
             try:
                 validate_security_snapshot(snapshot)
@@ -315,7 +315,7 @@ def _run_runtime_scenario(*, qa_case: dict[str, Any], packet: dict[str, Any], ex
                 result = {"schema_id": "urn:serenity:evaluation:runtime-error:1", "service": service, "error": str(exc)}
                 outcomes[action_id] = action.get("expect") == "invalid"
             artifacts[action_id] = result
-        elif service == "serenity_v2.snapshot.build_security_snapshot":
+        elif service == "serenity_core.snapshot.build_security_snapshot":
             try:
                 run_manifest = action.get("run_manifest")
                 if not isinstance(run_manifest, dict):
@@ -338,7 +338,7 @@ def _run_runtime_scenario(*, qa_case: dict[str, Any], packet: dict[str, Any], ex
                 result = {"schema_id": "urn:serenity:evaluation:runtime-error:1", "service": service, "error": str(exc)}
                 outcomes[action_id] = False
             artifacts[action_id] = result
-        elif service == "serenity_v2.sector_graph.validate_sector_graph":
+        elif service == "serenity_core.sector_graph.validate_sector_graph":
             try:
                 result = validate_sector_graph(
                     action.get("graph"),

@@ -100,7 +100,7 @@ def test_v1_session_archive_rebuilds_to_the_checked_in_deterministic_bytes(tmp_p
     completed = subprocess.run(
         [
             sys.executable,
-            str(REPO_ROOT / "scripts" / "serenity_v2" / "archive.py"),
+            str(REPO_ROOT / "scripts" / "serenity_core" / "archive.py"),
             "--repo-root",
             str(REPO_ROOT),
             "--output-dir",

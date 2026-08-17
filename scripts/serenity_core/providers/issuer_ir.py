@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from serenity_v2.providers.base import ProviderEnvelope
+from serenity_core.providers.base import ProviderEnvelope
 
 
 PROVIDER_VERSION = "issuer-ir-document/1"

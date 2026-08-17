@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.request import Request, urlopen
 
-from serenity_v2.providers.base import ProviderEnvelope
+from serenity_core.providers.base import ProviderEnvelope
 
 
 OPENFIGI_MAPPING_URI = "https://api.openfigi.com/v3/mapping"

@@ -10,10 +10,10 @@ from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from serenity_v2.runtime import RunStore, SerenityError, canonical_hash, parse_instant, utc_now
-from serenity_v2.schema import SchemaViolation, validate_document
-from serenity_v2.snapshot import SnapshotIntegrityError, validate_security_snapshot
-from serenity_v2.storage import atomic_write_json, canonical_json, immutable_directory
+from serenity_core.runtime import RunStore, SerenityError, canonical_hash, parse_instant, utc_now
+from serenity_core.schema import SchemaViolation, validate_document
+from serenity_core.snapshot import SnapshotIntegrityError, validate_security_snapshot
+from serenity_core.storage import atomic_write_json, canonical_json, immutable_directory
 
 
 DECISION_SCHEMA_ID = "urn:serenity:schema:research-decision:1"

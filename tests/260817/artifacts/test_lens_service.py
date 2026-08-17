@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from serenity_v2.lens import run_lens
+from serenity_core.lens import run_lens
 
 
 ROOT = Path(__file__).resolve().parents[3]

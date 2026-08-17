@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Literal
 
-from serenity_v2.providers.base import ProviderEnvelope
+from serenity_core.providers.base import ProviderEnvelope
 
 
 RAW_PAYLOAD_CACHE_ROOT = Path(".serenity") / "cache" / "provider-raw"

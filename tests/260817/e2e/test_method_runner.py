@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.method_runner import MethodRunnerError, build_method_case, build_method_synthesis_case, launch_method_case, launch_method_synthesis, macos_method_seatbelt_profile, resolve_codex_executable, revalidate_method_case, revalidate_method_synthesis_result, run_batch_manifest
+from serenity_core.method_runner import MethodRunnerError, build_method_case, build_method_synthesis_case, launch_method_case, launch_method_synthesis, macos_method_seatbelt_profile, resolve_codex_executable, revalidate_method_case, revalidate_method_synthesis_result, run_batch_manifest
 
 
 def canonical_hash(value: dict) -> str:

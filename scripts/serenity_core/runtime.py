@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 import fcntl
 
-from serenity_v2.schema import SchemaViolation, validate_document
+from serenity_core.schema import SchemaViolation, validate_document
 
 
 RUN_SCHEMA_ID = "urn:serenity:schema:run-manifest:2"

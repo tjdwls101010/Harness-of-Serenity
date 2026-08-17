@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from serenity_v2.providers.base import ProviderEnvelope
+from serenity_core.providers.base import ProviderEnvelope
 
 
 Clock = Callable[[], datetime]

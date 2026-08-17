@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
-from serenity_v2.method import (
+from serenity_core.method import (
     MethodArtifactError,
     MethodArtifactStore,
     MethodIncompleteError,
@@ -20,7 +20,7 @@ from serenity_v2.method import (
     compile_method_artifact,
     write_blind_packets,
 )
-from serenity_v2.storage import atomic_write_json
+from serenity_core.storage import atomic_write_json
 
 
 class JsonArgumentParser(argparse.ArgumentParser):

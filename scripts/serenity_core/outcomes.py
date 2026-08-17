@@ -15,8 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from serenity_v2.runtime import canonical_hash
-from serenity_v2.schema import SchemaViolation, validate_document
+from serenity_core.runtime import canonical_hash
+from serenity_core.schema import SchemaViolation, validate_document
 
 
 DECISION_SCHEMA_ID = "urn:serenity:schema:research-decision:1"

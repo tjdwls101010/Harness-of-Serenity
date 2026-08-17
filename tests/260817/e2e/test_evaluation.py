@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-import serenity_v2.evaluation as evaluation_module
-from serenity_v2.cleanroom import CleanroomError, CleanroomLaunch
-from serenity_v2.evaluation import EvaluationError, evaluate
-from serenity_v2.providers.base import ProviderEnvelope
-from serenity_v2.raw_cache import RawPayloadStore
-from serenity_v2.runtime import canonical_hash
+import serenity_core.evaluation as evaluation_module
+from serenity_core.cleanroom import CleanroomError, CleanroomLaunch
+from serenity_core.evaluation import EvaluationError, evaluate
+from serenity_core.providers.base import ProviderEnvelope
+from serenity_core.raw_cache import RawPayloadStore
+from serenity_core.runtime import canonical_hash
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -95,7 +95,7 @@ def lens_scenario(case_id: str, invariants: list[str]) -> dict:
     }
     return {
         "schema_id": "serenity-evaluation-runtime-scenario/1",
-        "actions": [{"action_id": "net-cash", "service": "serenity_v2.lens.run_lens", "lens_spec": {"schema_id": "urn:serenity:schema:lens-spec:1", "lens_id": "lens-evaluation-fixture", "run_id": "run-evaluation-fixture", "question": "What net cash remains after the ATM?", "formula": "net-cash-after-atm", "inputs": [{"name": "cash", "fact_ref": "fact-cash", "unit": "USD"}, {"name": "atm_proceeds", "fact_ref": "fact-atm", "unit": "USD"}, {"name": "debt", "fact_ref": "fact-debt", "unit": "USD"}], "output_unit": "USD", "assumptions": [], "validity_constraints": ["Inputs resolve by fact reference."]}, "fact_snapshot": snapshot, "expect": {"validity": "valid"}}],
+        "actions": [{"action_id": "net-cash", "service": "serenity_core.lens.run_lens", "lens_spec": {"schema_id": "urn:serenity:schema:lens-spec:1", "lens_id": "lens-evaluation-fixture", "run_id": "run-evaluation-fixture", "question": "What net cash remains after the ATM?", "formula": "net-cash-after-atm", "inputs": [{"name": "cash", "fact_ref": "fact-cash", "unit": "USD"}, {"name": "atm_proceeds", "fact_ref": "fact-atm", "unit": "USD"}, {"name": "debt", "fact_ref": "fact-debt", "unit": "USD"}], "output_unit": "USD", "assumptions": [], "validity_constraints": ["Inputs resolve by fact reference."]}, "fact_snapshot": snapshot, "expect": {"validity": "valid"}}],
         "invariant_bindings": [{"invariant": invariant, "action_ids": ["net-cash"]} for invariant in invariants],
     }
 
@@ -552,7 +552,7 @@ def test_build_snapshot_runtime_rejects_corrupt_manifest_before_identity_block(t
     assert case["outcome"] == "fail"
     assert case["reviewers"] == []
     assert runtime["schema_id"] == "urn:serenity:evaluation:runtime-error:1"
-    assert runtime["service"] == "serenity_v2.snapshot.build_security_snapshot"
+    assert runtime["service"] == "serenity_core.snapshot.build_security_snapshot"
     assert runtime["error"] == "runtime run_manifest content_hash is invalid"
     assert "blocked_reason" not in runtime
 
@@ -576,7 +576,7 @@ def test_discovery_runtime_uses_a_fail_closed_identity_snapshot_without_projecti
     reviewer_packet = next(packet for packet in captured if packet["evidence"][0]["evidence_id"] == "discovery-det-02-evidence")
     runtime = reviewer_packet["runtime_evidence"][0]["artifact"]
     assert runtime["schema_id"] == "urn:serenity:evaluation:runtime-blocked:1"
-    assert runtime["service"] == "serenity_v2.snapshot.build_security_snapshot"
+    assert runtime["service"] == "serenity_core.snapshot.build_security_snapshot"
     assert runtime["blocked_reason"] == "issuer_identity_unresolved"
     assert "edges" not in json.dumps(runtime)
     assert "concentration" not in json.dumps(runtime)
@@ -1476,12 +1476,12 @@ def test_discovery_qa_requires_an_explicit_unresolved_status_without_an_invented
 
 def test_committed_representative_packets_use_substantive_artifacts_and_family_runtime_services() -> None:
     expected_services = {
-        "discovery": "serenity_v2.snapshot.build_security_snapshot",
-        "single-ticker": "serenity_v2.snapshot.validate_security_snapshot",
-        "physical-ai": "serenity_v2.sector_graph.validate_sector_graph",
-        "near-miss": "serenity_v2.lens.run_lens",
-        "degraded-data": "serenity_v2.snapshot.validate_security_snapshot",
-        "displacement-fear": "serenity_v2.lens.run_lens",
+        "discovery": "serenity_core.snapshot.build_security_snapshot",
+        "single-ticker": "serenity_core.snapshot.validate_security_snapshot",
+        "physical-ai": "serenity_core.sector_graph.validate_sector_graph",
+        "near-miss": "serenity_core.lens.run_lens",
+        "degraded-data": "serenity_core.snapshot.validate_security_snapshot",
+        "displacement-fear": "serenity_core.lens.run_lens",
     }
     for family, service in expected_services.items():
         packet_path = ROOT / "tests" / "260817" / "fixtures" / "eval" / family / "det-02.packet.json"

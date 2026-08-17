@@ -5,10 +5,10 @@ from hashlib import sha256
 from datetime import datetime, timezone
 from typing import Any
 
-from serenity_v2.identity import IdentityResolver
-from serenity_v2.providers.openfigi import OpenFigiProvider
-from serenity_v2.providers.sec import SecIdentityProvider
-from serenity_v2.snapshot import build_security_snapshot
+from serenity_core.identity import IdentityResolver
+from serenity_core.providers.openfigi import OpenFigiProvider
+from serenity_core.providers.sec import SecIdentityProvider
+from serenity_core.snapshot import build_security_snapshot
 
 
 COMPANY_TICKERS_URI = "https://www.sec.gov/files/company_tickers.json"

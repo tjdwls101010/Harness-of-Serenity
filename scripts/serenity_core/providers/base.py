@@ -66,7 +66,7 @@ class ProviderEnvelope:
         self._validate()
 
     def _validate(self) -> None:
-        from serenity_v2.schema import validate_document
+        from serenity_core.schema import validate_document
 
         validate_document(self.value, PROVIDER_SCHEMA_ID)
         if self._raw_content is not None:

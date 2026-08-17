@@ -10,7 +10,7 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-from serenity_v2.providers.base import ProviderEnvelope
+from serenity_core.providers.base import ProviderEnvelope
 
 
 COMPANY_TICKERS_URI = "https://www.sec.gov/files/company_tickers.json"

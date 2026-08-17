@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from serenity_v2.schema import SchemaViolation, validate_document
+from serenity_core.schema import SchemaViolation, validate_document
 
 
 HYPOTHESIS_LEDGER_SCHEMA_ID = "urn:serenity:schema:hypothesis-ledger:1"

@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from serenity_v2.evaluation import EvaluationError, evaluate, load_live_packet_dir
+from serenity_core.evaluation import EvaluationError, evaluate, load_live_packet_dir
 
 
 HERE = Path(__file__).resolve().parent

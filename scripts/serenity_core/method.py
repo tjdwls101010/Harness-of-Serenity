@@ -16,7 +16,7 @@ from typing import Any, Mapping, Sequence
 
 from jsonschema import Draft202012Validator
 
-from serenity_v2.storage import atomic_write_json
+from serenity_core.storage import atomic_write_json
 
 
 CODEBOOK_AXES = (

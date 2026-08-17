@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-import serenity_v2.cleanroom as cleanroom
-from serenity_v2.cleanroom import CleanroomError, build_cleanroom, launch_cleanroom, revalidate_cleanroom
+import serenity_core.cleanroom as cleanroom
+from serenity_core.cleanroom import CleanroomError, build_cleanroom, launch_cleanroom, revalidate_cleanroom
 
 
 def write_json(path: Path, value: dict) -> Path:

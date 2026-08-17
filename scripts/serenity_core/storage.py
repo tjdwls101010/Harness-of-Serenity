@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from serenity_v2.runtime import SerenityError, canonical_hash
+from serenity_core.runtime import SerenityError, canonical_hash
 
 
 def canonical_json(value: Any) -> str:
