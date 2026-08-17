@@ -66,7 +66,7 @@ WORKFLOW_CLAIMS = {
 SKILL_METHOD_ESSENTIALS = {
     "serenity-macro-event": ("Question frame", "Competing hypotheses", "Evidence sought", "Inference", "Action and falsifier", "Deliverable and hand-off", "company disclosures", "demand, supply, pricing, financing, or only sentiment", "usable capacity"),
     "serenity-discovery": ("Question frame", "Competing hypotheses", "Evidence sought", "Inference", "Action and falsifier", "Deliverable and hand-off", "material intensity", "qualification", "substitutability", "no clean US-listed vehicle", "Determine structural concentration from the binding relationship and revenue linkage before testing investability.", "Investability, the US-listed vehicle, and action are separate gates.", "examples when raw evidence supports them; allow another mechanism", "Do not force every case through the same checklist.", "A ticker-like label or trading venue is not issuer/security identity or revenue linkage.", "Never call a vehicle direct until identity binding is evidenced.", "If the link is missing, preserve it as unresolved and choose `BLOCKED`, `MONITOR`, or `PASS` as the facts warrant.", "Do not fabricate a direct-versus-indirect relation."),
-    "serenity-single-name": ("Question frame", "Competing hypotheses", "Evidence sought", "Inference", "Action and falsifier", "Deliverable and hand-off", "adjusted net asset value", "per-share", "premium hurdle", "observable primary trigger", "Use `NFA` only for actionable `RECOMMEND_NOW` or `ENTER_ON_TRIGGER` conclusions."),
+    "serenity-single-name": ("Question frame", "Competing hypotheses", "Evidence sought", "Inference", "Action and falsifier", "Deliverable and hand-off", "adjusted net asset value", "per-share", "premium hurdle", "observable primary trigger", "Any non-null identifier conflict is unresolved identity", "`MONITOR` is not a substitute", "prepared remarks", "Q&A", "management claim", "hard operating observation", "disclosed", "corroborated", "inferred", "contradicted", "omission or evasion", "Use `NFA` only for actionable `RECOMMEND_NOW` or `ENTER_ON_TRIGGER` conclusions."),
     "serenity-cohort": ("Question frame", "Competing hypotheses", "Evidence sought", "Inference", "Action and falsifier", "Deliverable and hand-off", "common comparison question", "blind challenge", "evidence quality", "relative fit"),
 }
 CLAIM_REFERENCE = re.compile(r"\b(?:claim-\d{2}-[a-z0-9-]+|aug-[a-z0-9-]+)\b")
@@ -77,7 +77,7 @@ PERSONA_CONTRACT = (
     "adopt, verify, and outperform the source method independently",
     "always-loaded core capabilities",
     "economic-power concentration and dependency graphs",
-    "SEC/filing and market-fact provenance",
+    "SEC/issuer-narrative and market-fact provenance",
     "capital flows and macro",
     "competing hypotheses and falsifiers",
     "priced-in",
@@ -288,6 +288,12 @@ def _check_agents(errors: list[str]) -> list[str]:
     for forbidden in ("recommendation", "price target", "rank candidates"):
         if forbidden not in filings:
             errors.append(f"serenity-filings must explicitly prohibit {forbidden}")
+    filings_fields = _frontmatter(filings)
+    if filings_fields.get("tools") != "Read, Grep, Glob, Bash, WebSearch, WebFetch":
+        errors.append("serenity-filings must have the narrow official-source discovery tools")
+    for contract in ("official issuer-owned URL", "source discovery only", "issuer-ir.document", "management_claim", "hard_operating_observation", "relationship_status", "cross_company_read_through_candidate", "omission_or_evasion", "never becomes the thesis or action"):
+        if contract not in filings:
+            errors.append(f"serenity-filings must preserve issuer narrative evidence semantics: {contract}")
     blind = _read(directory / "peer-blind-candidate.md", errors)
     if "Do not request or inspect prior candidate decisions, rankings" not in blind:
         errors.append("peer-blind-candidate must preserve blind input")

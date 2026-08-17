@@ -39,10 +39,10 @@ There are exactly two agents:
 
 | Agent | Contract |
 | --- | --- |
-| `.claude/agents/serenity-filings.md` | Returns filing evidence only: accession, concept/location, source/provenance, time, identity binding, and explicit absence/conflict. It cannot recommend, rank, value, or select an action. |
+| `.claude/agents/serenity-filings.md` | Returns SEC and official issuer evidence only: accession or official URL, concept/location, source/provenance, time, raw hash, identity binding, management claim versus operating observation, and explicit absence/conflict. It cannot recommend, rank, value, or select an action. |
 | `.claude/agents/peer-blind-candidate.md` | Proposes or challenges candidates from the question and evidence rules without receiving prior decisions, rankings, or verdicts. It returns reasons, exclusions, and evidence requests; the main analyst synthesizes later. |
 
-Both agents use the sonnet/terra exploration tier. The peer-blind candidate agent has read-only WebSearch/WebFetch because current narrative sources can resolve or challenge a discovery/Physical AI relationship that supplied evidence has not reached; it preserves source/cutoff and returns typed evidence requests for any material gap. It never turns web results into numeric facts or substitutes them for identity-pinned runtime data. Both agents return typed outputs or proposed patches and never overwrite another active task’s artifacts. Sol/opus is reserved for a single final disagreement adjudication when it is genuinely required, not broad fan-out.
+Both agents use the sonnet/terra exploration tier. The issuer-evidence agent has read-only WebSearch/WebFetch to locate official issuer documents, but search is source discovery only: the already-resolved URL must pass the identity-, domain-, time-, and raw-byte-bound `issuer-ir.document` provider before its contents become evidence. It separates prepared remarks from Q&A, management claims from hard operating observations, and disclosed/corroborated relationships from inferred or contradicted ones; cross-company read-through remains a candidate for the main analyst. The peer-blind candidate agent uses the same read-only tools because current narrative sources can resolve or challenge a discovery/Physical AI relationship that supplied evidence has not reached; it preserves source/cutoff and returns typed evidence requests for any material gap. Neither agent turns web results into numeric facts or substitutes them for identity-pinned runtime data. Both agents return typed outputs or proposed patches and never overwrite another active task’s artifacts. Sol/opus is reserved for a single final disagreement adjudication when it is genuinely required, not broad fan-out.
 
 ## Evidence and decision contract
 
@@ -85,6 +85,10 @@ The harness validator is fast and static: it checks root boundaries, exact inven
 If SessionStart reports degradation, read the factual diagnostic and repair the named local file or symlink; it has not blocked the session. If Stop blocks an OPEN run, save and finalize a typed BLOCKED decision or abandon with a durable reason, then let the next stop check see its updated pointer; changing answer prose cannot resolve the lifecycle. If it blocks a corrupt pointer or manifest, do not infer the decision state: inspect the two named files, restore a content-hashed consistent pair through the runtime, or explicitly abandon/recreate the run. Do not delete evidence to silence the hook.
 
 ## Change history
+
+### 2026-08-17 — official issuer narrative evidence
+
+Broadened the existing `serenity-filings` evidence role without adding a third agent. It now collects both SEC disclosures and official issuer narrative, uses web tools only to locate an official source, and routes the resolved URL through `issuer-ir.document` for identity/domain/time/raw-byte provenance. Live collection is authorized only by the attached fact snapshot's byte-verified SEC submissions record; a frozen snapshot cannot mint an official issuer domain, and every redirect hop must remain on that domain. Single-name research separates management claims, hard operating observations, relationship status, omissions, and cross-company read-through candidates before the main analyst forms an inference.
 
 ### 2026-08-17 — self-contained skill method bodies
 

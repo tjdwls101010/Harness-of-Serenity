@@ -150,7 +150,7 @@ def test_root_identity_is_generic_and_always_on_capabilities_are_compact() -> No
         "adopt, verify, and outperform the source method independently",
         "always-loaded core capabilities",
         "economic-power concentration and dependency graphs",
-        "SEC/filing and market-fact provenance",
+        "SEC/issuer-narrative and market-fact provenance",
         "capital flows and macro",
         "competing hypotheses and falsifiers",
         "priced-in",
@@ -226,7 +226,7 @@ def test_candidate_cleanroom_gets_a_self_contained_method_interface_from_each_sk
     essentials = {
         "serenity-macro-event": ("company disclosures", "demand, supply, pricing, financing, or only sentiment", "usable capacity", "falsifier"),
         "serenity-discovery": ("material intensity", "qualification", "substitutability", "no clean US-listed vehicle"),
-        "serenity-single-name": ("adjusted net asset value", "per-share", "premium hurdle", "observable primary trigger"),
+        "serenity-single-name": ("adjusted net asset value", "per-share", "premium hurdle", "observable primary trigger", "Any non-null identifier conflict is unresolved identity", "`MONITOR` is not a substitute", "prepared remarks", "Q&A", "management claim", "hard operating observation", "disclosed", "corroborated", "inferred", "contradicted", "omission or evasion"),
         "serenity-cohort": ("common comparison question", "blind challenge", "evidence quality", "relative fit"),
     }
     shared_sections = ("Question frame", "Competing hypotheses", "Evidence sought", "Inference", "Action and falsifier", "Deliverable and hand-off")
@@ -250,6 +250,8 @@ def test_discovery_keeps_structural_concentration_distinct_from_investability_an
     assert "Investability, the US-listed vehicle, and action are separate gates." in discovery
     assert "examples when raw evidence supports them; allow another mechanism" in discovery
     assert "Do not force every case through the same checklist." in discovery
+    assert "Any non-null identifier conflict is unresolved identity" in single_name
+    assert "`MONITOR` is not a substitute" in single_name
     assert "Use `NFA` only for actionable `RECOMMEND_NOW` or `ENTER_ON_TRIGGER` conclusions." in single_name
     assert report["ok"] is True
 
@@ -290,6 +292,38 @@ def test_peer_blind_candidate_has_read_only_narrative_research_tools() -> None:
     assert "never use web results as numeric facts" in agent.lower()
     assert "WebSearch/WebFetch" in spec
     assert "typed evidence requests" in spec
+
+
+def test_filings_agent_collects_official_issuer_narrative_without_deciding_the_thesis() -> None:
+    agent = (ROOT / ".claude" / "agents" / "serenity-filings.md").read_text(encoding="utf-8")
+    single_name = (ROOT / ".claude" / "skills" / "serenity-single-name" / "SKILL.md").read_text(encoding="utf-8")
+    spec = (ROOT / ".claude" / "harness-spec.md").read_text(encoding="utf-8")
+
+    assert "tools: Read, Grep, Glob, Bash, WebSearch, WebFetch" in agent
+    for contract in (
+        "official issuer-owned URL",
+        "issuer-ir.document",
+        "source discovery only",
+        "prepared remarks",
+        "Q&A",
+        "management_claim",
+        "hard_operating_observation",
+        "relationship_status",
+        "disclosed",
+        "corroborated",
+        "inferred",
+        "contradicted",
+        "omission_or_evasion",
+        "cross_company_read_through_candidate",
+        "never becomes the thesis or action",
+    ):
+        assert contract in agent
+    assert "WebSearch/WebFetch" in spec
+    assert "official issuer documents" in spec
+    assert "issuer-ir.document" in spec
+    assert "management claim" in single_name
+    assert "hard operating observation" in single_name
+    assert "Cross-company read-through remains an inference candidate" in single_name
 
 
 def test_session_start_is_silent_when_local_health_is_green() -> None:
