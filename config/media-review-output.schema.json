@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:media-review-output:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "packet_id", "source_sha256", "review_input_sha256", "relations", "reviewer_id", "reviewer_model", "prompt_version", "ocr", "vision"],
+  "properties": {
+    "schema_id": {"const": "urn:serenity:schema:media-review-output:1"},
+    "packet_id": {"type": "string", "minLength": 1},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/relation"}},
+    "reviewer_id": {"type": "string", "minLength": 1},
+    "reviewer_model": {"type": "string", "minLength": 1},
+    "prompt_version": {"type": "string", "minLength": 1},
+    "ocr": {"$ref": "#/$defs/ocr"},
+    "vision": {"$ref": "#/$defs/vision"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"ocr": {"properties": {"claim_status": {"const": "established"}}, "required": ["claim_status"]}}, "required": ["ocr"]},
+      "then": {"properties": {"vision": {"properties": {"disposition": {"const": "not_required"}}, "required": ["disposition"]}}}
+    },
+    {
+      "if": {"properties": {"ocr": {"properties": {"claim_status": {"const": "insufficient"}}, "required": ["claim_status"]}}, "required": ["ocr"]},
+      "then": {"properties": {"vision": {"properties": {"disposition": {"const": "complete"}}, "required": ["disposition"]}}}
+    }
+  ],
+  "$defs": {
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tweet_id", "url", "media_index"],
+      "properties": {
+        "tweet_id": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "minLength": 1},
+        "media_index": {"type": "integer", "minimum": 0}
+      }
+    },
+    "ocr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "claim_status"],
+      "properties": {
+        "disposition": {"enum": ["approved", "needs_reconciliation"]},
+        "claim_status": {"enum": ["established", "insufficient"]}
+      }
+    },
+    "supported_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim", "evidence", "caveat"],
+      "properties": {
+        "claim": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1},
+        "caveat": {"type": "string", "minLength": 1}
+      }
+    },
+    "vision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "labels", "summary", "supported_claims", "confidence"],
+      "properties": {
+        "disposition": {"enum": ["not_required", "complete", "failed"]},
+        "labels": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "summary": {"type": ["string", "null"]},
+        "supported_claims": {"type": "array", "items": {"$ref": "#/$defs/supported_claim"}},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"disposition": {"const": "complete"}}, "required": ["disposition"]},
+          "then": {"properties": {"summary": {"type": "string", "minLength": 1}, "supported_claims": {"minItems": 1}, "confidence": {"type": "number"}}}
+        },
+        {
+          "if": {"properties": {"disposition": {"const": "not_required"}}, "required": ["disposition"]},
+          "then": {"properties": {"labels": {"maxItems": 0}, "summary": {"type": "null"}, "supported_claims": {"maxItems": 0}, "confidence": {"type": "null"}}}
+        }
+      ]
+    }
+  }
+}
