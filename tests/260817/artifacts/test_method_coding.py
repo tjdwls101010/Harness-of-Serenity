@@ -926,7 +926,7 @@ def test_aggregate_method_codings_requires_one_completed_result_per_packet_and_p
                 "claim_id": "claim-safety",
                 "claim": "Keep an explicit safety check.",
                 "provenance_tag": "augmented",
-                "augmentation_rationale": "A deliberate v2 engineering addition.",
+                "augmentation_rationale": "A deliberate product engineering addition.",
                 "why": "The synthesis boundary cannot invent engineering safeguards.",
                 "uncertainty_notes": ["Needs periodic review."],
                 "contradiction_notes": [],

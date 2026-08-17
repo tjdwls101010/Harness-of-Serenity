@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fast static validator for the active v2 research harness."""
+"""Fast static validator for the active research harness."""
 
 from __future__ import annotations
 
@@ -100,11 +100,11 @@ PERSONA_CONTRACT = (
     "NFA",
 )
 
-ROOT_HELP = """Validate the active v2 harness wiring without calling providers or replaying research.
+ROOT_HELP = """Validate the active harness wiring without calling providers or replaying research.
 
 `validate` writes one-JSON report to stdout. Run `validate --help` for the exact static checks, exclusions, exit codes, hook-test boundary, and examples. Help is I/O-free."""
 
-VALIDATE_HELP = """Check the active v2 harness as a fast static inventory check.
+VALIDATE_HELP = """Check the active harness as a fast static inventory check.
 
 Checks:
   - root research boundaries and required runtime variables
@@ -207,7 +207,7 @@ def _check_root(errors: list[str], warnings: list[str]) -> None:
     )
     for token in required:
         if token not in text:
-            errors.append(f"CLAUDE.md is missing v2 boundary: {token}")
+            errors.append(f"CLAUDE.md is missing required boundary: {token}")
     if "portfolio allocations" not in text:
         errors.append("CLAUDE.md must exclude portfolio allocation advice")
     if "Do not freeze an archetype" not in text:
@@ -361,13 +361,13 @@ def _check_hooks(errors: list[str]) -> None:
 
 def _check_spec(errors: list[str]) -> None:
     text = _read(ROOT / ".claude" / "harness-spec.md", errors)
-    for token in ("v2", "active-run.json", "run-manifest.json", "Change history"):
+    for token in ("active harness", "active-run.json", "run-manifest.json", "Historical recovery points live on GitHub"):
         if token not in text:
             errors.append(f"harness spec is missing {token}")
     if CANONICAL_HARNESS not in text or "`$SERENITY_HARNESS validate`" in text:
         errors.append("harness spec must invoke validate through the declared Python interpreter")
-    if "active v1 surfaces are removed at cutover" not in text.lower() or "leaving legacy runtime" in text.lower():
-        errors.append("harness spec must describe v1 as archived and active v1 surfaces as removed")
+    if "historical recovery points live on github rather than in the runtime tree" not in text.lower():
+        errors.append("harness spec must keep historical recovery outside the runtime tree")
     lifecycle = ("save and finalize a typed BLOCKED decision", "abandon with a durable reason")
     if any(contract not in text for contract in lifecycle):
         errors.append("harness spec must align recovery with the typed Stop lifecycle")
@@ -453,7 +453,7 @@ def validate() -> dict[str, Any]:
     method_contract = _check_method_contract(errors)
     return {
         "ok": not errors,
-        "version": "v2",
+        "format": "serenity-harness-report/1",
         "skills": skills,
         "agents": agents,
         "hooks": hooks,
@@ -471,7 +471,7 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", title="commands", required=True)
     commands.add_parser(
         "validate",
-        help="emit the one-JSON static v2 harness report",
+        help="emit the one-JSON static harness report",
         description=VALIDATE_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

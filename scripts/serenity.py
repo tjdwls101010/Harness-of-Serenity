@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The single public runtime interface for Serenity v2."""
+"""The single public runtime interface for Harness of Serenity."""
 
 from __future__ import annotations
 

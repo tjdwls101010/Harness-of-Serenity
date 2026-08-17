@@ -1,10 +1,10 @@
-# Appendix 01 — contracts and runtime
+# Contracts and runtime
 
 ## Purpose and ownership boundary
 
 The runtime is an evidence operating system, not an investment decision engine. It owns deterministic data collection, identity resolution, source/provenance preservation, schema validation, content hashes, arithmetic execution, and lifecycle transitions. The analyst/model owns hypothesis formation, evidence prioritization, causal inference, materiality, valuation lens selection, uncertainty, and the final action. No provider adapter, composite score, or command may label a security as a winner, assign a conviction tier, or generate an investment recommendation.
 
-The public runtime is only `scripts/serenity.py`. Existing v1 scripts may remain during implementation as migration inputs, but they must not be documented as parallel v2 analysis entry points. Corpus and evaluation tasks are intentionally separate: `scripts/serenity_corpus.py` manages corpus/media/audit operations and `scripts/serenity_eval.py` runs reproducible evaluations.
+The public runtime is only `scripts/serenity.py`. Corpus and evaluation tasks are intentionally separate: `scripts/serenity_corpus.py` manages corpus/media/audit operations and `scripts/serenity_eval.py` runs reproducible evaluations. Internal implementation modules live under `scripts/serenity_core/` and are not parallel CLI entry points.
 
 ## CLI contract
 

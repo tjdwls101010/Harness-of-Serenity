@@ -1,4 +1,4 @@
-"""Corpus inventory and media provenance for the v2 method corpus.
+"""Corpus inventory and media provenance for the method corpus.
 
 This module deliberately records corpus material as research-method evidence. It does
 not interpret tweet text or turn it into an investment conclusion.

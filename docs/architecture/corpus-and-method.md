@@ -1,8 +1,8 @@
-# Appendix 02 — corpus and method
+# Corpus and method
 
 ## Corpus purpose
 
-The tweet database is evidence of a method, not a cache of conclusions to repeat. v2 must learn reusable reasoning moves, evidence preferences, phrasing constraints, and failure modes from it while preventing old name-specific calls from anchoring new work. A routine analysis must not query it. An explicit user request to compare against historical tweets may use it only after the independent v2 analysis is complete, and the comparison must be labelled as such.
+The tweet database is evidence of a method, not a cache of conclusions to repeat. The reconstruction extracts reusable reasoning moves, evidence preferences, phrasing constraints, and failure modes while preventing old name-specific calls from anchoring new work. A routine analysis must not query it. An explicit user request to compare against historical tweets may use it only after the independent analysis is complete, and the comparison must be labelled as such.
 
 The approved interview recorded an earlier snapshot of 1,844 rows, 1,443 media rows, and 2,027 unique images (1,984 JPEG and 43 PNG). Immediately before implementation, the current `main` DB was recounted as 1,874 rows and 2,062 unique media URLs. Treat the latter as the current rebase observation, not as an invariant: the audit command must compute its input denominators from the DB on every run, record the query/version/hash used, and reconcile every discovered row/media relation against its manifest. A change in source counts is a reportable corpus delta, never a reason to silently reduce the denominator or claim the old snapshot is current.
 
@@ -20,7 +20,7 @@ Run open coding in a cleanroom that excludes the old generated doctrine, old sco
 
 The codebook must separately label: observation type; causal-chain hop; claimed value-capture mechanism; identity/provenance discipline; valuation lens or missing lens; catalyst/mechanism distinction; funding/capital-structure reasoning; bear case/falsifier; timing/entry condition; recommendation scope; confidence/hedge language; contradiction; and outcome/post-mortem signal. A code requires source links and a short rationale. If evidence is thin or inconsistent, code it `unverified` rather than rewriting it into a principle.
 
-Build a claim ledger from the codes. Every resulting doctrine item is tagged exactly one of `sourced`, `augmented`, or `unverified`. `sourced` has direct corpus support and representative/counterexample references. `augmented` is a deliberate v2 safety or engineering addition with a stated rationale, not attributed to the corpus. `unverified` is retained as a hypothesis/research question or excluded from operating rules; it must never become an invisible hard gate. The final harness loads sourced and explicitly adopted augmented rules, while a traceability appendix preserves every rule-to-evidence relation.
+Build a claim ledger from the codes. Every resulting doctrine item is tagged exactly one of `sourced`, `augmented`, or `unverified`. `sourced` has direct corpus support and representative/counterexample references. `augmented` is a deliberate product safety or engineering addition with a stated rationale, not attributed to the corpus. `unverified` is retained as a hypothesis/research question or excluded from operating rules; it must never become an invisible hard gate. The final harness loads sourced and explicitly adopted augmented rules, while a traceability appendix preserves every rule-to-evidence relation.
 
 ## Implemented reconstruction evidence
 
@@ -32,9 +32,9 @@ The deterministic aggregate preserves exact labels rather than semantically merg
 
 One `gpt-5.6-sol` final synthesis was run over that digest, with broad fan-out forbidden. Its historical execution record retains a conservative false-positive transcript classification caused by jq's `//` operator; the same immutable transcript and output were subsequently revalidated read-only after the auditor was corrected, without rerunning the model. The final ledger has content hash `dba5fe018b2061048cb97d0207b363f6ac0ecddef6735bef7f1f2fdbc369aaab` and contains exactly 12 corpus-`sourced`, 8 explicitly engineered `augmented`, and 0 `unverified` operating claims. [The synthesis evidence](../../../method/synthesis-evidence.v1.json), [candidate digest](../../../method/candidate-digest.v1.json), and [claim ledger](../../../method/claim-ledger.v1.json) preserve the bindings.
 
-## Method principles adopted for v2
+## Adopted method principles
 
-The following are v2 operating principles, expressed as interfaces rather than rigid analysis order:
+The following operating principles are expressed as interfaces rather than rigid analysis order:
 
 - Start from a specific question and a small, identity-pinned fact snapshot; form multiple plausible mechanisms before selecting a conclusion.
 - Distinguish structural claims from price claims. A company can own a real chokepoint yet be fully priced, a weak vehicle, or an inaccessible expression.
@@ -50,7 +50,7 @@ These are not a mandatory archetype taxonomy or a fixed time horizon. The model 
 
 The baseline is free, modular, and provenance-preserving. The provider interface should make it possible to replace a source without changing decisions or schemas. Implement the high-value deterministic providers first:
 
-| Provider/source | v2 use | Priority |
+| Provider/source | Use | Priority |
 | --- | --- | --- |
 | SEC ticker/CIK/exchange data and submissions | US issuer/listing identity, filing metadata, filing facts/narrative handoff | Mandatory |
 | OpenFIGI | Cross-check instrument/issuer identity | Mandatory |
@@ -61,7 +61,7 @@ The baseline is free, modular, and provenance-preserving. The provider interface
 | SAM.gov, USPTO | Only when an evidence request demonstrates an E2E need | Conditional |
 | Federal Register/BIS and primary issuer/agency documents | Narrative policy/regulatory evidence, never substituted market numbers | Adaptive |
 
-Explicitly exclude Nasdaq Data Link, paid FINRA/exchange feeds, automated WIPO PATENTSCOPE scraping, and transcript aggregators from baseline v2. A later addition requires a documented user value, lawful/source-policy review, a provider envelope implementation, and a representative E2E case.
+Explicitly exclude Nasdaq Data Link, paid FINRA/exchange feeds, automated WIPO PATENTSCOPE scraping, and transcript aggregators from the baseline. A later addition requires a documented user value, lawful/source-policy review, a provider envelope implementation, and a representative E2E case.
 
 `ibd-rs-rating` is a user-owned library and is pinned in `scripts/requirements.txt` as `ibd-rs-rating==0.3.0`. Its adapter preserves raw values, upstream record dates, adapter version, query arguments, and availability/provenance. It must not implement an `RS >= 70` gate, map its score to leadership, or convert it into a recommendation. The model may judge its relevance alongside other evidence and must state that judgment in the hypothesis/decision layer.
 

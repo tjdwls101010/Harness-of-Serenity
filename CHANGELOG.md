@@ -1,30 +1,21 @@
 # Changelog
 
-All notable changes to Harness of Serenity are documented here. This project uses an unreleased section until a v2 release/tag is intentionally published.
+All notable changes to Harness of Serenity are documented here. Historical source and session recovery points are published on [GitHub Releases](https://github.com/tjdwls101010/Harness-of-Serenity/releases).
 
 ## [Unreleased]
 
-### Breaking — v2 cutover
+### Changed
 
-- The v2 public research interface is `scripts/.venv/bin/python scripts/serenity.py`; it replaces v1 analysis rails with an explicit lifecycle for runs, snapshots, hypotheses, evidence, lenses, graphs, decisions, and prospective outcomes.
-- Prior v1 analysis commands, natural-language verdict hooks, active session files, tests, and obsolete documentation were removed from the active tree after the v2 suite passed; they are not a supported parallel interface.
-- v1 state is recoverable from the annotated `v1-final-260817` tag and `archive/v1/260817-sessions.tar.gz`. The archive source commit is `290355655eb1fb0b7b30803879d15eacd52f0416`; its archive SHA-256 is `2cf3590aa0e54c15ef06d5340db89f429c8b69791e0c84c209e6d2f9ad555bc7`.
-- Historical inspection or rollback uses the recorded pre-cutover tag or restores the byte-verified v1 archive into a temporary directory. v1 and v2 artifacts must not be mixed in place.
+- Renamed the internal Python package to `serenity_core` while preserving the public `scripts/serenity.py` CLI.
+- Flattened canonical versioned JSON Schemas into `schemas/`; schema URNs and artifact format versions remain unchanged.
+- Limited `config/` to runtime configuration, moved content-addressed method artifacts to `method/`, and registered method/media output contracts under `schemas/`.
+- Promoted current design documents to `docs/architecture/` and the latest E2E receipt to `docs/evaluation/evaluation-report.json`.
 
-### Added
+### Removed
 
-- Versioned v2 contracts for provider envelopes, fact snapshots, evidence, hypotheses, lenses, sector graphs, decisions, prospective records, and QA.
-- Added identity-, domain-, cutoff-, and raw-byte-bound official issuer narrative capture through `issuer-ir.document`; only a byte-verified live SEC submissions snapshot can authorize the issuer domain, every redirect hop is checked, manual result injection is rejected, and Web search remains source discovery rather than evidence or judgment.
-- A corpus/method pipeline that audits source text/media separately from routine research.
-- A candidate-first Codex evaluation design: a family-routed Terra candidate consumes the shared Harness, two independent Terra reviewers receive only the typed candidate artifact and permitted evidence, and Sol runs only on material disagreement.
+- Removed retired runtime cache directories and the in-tree historical session archive after publishing and independently verifying the GitHub Release assets.
 
-### Verification status
+### Verification
 
-- The final v2 suite passed 591 tests. The strict corpus audit reconciled 1,874 tweets and 2,062 media references with zero blocking issues, the v1 archive restored all 16 members byte-for-byte, and the harness validators reported zero errors or warnings.
-- The current real cleanroom evaluation executed all 18 cases with 18 Terra candidates and 36 independent Terra reviews; no material invariant-level disagreement remained, so no Sol adjudication ran. Every family recorded 3 pass / 0 fail / 0 needs review; its canonical content hash is `e4e5ae498606ff4489cc06e5e0e587b9b7422165c57cb65d3ccf143878f1fb2d`, and preserved diagnostic runs and the isolation residual are recorded without an aggregate quality score in [cutover evidence](docs/plans/260817/05-cutover-evidence.md).
-
-## [0.1.0] - 2026-07-09
-
-### Added
-
-- Initial public documentation package, research harness, and MIT license.
+- The complete test suite passed `594` tests with `24` multiprocessing fork deprecation warnings, and the static Harness validator reported no errors or warnings.
+- The refreshed candidate-first E2E completed all 18 cases with 18 Terra candidates, 36 independent Terra reviews, zero material disagreements, zero Sol adjudications, and zero command/tool audit violations. The report canonical hash is `d41d9995e7178f6e151a74cda6126b3447b770b4b474671e6af8a94e414f212f`; its raw SHA-256 is `c51d19144d7e3de0e847f64e3d693c9b99563eae7cbee194a880b06c4a0812bc`.

@@ -1,4 +1,4 @@
-"""Independent v2 evaluation orchestration.
+"""Independent evaluation orchestration.
 
 This module deliberately reports three separate measurements instead of trying to turn
 them into a single quality number: retrospective method fidelity, cutoff-frozen packet

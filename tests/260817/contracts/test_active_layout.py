@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def test_python_runtime_uses_the_version_neutral_serenity_core_namespace() -> None:
     assert importlib.util.find_spec("serenity_core") is not None
-    assert importlib.util.find_spec("serenity_" + "v2") is None
+    assert importlib.util.find_spec("serenity_" + "v" + "2") is None
 
 
 def test_versioned_schema_files_live_in_the_neutral_schema_root() -> None:

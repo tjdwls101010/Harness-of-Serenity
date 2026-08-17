@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the v2 evaluation harness and print exactly one JSON object."""
+"""Run the evaluation harness and print exactly one JSON object."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ DEFAULT_CONFIG = ROOT / "config" / "evaluation.json"
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="""Run the v2 evaluation root command. This CLI has no evaluator subcommands; every invocation evaluates the configured family descriptors.
+        description="""Run the evaluation root command. This CLI has no evaluator subcommands; every invocation evaluates the configured family descriptors.
 
 Tracks:
   A — retrospective independent-first: make a fresh decision from the cutoff packet before any answer-key comparison; answer keys and old verdicts are excluded from the cleanroom.

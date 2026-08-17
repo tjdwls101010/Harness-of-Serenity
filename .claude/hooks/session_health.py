@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local, network-free SessionStart health for the typed v2 harness."""
+"""Local, network-free SessionStart health for the typed harness."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def main() -> int:
     _check_active(root, problems)
     if not problems:
         return 0
-    json.dump({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "Harness v2 local health is degraded: " + "; ".join(problems)}}, sys.stdout, ensure_ascii=False)
+    json.dump({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "Harness local health is degraded: " + "; ".join(problems)}}, sys.stdout, ensure_ascii=False)
     print()
     return 0
 

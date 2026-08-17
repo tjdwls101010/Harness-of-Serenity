@@ -1,4 +1,4 @@
-"""Canonical, provider-neutral research artifacts for one active v2 run."""
+"""Canonical, provider-neutral research artifacts for one active run."""
 
 from __future__ import annotations
 

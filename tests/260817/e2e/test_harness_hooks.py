@@ -65,14 +65,15 @@ def _write_open_run(root: Path) -> str:
     return run_id
 
 
-def test_v2_harness_validator_reports_the_active_inventory() -> None:
+def test_harness_validator_reports_the_active_inventory() -> None:
     completed = subprocess.run([sys.executable, str(HARNESS), "validate"], cwd=ROOT, text=True, capture_output=True, check=False)
 
     assert completed.returncode == 0, completed.stdout
     assert completed.stderr == ""
     report = json.loads(completed.stdout)
     assert report["ok"] is True
-    assert report["version"] == "v2"
+    assert report["format"] == "serenity-harness-report/1"
+    assert "version" not in report
     assert report["skills"] == ["serenity-cohort", "serenity-discovery", "serenity-macro-event", "serenity-single-name"]
     assert report["agents"] == ["peer-blind-candidate", "serenity-filings"]
     assert report["hooks"] == {"SessionStart": 1, "Stop": 1}
@@ -109,7 +110,7 @@ def test_harness_docs_run_python_scripts_through_the_declared_interpreter() -> N
     assert CANONICAL_HARNESS in spec
     assert "`$SERENITY_HARNESS validate`" not in root + spec
     assert "old runtime" not in spec.lower()
-    assert "active v1 surfaces are removed at cutover" in spec
+    assert "Historical recovery points live on GitHub rather than in the runtime tree." in spec
 
     expected_modes = {
         "serenity-macro-event": "macro-event",
@@ -175,7 +176,7 @@ def test_root_identity_is_generic_and_always_on_capabilities_are_compact() -> No
     assert "the user" in root
     assert "cosplay or exact phrase imitation" in root
     assert "generic multi-user identity" in spec
-    assert "2026-08-17 — generic harness identity" in spec
+    assert "Its generic multi-user identity names Harness of Serenity" in spec
     assert (help_result.returncode, help_result.stderr) == (0, "")
     for text in (root, spec, help_result.stdout):
         assert "Seongjin" not in text

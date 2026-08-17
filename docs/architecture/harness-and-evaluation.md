@@ -1,4 +1,4 @@
-# Appendix 03 — harness and evaluation
+# Harness and evaluation
 
 ## Harness design
 
@@ -28,13 +28,13 @@ Replace broad natural-language enforcement hooks with two narrow typed hooks:
 - A `SessionStart` soft health check verifies runtime availability, schema/harness wiring, required symlink state, and active-run summary. It emits actionable diagnostics but does not block ordinary work for transient provider failures.
 - A typed `Stop` gate checks only the content-hashed active-run pointer and referenced manifest. Any verified OPEN run is unfinished and blocks stopping until the runtime finalizes a typed decision, including `BLOCKED`, or records an explicit abandonment reason. Decision and lens validity remain runtime responsibilities; the hook never parses answer prose or grades research quality.
 
-Remove v1 hooks that parse or score arbitrary prose, invoke multiple hidden analysis rails, or make decisions from static fields. Every retained/generated hook must have a fixture-driven test through the harness creator test utility and be included in the harness validator. Update `.claude/harness-spec.md` to explain the v2 design, source of truth, hook inputs/outputs, recovery behavior, and why symlinks are preserved.
+Hooks never parse or score arbitrary prose, invoke hidden analysis rails, or make decisions from static fields. Every hook has fixture-driven public tests and is included in the harness validator. `.claude/harness-spec.md` explains the current design, source of truth, hook inputs/outputs, recovery behavior, and why symlinks are preserved.
 
 ## Codex cleanroom E2E
 
 Normal Codex uses the tracked symlinked harness. Evaluation first creates a fresh candidate package outside the repository with a user-facing question, cutoff-safe typed evidence, and a content-hashed receipt of the shared Harness tree and symlinks. The inline model prompt loads only `CLAUDE.md` plus the skill or ordered skills selected for that family; agents, hooks, settings, and the specification remain integrity receipts rather than candidate instructions. One Terra candidate returns a strict typed research artifact and locale-neutral user artifact; the runner, not the model, binds trusted package, harness, model, transcript, and result hashes. The candidate receives no expected invariants, answer key, prior verdict, corpus answer, session, score, or previous candidate output, and the package records that hooks are not executed in this instruction-integration arm.
 
-Independent review is a second boundary. Current deterministic v2 services execute outside the reviewer cleanroom and project typed outputs into case-specific raw observations bound to real output hashes. Each reviewer package contains exactly `qa-case.json`, `frozen-packet.json`, `qa-result.schema.json`, and `package-manifest.json`; its hash-bound prompt carries the candidate artifact and permitted evidence but no Harness files, candidate prompt, expected outcome, prior result, corpus, source checkout, or executable. A live provider capture is a non-citable transport checkpoint unless the case explicitly maps it to an invariant and proves identity and `available_at <= cutoff`.
+Independent review is a second boundary. Deterministic services execute outside the reviewer cleanroom and project typed outputs into case-specific raw observations bound to real output hashes. Each reviewer package contains exactly `qa-case.json`, `frozen-packet.json`, `qa-result.schema.json`, and `package-manifest.json`; its hash-bound prompt carries the candidate artifact and permitted evidence but no Harness files, candidate prompt, expected outcome, prior result, corpus, source checkout, or executable. A live provider capture is a non-citable transport checkpoint unless the case explicitly maps it to an invariant and proves identity and `available_at <= cutoff`.
 
 Both runners record the exact allowlist, package and harness hashes where applicable, requested and resolved CLI, model/role, prompts, timestamps, network policy, audited transcript, raw output hashes, and semantic validation. The canonical documents are embedded in each hash-bound model prompt, so no filesystem tool is needed and every completed tool event is rejected. On macOS the outer Seatbelt profile broadly denies the repository, home, temporary storage, and pre-existing result trees, then permits only the active case/result directory, resolved Codex runtime, ephemeral auth copy, and exact Codex helper processes. `--search` is absent and child execution is denied outside that exact allowlist; hosted model transport remains a recorded parent-process residual because denying it would also prevent Codex from running. This separates shared-Harness candidate behavior from independent artifact quality review without requiring Docker or OrbStack.
 
@@ -63,7 +63,7 @@ Implement six families, each with two deterministic fixture cases and one live/p
 
 The deterministic cases live in `tests/260817/e2e/` and use checked-in typed fixtures. Live cases may be opt-in or marked separately from the default suite, but their reports must show exact provider/date state. Every family report includes raw numerator/denominator, failure taxonomy, case IDs, deterministic/live split, and a Wilson confidence interval where a pass-rate summary is useful. Never aggregate the six families into a claim such as “95% quality”; different failure classes have different safety meaning.
 
-The current recorded E2E evidence is [`evaluation-report.v2.json`](evaluation-report.v2.json), with canonical content hash `e4e5ae498606ff4489cc06e5e0e587b9b7422165c57cb65d3ccf143878f1fb2d`: 18 cases passed, each family reported `3 / 0 / 0`, and the run contains 18 candidate plus 36 Terra reviewer receipts with no Sol receipt. This is distinct from retained diagnostic runs, which remain documented in the cutover evidence rather than being relabeled as final evidence.
+The current recorded E2E evidence is [`evaluation-report.json`](../evaluation/evaluation-report.json). It is replaced only by a fresh full run whose canonical self-hash and raw file hash are independently verified; diagnostic runs never overwrite it.
 
 ## Test layout and completion gates
 
@@ -77,4 +77,4 @@ tests/260817/
   fixtures/      # small JSON/SQLite/media/provider packets
 ```
 
-All v2 tests live under `tests/260817/`. Start every vertical slice with a test at one of these public seams; do not test private parsing helpers just because they are easy to call. At harness completion, run the full v2 suite, each hook fixture test, `scripts/serenity_harness.py validate` to zero errors, and the cleanroom exclusion/allowlist test. A live E2E failure is reported as evidence, not hidden by rerunning until it passes.
+All tests live under `tests/260817/`. Start every vertical slice with a test at one of these public seams; do not test private parsing helpers just because they are easy to call. At harness completion, run the full suite, each hook fixture test, `scripts/serenity_harness.py validate` to zero errors, and the cleanroom exclusion/allowlist test. A live E2E failure is reported as evidence, not hidden by rerunning until it passes.

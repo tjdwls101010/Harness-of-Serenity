@@ -2,7 +2,7 @@
 
 ## Status
 
-This is the active v2 harness for typed US-listed equity research. v1 is archived by tag/archive, and active v1 surfaces are removed at cutover. The authoritative structural check is `"$SERENITY_PYTHON" "$SERENITY_HARNESS" validate`; this document records why that narrow inventory exists and how to recover it.
+This is the active harness for typed US-listed equity research. Historical recovery points live on GitHub rather than in the runtime tree. The authoritative structural check is `"$SERENITY_PYTHON" "$SERENITY_HARNESS" validate`; this document records why that narrow inventory exists and how to recover it.
 
 ## Design rationale
 
@@ -14,7 +14,7 @@ The research boundary is US-listed common stock, ADRs, and ETFs. The harness nev
 
 ## Source-tagged method contract
 
-The active method contract is source-tagged, not a retrospective style guide. `method/claim-ledger.v1.json` is the canonical ledger (`content_hash` `dba5fe018b2061048cb97d0207b363f6ac0ecddef6735bef7f1f2fdbc369aaab`): 12 `sourced` claims reconstruct reusable moves from the bounded evidence, while 8 `augmented` claims are explicit v2 product, safety, and interface choices. There are zero `unverified` claims; if one appears in a future ledger it is a lead, not a rule, until the ledger is regenerated and verified.
+The active method contract is source-tagged, not a retrospective style guide. `method/claim-ledger.v1.json` is the canonical ledger (`content_hash` `dba5fe018b2061048cb97d0207b363f6ac0ecddef6735bef7f1f2fdbc369aaab`): 12 `sourced` claims reconstruct reusable moves from the bounded evidence, while 8 `augmented` claims are explicit product, safety, and interface choices. There are zero `unverified` claims; if one appears in a future ledger it is a lead, not a rule, until the ledger is regenerated and verified.
 
 The ledger is bound to `method/candidate-digest.v1.json` (`content_hash` `3056087bca1f24c5ee660bfce20a47bfdc93961f7b8e1f090efdd8949632d6f3`; 76 packets, 3,766 chunks, 1,953 coded and 1,813 no-reusable-move chunks) and `method/synthesis-evidence.v1.json`. The latter records one gpt-5.6-sol invocation as the single Sol final synthesis, attests to the ledger's 12/8/0 counts and raw SHA-256, and preserves the original jq // false-positive record (`forbidden_read_observed`) unchanged. Its read-only revalidation is valid: the repair exempts only jq's exact `//` alternative operator, with zero forbidden reads, no relaunch, and no record rewrite.
 
@@ -56,7 +56,7 @@ An `ENTER_ON_TRIGGER` action has an observable current condition. Every action r
 
 The settings file has one `SessionStart` command hook and one `Stop` command hook, nothing else. No UserPromptSubmit or PostToolUse hook remains, because lifecycle validity belongs to typed artifacts rather than arbitrary assistant prose.
 
-`session_health.py` is local and network-free. It checks shared symlinks, settings shape, local v2 entry files, and the consistency of any active pointer/manifest. A healthy hook emits no stdout and exits 0. A degraded hook still exits 0 and emits only `hookSpecificOutput.additionalContext`, phrased as a factual local-state diagnostic so ordinary work can continue through transient provider or local setup issues.
+`session_health.py` is local and network-free. It checks shared symlinks, settings shape, current entry files, and the consistency of any active pointer/manifest. A healthy hook emits no stdout and exits 0. A degraded hook still exits 0 and emits only `hookSpecificOutput.additionalContext`, phrased as a factual local-state diagnostic so ordinary work can continue through transient provider or local setup issues.
 
 `lifecycle_gate.py` ignores `last_assistant_message` and all transcript prose. It reads only `.serenity/active-run.json` and the referenced `.serenity/runs/<run_id>/run-manifest.json`. It recomputes each `content_hash`, checks pointer/manifest identity and status consistency, returns silently for no active pointer or any verified non-OPEN run, and blocks a verified OPEN run with `{ "decision": "block", "reason": "..." }`. A pointer or manifest that claims active state but cannot be verified also blocks with a factual reason. `stop_hook_active: true` returns silently before any check, preventing an infinite Stop loop after one forced continuation.
 
@@ -83,31 +83,3 @@ The harness validator is fast and static: it checks root boundaries, exact inven
 ## Recovery
 
 If SessionStart reports degradation, read the factual diagnostic and repair the named local file or symlink; it has not blocked the session. If Stop blocks an OPEN run, save and finalize a typed BLOCKED decision or abandon with a durable reason, then let the next stop check see its updated pointer; changing answer prose cannot resolve the lifecycle. If it blocks a corrupt pointer or manifest, do not infer the decision state: inspect the two named files, restore a content-hashed consistent pair through the runtime, or explicitly abandon/recreate the run. Do not delete evidence to silence the hook.
-
-## Change history
-
-### 2026-08-17 — official issuer narrative evidence
-
-Broadened the existing `serenity-filings` evidence role without adding a third agent. It now collects both SEC disclosures and official issuer narrative, uses web tools only to locate an official source, and routes the resolved URL through `issuer-ir.document` for identity/domain/time/raw-byte provenance. Live collection is authorized only by the attached fact snapshot's byte-verified SEC submissions record; a frozen snapshot cannot mint an official issuer domain, and every redirect hop must remain on that domain. Single-name research separates management claims, hard operating observations, relationship status, omissions, and cross-company read-through candidates before the main analyst forms an inference.
-
-### 2026-08-17 — self-contained skill method bodies
-
-Expanded the four focused skills from claim-ID routing notes into dense candidate-cleanroom interfaces. Each now carries its mode-specific trigger, rival hypotheses, evidence tests, inference criteria, action/falsifier boundary, and hand-off, distilled from its recorded method claims without rebuilding the v1 encyclopedia or a provider score.
-
-### 2026-08-17 — tracked Codex harness surface
-
-Removed the `.codex` ignore rule while preserving its existing `.claude` target, so a clone receives the same Codex harness without copied files. Quick Start documents the bundled tracked symlink and the platform caveat; static validation rejects a missing link, wrong target, ignored link, or missing distribution guidance.
-
-### 2026-08-17 — generic harness identity
-
-Replaced the single-user always-on persona with the exact Harness of Serenity identity: a generic US-listed equity research harness that independently adopts, verifies, and outperforms the source method. The compact root now exposes universal structural capabilities on every task and preserves Korean-friendly peer voice without forbidding the harness name in user-facing answers. Public validation examples now derive harness-creator tooling from `CODEX_HOME` or `$HOME`, never a machine-specific path.
-
-### 2026-08-17 — persona and capability contract
-
-Restored the compact always-on definition of the research partner that the first v2 cutover compressed too far: independent adoption of the source method, structural concentration edge, self-adversarial hypothesis work, named user outcomes, typed interfaces as enablers, explicit-only tweet DB cross-validation, and Korean-friendly peer voice. The root remains a principle/interface contract rather than a v1 playbook or component inventory.
-
-### 2026-08-17 — v2 harness cutover
-
-Replaced the long v1 root, archetype-first skill set, scorecard agent, and natural-language enforcement hooks with the lean typed-lifecycle root, four focused workflows, two evidence/blind-candidate agents, and two narrow hooks. Rewrote `serenity_harness.py validate` as a static v2 inventory checker. Added TDD seam tests and fixtures under `tests/260817/e2e/`; the RED baseline was seven failing public-interface tests before the new hooks and validator existed.
-
-The cutover preserves both local symlinks while v1 is retained only as tag/archive history; active v1 harness surfaces are removed at cutover. The Stop contract follows the content-hashed active-run pointer added by the runtime: it never reads assistant text, it blocks only a verified or conservatively unverifiable claimed active lifecycle, and its loop guard yields on the continuation turn.

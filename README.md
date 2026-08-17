@@ -158,7 +158,7 @@ $PY scripts/serenity_method_runner.py --help
 $PY scripts/serenity_eval.py --help
 $PY scripts/serenity_eval.py
 
-# Check static v2 harness wiring without provider/network research.
+# Check static harness wiring without provider/network research.
 $PY scripts/serenity_harness.py validate
 ```
 
@@ -166,7 +166,7 @@ $PY scripts/serenity_harness.py validate
 
 ## 5. Documentation
 
-The implementation decision record is [`docs/plans/260817`](docs/plans/260817/00-README.md). It defines the runtime contracts, corpus/method boundary, harness and evaluation design, cutover verification, and recorded cutover evidence; the current hash-valid 18-case result is [`evaluation-report.v2.json`](docs/plans/260817/evaluation-report.v2.json) (`e4e5ae498606ff4489cc06e5e0e587b9b7422165c57cb65d3ccf143878f1fb2d`): 18 Terra candidates, 36 independent Terra reviews, and no Sol adjudication because no material invariant-level disagreement remained. Earlier diagnostic runs are retained separately in the cutover evidence. The current public command surface is authoritative through `scripts/serenity.py --help` and each subcommand’s `--help`.
+The current design is documented in [`docs/architecture`](docs/architecture/README.md): runtime contracts, corpus/method boundaries, and the Harness/evaluation model. The latest hash-valid 18-case result is [`evaluation-report.json`](docs/evaluation/evaluation-report.json); it records 18 Terra candidates, 36 independent Terra reviews, and any Sol adjudication required by material disagreement. The public command surface is authoritative through `scripts/serenity.py --help` and each subcommand’s `--help`.
 
 ## 6. Contributing
 
