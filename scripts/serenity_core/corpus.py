@@ -380,7 +380,7 @@ def _load_review_outputs(reviews_dir: Path) -> list[tuple[Path, dict[str, Any]]]
 
 @lru_cache(maxsize=1)
 def _review_output_validator() -> Draft202012Validator:
-    schema_path = Path(__file__).resolve().parents[2] / "config" / "media-review-output.schema.json"
+    schema_path = Path(__file__).resolve().parents[2] / "schemas" / "media-review-output.schema.json"
     return Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
 
 

@@ -22,6 +22,9 @@ def test_versioned_schema_files_live_in_the_neutral_schema_root() -> None:
         "hypothesis-ledger-1.schema.json",
         "lens-result-1.schema.json",
         "lens-spec-1.schema.json",
+        "media-review-output.schema.json",
+        "method-claim-synthesis.schema.json",
+        "method-coding-output.schema.json",
         "prospective-record-1.schema.json",
         "provider-envelope-1.schema.json",
         "qa-case-1.schema.json",
@@ -33,3 +36,19 @@ def test_versioned_schema_files_live_in_the_neutral_schema_root() -> None:
 
     assert {path.name for path in (ROOT / "schemas").glob("*.schema.json")} == expected
     assert not (ROOT / "schemas" / ("v" + "2")).exists()
+
+
+def test_config_contains_only_runtime_configuration_and_method_artifacts_are_separate() -> None:
+    assert {path.name for path in (ROOT / "config").iterdir()} == {
+        "evaluation.json",
+        "evidence-catalog.v1.json",
+    }
+    assert {path.name for path in (ROOT / "method").iterdir()} == {
+        "augmentations.v1.json",
+        "candidate-digest.v1.json",
+        "claim-ledger.v1.json",
+        "claim-synthesis.v1.json",
+        "codebook.v1.json",
+        "coding.v1.json",
+        "synthesis-evidence.v1.json",
+    }

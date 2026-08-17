@@ -320,7 +320,7 @@ def test_displacement_fear_det_02_runs_the_actual_capacity_arithmetic_and_binds_
             requests.append(request)
         return review_result(request.case_id, request.reviewer, "pass", invariants=request.expected_invariants, invariant_evidence=dict(request.invariant_evidence))
 
-    report = evaluate(ROOT / "config" / "evaluation.v2.json", repo_root=ROOT, review_runner=reviewer)
+    report = evaluate(ROOT / "config" / "evaluation.json", repo_root=ROOT, review_runner=reviewer)
 
     case = next(
         item
@@ -478,7 +478,7 @@ def test_sector_graph_runtime_evidence_projects_observed_relations_not_graph_con
         captured.append(json.loads((request.package.case_dir / "frozen-packet.json").read_text(encoding="utf-8")))
         return review_result(request.case_id, request.reviewer, "pass", invariants=request.expected_invariants, invariant_evidence=dict(request.invariant_evidence))
 
-    evaluate(ROOT / "config" / "evaluation.v2.json", repo_root=ROOT, review_runner=injected_runner)
+    evaluate(ROOT / "config" / "evaluation.json", repo_root=ROOT, review_runner=injected_runner)
 
     reviewer_packet = next(packet for packet in captured if packet["evidence"][0]["evidence_id"] == "physical-ai-det-02-evidence")
     runtime = reviewer_packet["runtime_evidence"][0]["artifact"]
@@ -498,7 +498,7 @@ def test_discovery_runtime_projection_does_not_invent_a_robo_us_listing_from_an_
         captured.append(json.loads((request.package.case_dir / "frozen-packet.json").read_text(encoding="utf-8")))
         return review_result(request.case_id, request.reviewer, "pass", invariants=request.expected_invariants, invariant_evidence=dict(request.invariant_evidence))
 
-    evaluate(ROOT / "config" / "evaluation.v2.json", repo_root=ROOT, review_runner=injected_runner)
+    evaluate(ROOT / "config" / "evaluation.json", repo_root=ROOT, review_runner=injected_runner)
 
     reviewer_packet = next(packet for packet in captured if packet["evidence"][0]["evidence_id"] == "discovery-det-02-evidence")
     runtime = reviewer_packet["runtime_evidence"][0]["artifact"]
@@ -571,7 +571,7 @@ def test_discovery_runtime_uses_a_fail_closed_identity_snapshot_without_projecti
         captured.append(json.loads((request.package.case_dir / "frozen-packet.json").read_text(encoding="utf-8")))
         return review_result(request.case_id, request.reviewer, "pass", invariants=request.expected_invariants, invariant_evidence=dict(request.invariant_evidence))
 
-    report = evaluate(ROOT / "config" / "evaluation.v2.json", repo_root=ROOT, candidate_runner=blocked_candidate, review_runner=injected_runner)
+    report = evaluate(ROOT / "config" / "evaluation.json", repo_root=ROOT, candidate_runner=blocked_candidate, review_runner=injected_runner)
 
     reviewer_packet = next(packet for packet in captured if packet["evidence"][0]["evidence_id"] == "discovery-det-02-evidence")
     runtime = reviewer_packet["runtime_evidence"][0]["artifact"]
@@ -892,7 +892,7 @@ def test_reviewer_semantics_rejects_impossible_wilson_interval_even_with_z_196_t
 
 
 def test_committed_config_has_two_deterministic_cases_and_one_opt_in_live_descriptor_per_family() -> None:
-    config_path = ROOT / "config" / "evaluation.v2.json"
+    config_path = ROOT / "config" / "evaluation.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
 
     assert {family["family"] for family in config["families"]} == set(FAMILIES)
@@ -1013,7 +1013,7 @@ def test_family_denominator_includes_unresolved_cases_and_wilson_names_that_deno
 
 
 def test_default_live_descriptors_are_not_run_or_presented_as_provider_evidence() -> None:
-    report = evaluate(ROOT / "config" / "evaluation.v2.json", repo_root=ROOT)
+    report = evaluate(ROOT / "config" / "evaluation.json", repo_root=ROOT)
 
     live_cases = [case for family in report["families"] for case in family["cases"] if case["mode"] == "live"]
     assert len(live_cases) == 6

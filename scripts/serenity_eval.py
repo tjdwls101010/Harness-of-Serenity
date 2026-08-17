@@ -13,7 +13,7 @@ from serenity_core.evaluation import EvaluationError, evaluate, load_live_packet
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-DEFAULT_CONFIG = ROOT / "config" / "evaluation.v2.json"
+DEFAULT_CONFIG = ROOT / "config" / "evaluation.json"
 
 
 def main() -> int:
@@ -50,7 +50,7 @@ Exit behavior:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Evaluation descriptor config; default: config/evaluation.v2.json.")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Evaluation descriptor config; default: config/evaluation.json.")
     parser.add_argument("--execute-cli", action="store_true", help="Opt in to cleanroom Codex execution; without it no model or network call is made.")
     parser.add_argument("--cleanroom-root", type=Path, help="Outside-repository directory for allowlisted cleanroom packages; required in durable CLI execution workflows.")
     parser.add_argument("--results-root", type=Path, help="Outside-repository directory for cleanroom command transcripts and output hashes.")

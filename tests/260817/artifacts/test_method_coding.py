@@ -24,7 +24,7 @@ from serenity_core.method import (
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "method" / "source.json"
 METHOD_CLI = Path(__file__).resolve().parents[3] / "scripts" / "serenity_method.py"
-METHOD_ARTIFACTS = Path(__file__).resolve().parents[3] / "config"
+METHOD_ARTIFACTS = Path(__file__).resolve().parents[3] / "method"
 
 
 def _source() -> dict:
@@ -1035,13 +1035,13 @@ def test_candidate_digest_prefers_frequency_then_spans_manifest_occurrences(tmp_
 
 def test_checked_in_method_reconstruction_artifacts_are_hash_bound_and_non_advisory() -> None:
     paths = {
-        "codebook": METHOD_ARTIFACTS / "method-codebook.v1.json",
-        "coding": METHOD_ARTIFACTS / "method-coding.v1.json",
-        "claim_ledger": METHOD_ARTIFACTS / "method-claim-ledger.v1.json",
-        "candidate_digest": METHOD_ARTIFACTS / "method-candidate-digest.v1.json",
-        "synthesis": METHOD_ARTIFACTS / "method-claim-synthesis.v1.json",
-        "augmentations": METHOD_ARTIFACTS / "method-augmentations.v1.json",
-        "evidence": METHOD_ARTIFACTS / "method-synthesis-evidence.v1.json",
+        "codebook": METHOD_ARTIFACTS / "codebook.v1.json",
+        "coding": METHOD_ARTIFACTS / "coding.v1.json",
+        "claim_ledger": METHOD_ARTIFACTS / "claim-ledger.v1.json",
+        "candidate_digest": METHOD_ARTIFACTS / "candidate-digest.v1.json",
+        "synthesis": METHOD_ARTIFACTS / "claim-synthesis.v1.json",
+        "augmentations": METHOD_ARTIFACTS / "augmentations.v1.json",
+        "evidence": METHOD_ARTIFACTS / "synthesis-evidence.v1.json",
     }
     assert all(path.is_file() for path in paths.values())
     documents = {name: json.loads(path.read_text(encoding="utf-8")) for name, path in paths.items()}

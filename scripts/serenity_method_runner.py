@@ -11,8 +11,8 @@ from serenity_core.method_runner import MethodRunnerError, build_method_case, bu
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT / "config" / "method-coding-output.schema.json"
-SYNTHESIS_SCHEMA = ROOT / "config" / "method-claim-synthesis.schema.json"
+SCHEMA = ROOT / "schemas" / "method-coding-output.schema.json"
+SYNTHESIS_SCHEMA = ROOT / "schemas" / "method-claim-synthesis.schema.json"
 
 
 def parser() -> argparse.ArgumentParser:

@@ -45,8 +45,8 @@ _SOURCE_INDEX_POLICY = {
     "forbidden_in_cleanroom_packet": True,
     "forbidden_metadata": ["database", "media_id", "representative_ticker", "source_row_id", "source_type"],
 }
-_METHOD_CODING_OUTPUT_SCHEMA = Path(__file__).resolve().parents[2] / "config" / "method-coding-output.schema.json"
-_METHOD_CLAIM_SYNTHESIS_SCHEMA = Path(__file__).resolve().parents[2] / "config" / "method-claim-synthesis.schema.json"
+_METHOD_CODING_OUTPUT_SCHEMA = Path(__file__).resolve().parents[2] / "schemas" / "method-coding-output.schema.json"
+_METHOD_CLAIM_SYNTHESIS_SCHEMA = Path(__file__).resolve().parents[2] / "schemas" / "method-claim-synthesis.schema.json"
 _CANDIDATE_DIGEST_POLICY = {
     "format": "serenity-method-candidate-digest-policy/1",
     "selection": {

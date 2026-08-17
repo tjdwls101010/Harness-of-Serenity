@@ -28,9 +28,9 @@ SKILL_MODES = {
 }
 CANONICAL_HARNESS = '"$SERENITY_PYTHON" "$SERENITY_HARNESS" validate'
 CANONICAL_CLI = '"$SERENITY_PYTHON" "$SERENITY_CLI" run start'
-METHOD_LEDGER = ROOT / "config" / "method-claim-ledger.v1.json"
-METHOD_DIGEST = ROOT / "config" / "method-candidate-digest.v1.json"
-METHOD_SYNTHESIS = ROOT / "config" / "method-synthesis-evidence.v1.json"
+METHOD_LEDGER = ROOT / "method" / "claim-ledger.v1.json"
+METHOD_DIGEST = ROOT / "method" / "candidate-digest.v1.json"
+METHOD_SYNTHESIS = ROOT / "method" / "synthesis-evidence.v1.json"
 METHOD_LEDGER_CONTENT_HASH = "dba5fe018b2061048cb97d0207b363f6ac0ecddef6735bef7f1f2fdbc369aaab"
 METHOD_DIGEST_CONTENT_HASH = "3056087bca1f24c5ee660bfce20a47bfdc93961f7b8e1f090efdd8949632d6f3"
 METHOD_ROOT_CONTRACT = (

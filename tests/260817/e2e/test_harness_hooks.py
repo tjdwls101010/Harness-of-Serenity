@@ -14,9 +14,9 @@ STOP = ROOT / ".claude" / "hooks" / "lifecycle_gate.py"
 FIXTURES = Path(__file__).with_name("fixtures") / "harness-hooks"
 CANONICAL_HARNESS = '"$SERENITY_PYTHON" "$SERENITY_HARNESS" validate'
 CANONICAL_CLI = '"$SERENITY_PYTHON" "$SERENITY_CLI" run start --mode '
-METHOD_LEDGER = ROOT / "config" / "method-claim-ledger.v1.json"
-METHOD_DIGEST = ROOT / "config" / "method-candidate-digest.v1.json"
-METHOD_SYNTHESIS = ROOT / "config" / "method-synthesis-evidence.v1.json"
+METHOD_LEDGER = ROOT / "method" / "claim-ledger.v1.json"
+METHOD_DIGEST = ROOT / "method" / "candidate-digest.v1.json"
+METHOD_SYNTHESIS = ROOT / "method" / "synthesis-evidence.v1.json"
 
 
 def _canonical_hash(value: object) -> str:
