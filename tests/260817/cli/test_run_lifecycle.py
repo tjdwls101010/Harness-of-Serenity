@@ -8,7 +8,7 @@ from jsonschema import Draft202012Validator
 
 
 ROOT = Path(__file__).resolve().parents[3]
-RUN_SCHEMA = json.loads((ROOT / "schemas" / "v2" / "run-manifest-2.schema.json").read_text(encoding="utf-8"))
+RUN_SCHEMA = json.loads((ROOT / "schemas" / "run-manifest-2.schema.json").read_text(encoding="utf-8"))
 
 
 def test_start_status_and_abandon_persist_one_typed_run(run_cli, tmp_path: Path) -> None:

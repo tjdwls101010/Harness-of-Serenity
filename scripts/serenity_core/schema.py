@@ -8,7 +8,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker
 
 
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas" / "v2"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas"
 SCHEMA_FILES = {
     "urn:serenity:schema:run-manifest:2": "run-manifest-2.schema.json",
     "urn:serenity:schema:fact-snapshot:2": "fact-snapshot-2.schema.json",

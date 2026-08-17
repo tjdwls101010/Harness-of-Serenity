@@ -8,7 +8,7 @@ from jsonschema import Draft202012Validator
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_DIR = ROOT / "schemas" / "v2"
+SCHEMA_DIR = ROOT / "schemas"
 
 EXPECTED_SCHEMAS = {
     "run-manifest-2.schema.json": "urn:serenity:schema:run-manifest:2",

@@ -17,7 +17,7 @@ The output can support a research call or a conditional entry trigger, but it do
 ## 2. Features
 
 - One public lifecycle CLI, [`scripts/serenity.py`](scripts/serenity.py), with JSON-only stdout and explicit run state.
-- Versioned schemas under [`schemas/v2`](schemas/v2) for fact snapshots, provider envelopes, evidence, hypotheses, lenses, graphs, decisions, prospective records, and evaluation.
+- Versioned schemas under [`schemas`](schemas) for fact snapshots, provider envelopes, evidence, hypotheses, lenses, graphs, decisions, prospective records, and evaluation.
 - Source-aware evidence: each result carries an availability state and provenance; time-sensitive work distinguishes when something was effective, observed, available, and fetched.
 - Official issuer narrative as typed evidence: SEC filings and already-resolved issuer IR documents retain identity, publication time, exact response bytes, and source hashes before any management claim or cross-company read-through is interpreted.
 - Adaptive research rather than a frozen scoring pipeline: the analyst records competing hypotheses and requests evidence that could distinguish them.

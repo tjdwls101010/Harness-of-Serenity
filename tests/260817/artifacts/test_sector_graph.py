@@ -12,7 +12,7 @@ from serenity_core.sector_graph import SectorGraphValidationError, build_sector_
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SECTOR_SCHEMA = json.loads((ROOT / "schemas" / "v2" / "sector-graph-1.schema.json").read_text(encoding="utf-8"))
+SECTOR_SCHEMA = json.loads((ROOT / "schemas" / "sector-graph-1.schema.json").read_text(encoding="utf-8"))
 
 
 def physical_ai_graph() -> dict:

@@ -11,7 +11,7 @@ from serenity_core.runtime import canonical_hash
 
 
 ROOT = Path(__file__).resolve().parents[3]
-PROSPECTIVE_SCHEMA = json.loads((ROOT / "schemas" / "v2" / "prospective-record-1.schema.json").read_text(encoding="utf-8"))
+PROSPECTIVE_SCHEMA = json.loads((ROOT / "schemas" / "prospective-record-1.schema.json").read_text(encoding="utf-8"))
 
 
 def write_json(path: Path, value: dict) -> None:

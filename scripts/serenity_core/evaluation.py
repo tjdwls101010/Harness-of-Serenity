@@ -839,8 +839,8 @@ def evaluate(
         cleanroom_root = temporary_root
     if results_root is None:
         results_root = cleanroom_root.parent / f"{cleanroom_root.name}-results"
-    qa_schema = repo_root / "schemas" / "v2" / "qa-result-1.schema.json"
-    candidate_schema = repo_root / "schemas" / "v2" / "candidate-result-1.schema.json"
+    qa_schema = repo_root / "schemas" / "qa-result-1.schema.json"
+    candidate_schema = repo_root / "schemas" / "candidate-result-1.schema.json"
     candidate_cleanroom_root = cleanroom_root.parent / f"{cleanroom_root.name}-candidates"
     candidate_results_root = results_root.parent / f"{results_root.name}-candidates"
     candidate_input_root: Path | None = Path(tempfile.mkdtemp(prefix="serenity-candidate-inputs-")) if execute_cli and candidate_runner is None else None

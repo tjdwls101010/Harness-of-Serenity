@@ -10,8 +10,8 @@ from serenity_core.lens import run_lens
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SPEC_SCHEMA = json.loads((ROOT / "schemas" / "v2" / "lens-spec-1.schema.json").read_text(encoding="utf-8"))
-RESULT_SCHEMA = json.loads((ROOT / "schemas" / "v2" / "lens-result-1.schema.json").read_text(encoding="utf-8"))
+SPEC_SCHEMA = json.loads((ROOT / "schemas" / "lens-spec-1.schema.json").read_text(encoding="utf-8"))
+RESULT_SCHEMA = json.loads((ROOT / "schemas" / "lens-result-1.schema.json").read_text(encoding="utf-8"))
 
 
 def snapshot(*facts: dict) -> dict:

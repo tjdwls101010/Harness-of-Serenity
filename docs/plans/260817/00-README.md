@@ -40,7 +40,7 @@ scripts/.venv/bin/python scripts/serenity.py outcomes register|refresh
 scripts/.venv/bin/python scripts/serenity.py graph put
 ```
 
-`scripts/serenity_corpus.py` and `scripts/serenity_eval.py` are separate maintenance/evaluation CLIs, not competing analysis runtimes. All runtime commands write exactly one JSON object to stdout and diagnostics only to stderr. The canonical schema set lives in `schemas/v2/`. Tests for this plan live exclusively in `tests/260817/` and exercise public commands and real artifact boundaries rather than private helper implementation.
+`scripts/serenity_corpus.py` and `scripts/serenity_eval.py` are separate maintenance/evaluation CLIs, not competing analysis runtimes. All runtime commands write exactly one JSON object to stdout and diagnostics only to stderr. The canonical schema set lives in `schemas/`. Tests for this plan live exclusively in `tests/260817/` and exercise public commands and real artifact boundaries rather than private helper implementation.
 
 ## Implementation order and done criteria
 

@@ -35,7 +35,7 @@ LENS_RESULT_SCHEMA_ID = "urn:serenity:schema:lens-result:1"
 
 
 def _schema_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "schemas" / "v2" / "research-decision-1.schema.json"
+    return Path(__file__).resolve().parents[2] / "schemas" / "research-decision-1.schema.json"
 
 
 def _schema() -> dict[str, Any]:

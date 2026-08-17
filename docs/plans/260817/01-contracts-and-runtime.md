@@ -46,7 +46,7 @@ The runtime may provide a documented global working-directory/root option only i
 
 ## Versioned JSON schemas
 
-Use JSON Schema 2020-12. The canonical IDs are `urn:serenity:schema:<name>:<version>`, schemas are immutable once used by a saved artifact, and a breaking change creates a new version. Store schemas under `schemas/v2/` with filenames that make the version visible.
+Use JSON Schema 2020-12. The canonical IDs are `urn:serenity:schema:<name>:<version>`, schemas are immutable once used by a saved artifact, and a breaking change creates a new version. Store schemas under `schemas/` with filenames that make the version visible.
 
 | Schema | Required role |
 | --- | --- |

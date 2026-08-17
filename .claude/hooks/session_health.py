@@ -75,7 +75,7 @@ def main() -> int:
             raise ValueError("settings does not expose exactly SessionStart and Stop")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         problems.append(f"hook settings are unavailable ({exc})")
-    for path in (root / "scripts" / "serenity.py", root / "scripts" / "serenity_harness.py", root / "schemas" / "v2" / "run-manifest-2.schema.json"):
+    for path in (root / "scripts" / "serenity.py", root / "scripts" / "serenity_harness.py", root / "schemas" / "run-manifest-2.schema.json"):
         if not path.is_file():
             problems.append(f"required local file is missing ({path.relative_to(root)})")
     _check_active(root, problems)
