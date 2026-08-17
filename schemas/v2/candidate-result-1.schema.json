@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:candidate-result:1",
+  "title": "Serenity cleanroom candidate result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "result_id", "case_id", "run_id", "model", "capability", "harness_hashes", "loaded_instruction_paths", "packet_sha256", "decision", "action", "facts", "inferences", "trigger", "bear_case", "falsifiers", "evidence_refs", "user_artifact", "canonical_sha256"],
+  "properties": {
+    "schema_id": {"type": "string", "const": "urn:serenity:schema:candidate-result:1"},
+    "result_id": {"$ref": "#/$defs/id"},
+    "case_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "model": {"type": "string", "minLength": 1},
+    "capability": {"type": "string", "const": "shared-harness-instruction-integration"},
+    "harness_hashes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/harnessHash"}},
+    "loaded_instruction_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Za-z0-9.][A-Za-z0-9._/-]{0,255}$"}},
+    "packet_sha256": {"$ref": "#/$defs/sha256"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "action": {"$ref": "#/$defs/action"},
+    "facts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/fact"}},
+    "inferences": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/inference"}},
+    "trigger": {"$ref": "#/$defs/groundedStatement"},
+    "bear_case": {"$ref": "#/$defs/groundedStatement"},
+    "falsifiers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/groundedStatement"}},
+    "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}},
+    "user_artifact": {"$ref": "#/$defs/userArtifact"},
+    "canonical_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "harnessHash": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "pattern": "^[A-Za-z0-9.][A-Za-z0-9._/-]{0,255}$"}, "sha256": {"$ref": "#/$defs/sha256"}}},
+    "groundedStatement": {"type": "object", "additionalProperties": false, "required": ["statement", "evidence_refs"], "properties": {"statement": {"type": "string", "minLength": 1}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}}}},
+    "decision": {"type": "object", "additionalProperties": false, "required": ["stance", "statement", "evidence_refs"], "properties": {"stance": {"type": "string", "enum": ["bullish", "bearish", "mixed", "insufficient_evidence"]}, "statement": {"type": "string", "minLength": 1}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}}}},
+    "action": {"type": "object", "additionalProperties": false, "required": ["kind", "statement", "evidence_refs"], "properties": {"kind": {"type": "string", "enum": ["RECOMMEND_NOW", "ENTER_ON_TRIGGER", "MONITOR", "PASS", "BLOCKED"]}, "statement": {"type": "string", "minLength": 1}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}}}},
+    "userArtifact": {"type": "object", "additionalProperties": false, "required": ["locale", "markdown"], "properties": {"locale": {"type": "string", "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"}, "markdown": {"type": "string", "minLength": 1}}},
+    "fact": {"type": "object", "additionalProperties": false, "required": ["fact_id", "claim", "evidence_refs"], "properties": {"fact_id": {"$ref": "#/$defs/id"}, "claim": {"type": "string", "minLength": 1}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}}}},
+    "inference": {"type": "object", "additionalProperties": false, "required": ["inference_id", "claim", "evidence_refs"], "properties": {"inference_id": {"$ref": "#/$defs/id"}, "claim": {"type": "string", "minLength": 1}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}}}}
+  }
+}

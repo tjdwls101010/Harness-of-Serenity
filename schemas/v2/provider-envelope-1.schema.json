@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:provider-envelope:1",
+  "title": "Serenity provider adapter envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "provider", "provider_version", "request_id", "status", "fetched_at", "source", "temporal", "data"],
+  "properties": {
+    "schema_id": {"const": "urn:serenity:schema:provider-envelope:1"},
+    "provider": {"type": "string", "minLength": 1},
+    "provider_version": {"type": "string", "minLength": 1},
+    "request_id": {"$ref": "#/$defs/id"},
+    "status": {"$ref": "#/$defs/availability"},
+    "fetched_at": {"$ref": "#/$defs/dateTime"},
+    "source": {"type": "object", "additionalProperties": false, "required": ["uri", "content_sha256"], "properties": {"uri": {"type": "string", "format": "uri"}, "content_sha256": {"$ref": "#/$defs/sha256OrNull"}, "parameters": {"type": "object"}, "http_status": {"type": "integer", "minimum": 100, "maximum": 599}}},
+    "temporal": {"$ref": "#/$defs/temporal"},
+    "data": {},
+    "retry_count": {"type": "integer", "minimum": 0},
+    "identity_bindings": {"type": "object", "additionalProperties": {"type": "string"}},
+    "parse": {"type": "object", "additionalProperties": false, "required": ["status"], "properties": {"status": {"enum": ["parsed", "not_parsed", "failed"]}, "transform_version": {"type": "string", "minLength": 1}, "message": {"type": "string"}}},
+    "error": {"$ref": "#/$defs/error"}
+  },
+  "allOf": [{"if": {"properties": {"status": {"const": "available"}}, "required": ["status"]}, "then": {"properties": {"data": {"not": {"type": "null"}}, "source": {"properties": {"content_sha256": {"$ref": "#/$defs/sha256"}}}, "temporal": {"properties": {"available_at": {"$ref": "#/$defs/dateTime"}}}, "error": false}}, "else": {"properties": {"data": {"type": "null"}, "error": {"$ref": "#/$defs/error"}}}}],
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sha256OrNull": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "error": {"type": "object", "additionalProperties": false, "required": ["reason"], "properties": {"reason": {"type": "string", "minLength": 1}, "code": {"type": "string", "minLength": 1}, "retryable": {"type": "boolean"}}},
+    "date": {"type": "string", "format": "date"},
+    "dateOrNull": {"anyOf": [{"$ref": "#/$defs/date"}, {"type": "null"}]},
+    "dateOrDateTimeOrNull": {"anyOf": [{"$ref": "#/$defs/date"}, {"$ref": "#/$defs/dateTime"}, {"type": "null"}]},
+    "dateTime": {"type": "string", "format": "date-time"},
+    "dateTimeOrNull": {"anyOf": [{"$ref": "#/$defs/dateTime"}, {"type": "null"}]},
+    "availability": {"enum": ["available", "not_disclosed", "not_applicable", "unavailable", "invalid", "not_requested", "stale", "conflict"]},
+    "temporal": {"type": "object", "additionalProperties": false, "required": ["effective_at", "observed_at", "available_at", "source_version"], "properties": {"effective_at": {"$ref": "#/$defs/dateOrDateTimeOrNull"}, "period_start": {"$ref": "#/$defs/dateOrNull"}, "period_end": {"$ref": "#/$defs/dateOrNull"}, "observed_at": {"$ref": "#/$defs/dateOrDateTimeOrNull"}, "available_at": {"$ref": "#/$defs/dateTimeOrNull"}, "source_version": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}}}
+  }
+}

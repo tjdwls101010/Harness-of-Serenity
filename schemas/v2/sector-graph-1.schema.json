@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:sector-graph:1",
+  "title": "Serenity typed sector and dependency graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "graph_id", "run_id", "as_of", "evidence_refs", "nodes", "edges", "headline_node_id", "bottleneck_node_ids", "recursive_bottom_hop", "sibling_comparison", "second_order_effect", "ownership_concentration", "us_expression"],
+  "properties": {
+    "schema_id": {"const": "urn:serenity:schema:sector-graph:1"},
+    "graph_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "as_of": {"type": "string", "format": "date"},
+    "evidence_refs": {"$ref": "#/$defs/evidenceRefs"},
+    "nodes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/node"}},
+    "edges": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/edge"}},
+    "headline_node_id": {"$ref": "#/$defs/id"},
+    "bottleneck_node_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "recursive_bottom_hop": {"$ref": "#/$defs/recursiveBottomHop"},
+    "sibling_comparison": {"$ref": "#/$defs/siblingComparison"},
+    "second_order_effect": {"$ref": "#/$defs/secondOrderEffect"},
+    "ownership_concentration": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/ownershipObservation"}},
+    "us_expression": {"$ref": "#/$defs/usExpression"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "evidenceRefs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "evidence_refs"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/evidenceRefs"}
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "node_type", "label", "relationship_to_bottleneck", "claims"],
+      "properties": {
+        "node_id": {"$ref": "#/$defs/id"},
+        "node_type": {"enum": ["industry", "layer", "company", "asset", "input", "jurisdiction", "standard"]},
+        "label": {"type": "string", "minLength": 1},
+        "relationship_to_bottleneck": {"enum": ["owns", "supplies", "enables", "theme_exposure", "not_assessed"]},
+        "claims": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/claim"}}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_node_id", "to_node_id", "edge_type", "claims"],
+      "properties": {
+        "from_node_id": {"$ref": "#/$defs/id"},
+        "to_node_id": {"$ref": "#/$defs/id"},
+        "edge_type": {"enum": ["depends_on", "supplies", "qualifies", "finances", "controls_capacity", "substitutes"]},
+        "claims": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/claim"}}
+      }
+    },
+    "recursiveBottomHop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "path", "stop_rationale"],
+      "properties": {
+        "node_id": {"$ref": "#/$defs/id"},
+        "path": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+        "stop_rationale": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason", "evidence_refs"],
+          "properties": {
+            "reason": {"type": "string", "minLength": 1},
+            "evidence_refs": {"$ref": "#/$defs/evidenceRefs"}
+          }
+        }
+      }
+    },
+    "siblingComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_ids", "statement", "evidence_refs"],
+      "properties": {
+        "node_ids": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/evidenceRefs"}
+      }
+    },
+    "secondOrderEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence_refs"],
+      "properties": {
+        "status": {"enum": ["resolved", "unresolved"]},
+        "actor_node_id": {"$ref": "#/$defs/id"},
+        "effect": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/evidenceRefs"}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "resolved"}}}, "then": {"required": ["actor_node_id", "effect"]}},
+        {"if": {"properties": {"status": {"const": "unresolved"}}}, "then": {"required": ["rationale"]}}
+      ]
+    },
+    "ownershipObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "kind", "statement", "vector", "rationale", "evidence_refs"],
+      "properties": {
+        "node_id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["ownership", "concentration"]},
+        "statement": {"type": "string", "minLength": 1},
+        "vector": {"enum": ["tightening", "stable", "loosening", "unknown"]},
+        "rationale": {"type": "string", "minLength": 1},
+        "rating_dependency": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/evidenceRefs"}
+      },
+      "allOf": [
+        {"if": {"properties": {"vector": {"const": "loosening"}}}, "then": {"required": ["rating_dependency"]}}
+      ]
+    },
+    "listedExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticker", "node_id", "market", "evidence_refs", "exposure_class", "revenue_link_status", "shared_driver_ids", "shared_failure_node_ids", "role"],
+      "properties": {
+        "ticker": {"type": "string", "pattern": "^[A-Z0-9.-]+$"},
+        "node_id": {"$ref": "#/$defs/id"},
+        "market": {"const": "US"},
+        "evidence_refs": {"$ref": "#/$defs/evidenceRefs"},
+        "exposure_class": {"enum": ["owner", "partial_owner", "supplier_to_owner", "theme_proxy"]},
+        "revenue_link_status": {"enum": ["disclosed", "deduced", "unresolved"]},
+        "capture_evidence_refs": {"$ref": "#/$defs/evidenceRefs"},
+        "capture_rationale": {"type": "string", "minLength": 1},
+        "shared_driver_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+        "shared_failure_node_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+        "role": {"enum": ["primary", "secondary"]}
+      },
+      "allOf": [
+        {"if": {"properties": {"revenue_link_status": {"const": "unresolved"}}}, "then": {"required": ["capture_rationale"]}},
+        {"if": {"properties": {"revenue_link_status": {"enum": ["disclosed", "deduced"]}}}, "then": {"required": ["capture_evidence_refs"]}}
+      ]
+    },
+    "usExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolution"],
+      "properties": {
+        "resolution": {"enum": ["clean_vehicle", "indirect_vehicle", "no_clean_vehicle"]},
+        "listed_expressions": {"type": "array", "items": {"$ref": "#/$defs/listedExpression"}},
+        "rationale": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/evidenceRefs"}
+      },
+      "allOf": [
+        {"if": {"properties": {"resolution": {"const": "no_clean_vehicle"}}}, "then": {"required": ["rationale", "evidence_refs"], "properties": {"listed_expressions": {"maxItems": 0}}}},
+        {
+          "if": {"properties": {"resolution": {"enum": ["clean_vehicle", "indirect_vehicle"]}}},
+          "then": {
+            "required": ["listed_expressions"],
+            "properties": {
+              "listed_expressions": {
+                "minItems": 1,
+                "contains": {"type": "object", "properties": {"role": {"const": "primary"}}, "required": ["role"]},
+                "minContains": 1,
+                "maxContains": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"resolution": {"const": "clean_vehicle"}}},
+          "then": {
+            "properties": {
+              "listed_expressions": {
+                "items": {
+                  "if": {"properties": {"role": {"const": "primary"}}, "required": ["role"]},
+                  "then": {
+                    "properties": {
+                      "exposure_class": {"not": {"const": "theme_proxy"}},
+                      "revenue_link_status": {"not": {"const": "unresolved"}}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

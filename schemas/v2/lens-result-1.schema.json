@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:serenity:schema:lens-result:1",
+  "title": "Serenity executed arithmetic lens",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "lens_result_id", "lens_id", "run_id", "validity", "input_facts", "reproducibility_hash", "executed_at"],
+  "properties": {"schema_id": {"const": "urn:serenity:schema:lens-result:1"}, "lens_result_id": {"$ref": "#/$defs/id"}, "lens_id": {"$ref": "#/$defs/id"}, "run_id": {"$ref": "#/$defs/id"}, "validity": {"enum": ["valid", "invalid", "insufficient_evidence", "not_applicable"]}, "input_facts": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["fact_ref", "availability", "value", "unit"], "properties": {"fact_ref": {"$ref": "#/$defs/id"}, "availability": {"enum": ["available", "not_disclosed", "not_applicable", "unavailable", "invalid", "not_requested", "stale", "conflict"]}, "value": {}, "unit": {"type": "string", "minLength": 1}}}}, "fact_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true}, "output": {"type": ["number", "object", "null"]}, "output_unit": {"type": "string", "minLength": 1}, "reproducibility_hash": {"$ref": "#/$defs/sha256"}, "executed_at": {"$ref": "#/$defs/dateTime"}, "error": {"type": "string"}},
+  "$defs": {"id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "dateTime": {"type": "string", "format": "date-time"}}
+}
