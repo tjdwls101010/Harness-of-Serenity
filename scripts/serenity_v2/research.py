@@ -253,6 +253,9 @@ class ResearchArtifactStore:
         ]:
             raise ResearchArtifactValidationError("hypothesis_ids do not match request")
         result_seed = self._result_seed_from_evidence(request, evidence)
+        owner = self._capability_owners[request["capability_id"]]
+        if result_seed.get("provider") != owner:
+            raise ResearchArtifactValidationError("evidence provider does not own the request capability")
         result_id = f"evidence-result-{content_hash(result_seed)[:20]}"
         if "result_id" in evidence and evidence["result_id"] != result_id:
             raise ResearchArtifactValidationError("result_id does not match content-addressed result")
@@ -275,6 +278,8 @@ class ResearchArtifactStore:
         request = self.read_evidence_request(result["request_id"])
         if result["hypothesis_ids"] != request["hypothesis_ids"] or result["capability_id"] != request["capability_id"]:
             raise ResearchArtifactValidationError("stored result does not match its request")
+        if result["provider"] != self._capability_owners[request["capability_id"]]:
+            raise ResearchArtifactValidationError("stored result provider does not own the request capability")
         return result
 
     def _result_seed_from_evidence(self, request: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any]:

@@ -7,6 +7,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from serenity_v2.providers.base import ProviderEnvelope
@@ -45,6 +46,7 @@ class SecLookup:
     official_name: str | None
     exchange: str | None
     envelopes: tuple[dict[str, Any], ...]
+    issuer_domains: tuple[str, ...] = ()
     provider_envelopes: tuple[ProviderEnvelope, ...] = ()
     rejection: dict[str, str] | None = None
 
@@ -213,6 +215,7 @@ class SecIdentityProvider:
             )
 
         submission_data = submission if isinstance(submission, dict) else {}
+        issuer_domains = self._issuer_domains(submission_data)
         submission_envelope = ProviderEnvelope.available(
             provider="sec.submissions",
             provider_version="v1",
@@ -226,6 +229,8 @@ class SecIdentityProvider:
                     "name": submission_data.get("name"),
                     "tickers": submission_data.get("tickers"),
                     "exchanges": submission_data.get("exchanges"),
+                    "website": submission_data.get("website"),
+                    "investorWebsite": submission_data.get("investorWebsite"),
                 },
             },
             fetched_at=fetched_at,
@@ -273,8 +278,21 @@ class SecIdentityProvider:
             official_name=name,
             exchange=exchanges[0],
             envelopes=(directory_envelope.to_dict(), submission_envelope.to_dict()),
+            issuer_domains=issuer_domains,
             provider_envelopes=(directory_envelope, submission_envelope),
         )
+
+    @staticmethod
+    def _issuer_domains(submission: dict[str, Any]) -> tuple[str, ...]:
+        domains: set[str] = set()
+        for key in ("website", "investorWebsite"):
+            value = submission.get(key)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            parsed = urlparse(value if "://" in value else f"https://{value}")
+            if parsed.scheme in {"http", "https"} and isinstance(parsed.hostname, str):
+                domains.add(parsed.hostname.casefold().strip("."))
+        return tuple(sorted(domains))
 
     @staticmethod
     def _find_record(directory: Any, ticker: str) -> dict[str, Any] | None:

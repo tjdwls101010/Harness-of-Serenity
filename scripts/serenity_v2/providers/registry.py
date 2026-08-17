@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from serenity_v2.providers.base import ProviderEnvelope
+from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
 from serenity_v2.research import ResearchArtifactValidationError, load_evidence_catalog
 from serenity_v2.schema import SchemaViolation, validate_document
 
@@ -98,7 +99,12 @@ class EvidenceProviderRegistry:
         self._config = {provider_id: dict(values) for provider_id, values in (config or {}).items() if isinstance(values, Mapping)}
         self._clock = clock
 
-    def collect(self, request_doc: Mapping[str, Any]) -> list[ProviderEnvelope]:
+    def collect(
+        self,
+        request_doc: Mapping[str, Any],
+        *,
+        issuer_origin_binding: VerifiedIssuerOrigin | None = None,
+    ) -> list[ProviderEnvelope]:
         """Return at least one schema-valid envelope or raise a validation error.
 
         Validation happens before a factory is constructed, so a mismatched
@@ -112,12 +118,20 @@ class EvidenceProviderRegistry:
         cutoff = policy.get("historical_cutoff")
         if policy.get("allow_network", True) is False:
             return self._finalize([self._registry_envelope(provider_id, request, "not_requested", "network access is disabled by provider_policy")])
+        if provider_id == "issuer-ir" and issuer_origin_binding is None:
+            raise ProviderRegistryValidationError("issuer-ir.document requires a runtime-verified issuer origin binding")
         if capability_id in _SNAPSHOT_CAPABILITIES:
             return self._finalize(
                 [self._registry_envelope(provider_id, request, "not_applicable", "baseline snapshot capability is owned by the snapshot service")]
             )
         try:
-            envelopes = self._dispatch(provider_id, capability_id, request["provider_parameters"], cutoff)
+            envelopes = self._dispatch(
+                provider_id,
+                capability_id,
+                request["provider_parameters"],
+                cutoff,
+                issuer_origin_binding=issuer_origin_binding,
+            )
         except Exception as exc:  # Provider faults must remain typed evidence.
             envelopes = [
                 self._registry_envelope(
@@ -177,7 +191,13 @@ class EvidenceProviderRegistry:
         return request
 
     def _dispatch(
-        self, provider_id: str, capability_id: str, parameters: dict[str, Any], cutoff: str | None
+        self,
+        provider_id: str,
+        capability_id: str,
+        parameters: dict[str, Any],
+        cutoff: str | None,
+        *,
+        issuer_origin_binding: VerifiedIssuerOrigin | None,
     ) -> list[ProviderEnvelope]:
         provider = self._provider(provider_id)
         if provider_id == "alfred-fred":
@@ -185,6 +205,8 @@ class EvidenceProviderRegistry:
         elif provider_id == "sec" and capability_id in {"sec.submissions", "sec.filings"}:
             filing_request = {**parameters, "capability": capability_id.split(".", 1)[1]}
             result = provider.execute(filing_request, cutoff=cutoff)
+        elif provider_id == "issuer-ir" and capability_id == "issuer-ir.document":
+            result = provider.collect(parameters, cutoff=cutoff, verified_origin=issuer_origin_binding)
         else:
             result = provider.collect(parameters)
         return self._as_envelopes(result)
@@ -202,6 +224,10 @@ class EvidenceProviderRegistry:
             from serenity_v2.providers.filings import FilingsProvider
 
             return FilingsProvider(clock=self._clock)
+        if provider_id == "issuer-ir":
+            from serenity_v2.providers.issuer_ir import IssuerIRProvider
+
+            return IssuerIRProvider(clock=self._clock)
         from serenity_v2.providers.public_data import public_data_catalog
 
         provider_config = self._public_data_config(provider_id)

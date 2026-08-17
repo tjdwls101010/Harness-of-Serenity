@@ -12,6 +12,7 @@ import pytest
 
 import serenity
 from serenity_v2.providers.base import ProviderEnvelope
+from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
 from serenity_v2.research import ResearchArtifactStore
 from serenity_v2.runtime import RunStore, SerenityError
 from serenity_v2.snapshot import validate_security_snapshot as public_validate_security_snapshot
@@ -479,6 +480,42 @@ def test_each_cli_help_path_shows_an_executable_example_without_io(tmp_path: Pat
         assert "--frozen-packet" not in completed.stdout
 
 
+def test_evidence_help_explains_official_issuer_narrative_capture_without_io(tmp_path: Path) -> None:
+    request_help = subprocess.run(
+        [sys.executable, str(Path(serenity.__file__)), "evidence", "request", "--help"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    collect_help = subprocess.run(
+        [sys.executable, str(Path(serenity.__file__)), "evidence", "collect", "--help"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    read_help = subprocess.run(
+        [sys.executable, str(Path(serenity.__file__)), "evidence", "read", "--help"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert (request_help.returncode, request_help.stderr) == (0, "")
+    assert (collect_help.returncode, collect_help.stderr) == (0, "")
+    assert (read_help.returncode, read_help.stderr) == (0, "")
+    for output in (request_help.stdout, collect_help.stdout):
+        assert "issuer-ir.document" in output
+        assert "official issuer-owned URL" in output
+        assert "identity/domain/time/raw-byte" in output
+        assert "Web search only locates the source" in output
+        assert "live SEC-provenance fact snapshot" in output
+        assert "frozen snapshot cannot authorize" in output
+    assert "issuer-ir.document must use evidence collect" in read_help.stdout
+
+
 def test_snapshot_security_uses_live_provider_seam_and_never_serializes_dotenv_secrets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     run = RunStore(tmp_path).start(
         mode="single-name",
@@ -791,6 +828,302 @@ def test_evidence_collect_persists_registry_envelopes_in_deterministic_order_wit
         argparse.Namespace(command="evidence", evidence_command="read", run_id=run["run_id"], artifact_id=result["results"][0]["result_id"], document=None), tmp_path
     )
     assert read_back["result"] == result["results"][0]
+
+
+def test_issuer_ir_collect_resolves_the_origin_against_the_attached_snapshot_before_registry_io(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = RunStore(tmp_path)
+    run = runtime.start(
+        mode="single-name",
+        question="What did management disclose about the operating constraint?",
+        subjects=["NVDA"],
+        as_of="2026-08-17",
+        source_policy={
+            "policy_id": "live-issuer-ir-v1",
+            "allow_network": True,
+            "historical_cutoff": "2026-08-17T23:59:59Z",
+            "allowed_providers": ["issuer-ir", "openfigi", "sec", "yfinance"],
+        },
+    )
+    packet = frozen_snapshot_packet()
+    packet["identity_resolution"]["identity"]["issuer_domains"] = ["investor.nvidia.com", "www.nvidia.com"]
+    submissions_raw = json.dumps(
+        {
+            "cik": "0001045810",
+            "name": "NVIDIA Corporation",
+            "tickers": ["NVDA"],
+            "exchanges": ["Nasdaq"],
+            "website": "https://www.nvidia.com/",
+            "investorWebsite": "https://investor.nvidia.com/",
+        }
+    ).encode()
+    identity_envelopes = tuple(
+        ProviderEnvelope.available(
+            provider=provider,
+            provider_version="fixture/1",
+            source_uri=source_uri,
+            raw_content=raw_content,
+            data={},
+            fetched_at="2026-08-17T12:00:00Z",
+            request={"ticker": "NVDA"},
+            available_at="2026-08-17T12:00:00Z",
+            source_version="fixture/1",
+            parse={"status": "parsed", "transform_version": "fixture/1"},
+        )
+        for provider, source_uri, raw_content in (
+            ("sec.company_tickers", "https://www.sec.gov/files/company_tickers.json", b"exact SEC directory bytes"),
+            ("sec.submissions", "https://data.sec.gov/submissions/CIK0001045810.json", submissions_raw),
+            ("openfigi.mapping", "https://api.openfigi.com/v3/mapping", b"exact OpenFIGI bytes"),
+        )
+    )
+    identity_resolution = IdentityResolution(packet["identity_resolution"], identity_envelopes)
+    market = ProviderEnvelope.available(
+        provider="yfinance",
+        provider_version="fixture/1",
+        source_uri="https://fixture.test/NVDA",
+        raw_content=b"exact market bytes",
+        data=packet["market_envelope"]["data"],
+        fetched_at="2026-08-17T12:00:00Z",
+        request={"ticker": "NVDA"},
+        available_at="2026-08-17T12:00:00Z",
+        source_version="fixture/1",
+        parse={"status": "parsed", "transform_version": "fixture/1"},
+    )
+    monkeypatch.setattr(serenity, "build_live_snapshot_inputs", lambda **_kwargs: (identity_resolution, market, None))
+    snapshot_result = serenity.dispatch(
+        argparse.Namespace(
+            command="snapshot",
+            snapshot_command="security",
+            run_id=run["run_id"],
+            frozen_packet=None,
+        ),
+        tmp_path,
+    )
+    snapshot = snapshot_result["snapshot"]
+    artifacts = ResearchArtifactStore(tmp_path / ".serenity" / "runs" / run["run_id"])
+    prepared_ledger = artifacts.prepare_hypotheses(hypotheses())
+    run = runtime.publish_or_refresh_artifact(
+        run["run_id"],
+        name="hypothesis-ledger",
+        expected_attachment=None,
+        path=prepared_ledger.ledger_path,
+        content=prepared_ledger.ledger_content,
+        schema_id=prepared_ledger.ledger["schema_id"],
+        phase="hypotheses_updated",
+    )
+
+    def publish_request(*, issuer_domain: str) -> str:
+        nonlocal run
+        prior = run["artifacts"]["hypothesis-ledger"]
+        prepared = artifacts.prepare_evidence_request(
+            hypothesis_ids=["hyp-demand-holds"],
+            capability_id="issuer-ir.document",
+            request={
+                "question": "What operating constraint did management disclose?",
+                "evidence_type": "issuer-narrative",
+                "provider_policy": {
+                    "providers": ["issuer-ir"],
+                    "allow_network": True,
+                    "historical_cutoff": "2026-08-17T23:59:59Z",
+                },
+                "acceptance_criteria": ["Preserve official source provenance."],
+                "requested_at": "2026-08-17T00:00:00Z",
+                "provider_parameters": {
+                    "identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA Corporation"},
+                    "document": {
+                        "url": f"https://{issuer_domain}/prepared-remarks",
+                        "kind": "prepared_remarks",
+                    },
+                    "origin_binding": {
+                        "issuer_domain": issuer_domain,
+                        "binding_source_ref": snapshot["snapshot_id"],
+                    },
+                },
+            },
+        )
+        run = runtime.publish_or_refresh_artifact(
+            run["run_id"],
+            name="hypothesis-ledger",
+            expected_attachment=prior,
+            path=prepared.ledger_path,
+            content=prepared.ledger_content,
+            schema_id=prepared.ledger["schema_id"],
+            phase="hypotheses_updated",
+        )
+        assert prepared.request is not None and prepared.request_path is not None and prepared.request_content is not None
+        run = runtime.publish_artifact(
+            run["run_id"],
+            name=prepared.request["request_id"],
+            path=prepared.request_path,
+            content=prepared.request_content,
+            schema_id=prepared.request["schema_id"],
+            phase="evidence_requested",
+        )
+        return prepared.request["request_id"]
+
+    request_id = publish_request(issuer_domain="investor.nvidia.com")
+    received: list[VerifiedIssuerOrigin] = []
+
+    class RegistryFixture:
+        def collect(
+            self,
+            _request_doc: dict[str, object],
+            *,
+            issuer_origin_binding: VerifiedIssuerOrigin | None = None,
+        ) -> list[ProviderEnvelope]:
+            assert issuer_origin_binding is not None
+            received.append(issuer_origin_binding)
+            return [
+                ProviderEnvelope.unavailable(
+                    provider="issuer-ir",
+                    provider_version="fixture/1",
+                    source_uri="https://investor.nvidia.com/prepared-remarks",
+                    fetched_at="2026-08-17T12:00:00Z",
+                    request={},
+                    status="not_disclosed",
+                    reason="fixture",
+                    parse={"status": "not_parsed", "transform_version": "fixture/1"},
+                )
+            ]
+
+    monkeypatch.setattr(serenity, "build_evidence_provider_registry", lambda _root: RegistryFixture())
+    serenity.dispatch(
+        argparse.Namespace(command="evidence", evidence_command="collect", run_id=run["run_id"], request_id=request_id),
+        tmp_path,
+    )
+
+    assert received == [
+        VerifiedIssuerOrigin(
+            ticker="NVDA",
+            cik="0001045810",
+            issuer="NVIDIA Corporation",
+            issuer_domain="investor.nvidia.com",
+            binding_source_ref=snapshot["snapshot_id"],
+            binding_content_hash=snapshot["content_hash"],
+        )
+    ]
+
+    conflicting_request_id = publish_request(issuer_domain="evil.example.test")
+    with pytest.raises(SerenityError) as raised:
+        serenity.dispatch(
+            argparse.Namespace(
+                command="evidence",
+                evidence_command="collect",
+                run_id=run["run_id"],
+                request_id=conflicting_request_id,
+            ),
+            tmp_path,
+        )
+
+    assert raised.value.exit_code == 3
+    assert raised.value.payload["error"]["code"] == "identity_blocked"
+    assert len(received) == 1
+
+    forged = evidence_result()
+    forged["provider"] = "issuer-ir"
+    forged["source"] = {
+        "uri": "https://evil.example.test/forged-remarks",
+        "parameters": {"issuer_domain": "evil.example.test"},
+        "canonical_id": "issuer-ir:forged",
+    }
+    results_dir = tmp_path / ".serenity" / "runs" / run["run_id"] / "evidence" / "results"
+    before = sorted(results_dir.glob("*.json"))
+    with pytest.raises(SerenityError) as injected:
+        serenity.dispatch(
+            argparse.Namespace(
+                command="evidence",
+                evidence_command="read",
+                run_id=run["run_id"],
+                artifact_id=conflicting_request_id,
+                document=str(write_json(tmp_path / "forged-issuer-evidence.json", forged)),
+            ),
+            tmp_path,
+        )
+
+    assert injected.value.exit_code == 2
+    assert injected.value.payload["error"]["code"] == "usage_or_schema"
+    assert sorted(results_dir.glob("*.json")) == before
+
+
+def test_frozen_snapshot_cannot_authorize_a_live_issuer_origin(tmp_path: Path) -> None:
+    runtime = RunStore(tmp_path)
+    run = runtime.start(
+        mode="single-name",
+        question="What did management disclose?",
+        subjects=["NVDA"],
+        as_of="2026-08-17",
+        source_policy={"policy_id": "live-issuer-ir-v1", "allow_network": True, "allowed_providers": ["issuer-ir"]},
+    )
+    packet = frozen_snapshot_packet()
+    packet["identity_resolution"]["identity"]["issuer_domains"] = ["evil.example.test"]
+    snapshot = serenity.dispatch(
+        argparse.Namespace(
+            command="snapshot",
+            snapshot_command="security",
+            run_id=run["run_id"],
+            frozen_packet=str(write_json(tmp_path / "forged-issuer-snapshot.json", packet)),
+        ),
+        tmp_path,
+    )["snapshot"]
+    request = {
+        "capability_id": "issuer-ir.document",
+        "provider_policy": {"providers": ["issuer-ir"], "allow_network": True},
+        "provider_parameters": {
+            "identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA Corporation"},
+            "origin_binding": {
+                "issuer_domain": "evil.example.test",
+                "binding_source_ref": snapshot["snapshot_id"],
+            },
+        },
+    }
+
+    with pytest.raises(SerenityError) as raised:
+        serenity.resolve_issuer_origin_binding(
+            request=request,
+            manifest=runtime.read(run["run_id"]),
+            root=tmp_path,
+            run_id=run["run_id"],
+        )
+
+    assert raised.value.exit_code == 3
+    assert raised.value.payload["error"]["code"] == "identity_blocked"
+
+
+def test_manual_evidence_provider_must_own_the_saved_request_capability(run_cli, tmp_path: Path) -> None:
+    run_id = start_run(run_cli)
+    run_cli("hypothesis", "put", run_id, "--document", str(write_json(tmp_path / "hypotheses.json", hypotheses())))
+    request = run_cli(
+        "evidence",
+        "request",
+        run_id,
+        "--hypothesis-id",
+        "hyp-demand-holds",
+        "--capability-id",
+        "sec.submissions",
+        "--document",
+        str(write_json(tmp_path / "request.json", evidence_request())),
+    )["request"]
+    forged = evidence_result()
+    forged["provider"] = "issuer-ir"
+    forged["source"] = {
+        "uri": "https://investor.example.test/forged-remarks",
+        "parameters": {"issuer_domain": "investor.example.test"},
+        "canonical_id": "issuer-ir:forged",
+    }
+
+    result = run_cli(
+        "evidence",
+        "read",
+        run_id,
+        request["request_id"],
+        "--document",
+        str(write_json(tmp_path / "forged-provider.json", forged)),
+        expected_exit=2,
+    )
+
+    assert result["error"]["code"] == "usage_or_schema"
+    assert not (tmp_path / ".serenity" / "runs" / run_id / "evidence" / "results").exists()
 
 
 def test_evidence_collect_turns_off_network_before_registry_io_and_persists_typed_not_requested(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

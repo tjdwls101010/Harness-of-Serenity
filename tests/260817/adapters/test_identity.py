@@ -51,7 +51,14 @@ def providers(
             ).encode(),
             SUBMISSIONS_URI: json.dumps(
                 submission
-                or {"cik": "0000320193", "name": "Apple Inc.", "tickers": ["AAPL"], "exchanges": ["Nasdaq"]}
+                or {
+                    "cik": "0000320193",
+                    "name": "Apple Inc.",
+                    "tickers": ["AAPL"],
+                    "exchanges": ["Nasdaq"],
+                    "website": "https://www.apple.com/",
+                    "investorWebsite": "https://investor.apple.com/",
+                }
             ).encode(),
         },
         post_response=json.dumps(
@@ -92,6 +99,7 @@ def test_resolver_pins_sec_identity_and_openfigi_corroboration_with_raw_provenan
         "listing_country": "US",
         "figi": "BBG000B9XRY4",
         "security_type": "Common Stock",
+        "issuer_domains": ["investor.apple.com", "www.apple.com"],
     }
     assert resolution["degradations"] == []
     assert [envelope["provider"] for envelope in resolution["provider_envelopes"]] == [
@@ -174,7 +182,16 @@ def test_identity_resolution_carries_three_private_raw_payloads_into_schema_vali
             ).encode()
         ).hexdigest(),
         sha256(
-            json.dumps({"cik": "0000320193", "name": "Apple Inc.", "tickers": ["AAPL"], "exchanges": ["Nasdaq"]}).encode()
+                json.dumps(
+                    {
+                        "cik": "0000320193",
+                        "name": "Apple Inc.",
+                        "tickers": ["AAPL"],
+                        "exchanges": ["Nasdaq"],
+                        "website": "https://www.apple.com/",
+                        "investorWebsite": "https://investor.apple.com/",
+                    }
+                ).encode()
         ).hexdigest(),
         sha256(
             json.dumps(
@@ -226,17 +243,33 @@ def test_identity_resolution_carries_three_private_raw_payloads_into_schema_vali
                     "1": {"cik_str": 1652044, "ticker": "GOOGL", "title": "Alphabet Inc."},
                 }
             ).encode()
-        ).hexdigest(): json.dumps(
+            ).hexdigest(): json.dumps(
             {
                 "0": {"cik_str": 320193, "ticker": "AAPL", "title": "Apple Inc."},
                 "1": {"cik_str": 1652044, "ticker": "GOOGL", "title": "Alphabet Inc."},
             }
-        ).encode(),
-        sha256(
-            json.dumps({"cik": "0000320193", "name": "Apple Inc.", "tickers": ["AAPL"], "exchanges": ["Nasdaq"]}).encode()
-        ).hexdigest(): json.dumps(
-            {"cik": "0000320193", "name": "Apple Inc.", "tickers": ["AAPL"], "exchanges": ["Nasdaq"]}
-        ).encode(),
+            ).encode(),
+            sha256(
+                json.dumps(
+                    {
+                        "cik": "0000320193",
+                        "name": "Apple Inc.",
+                        "tickers": ["AAPL"],
+                        "exchanges": ["Nasdaq"],
+                        "website": "https://www.apple.com/",
+                        "investorWebsite": "https://investor.apple.com/",
+                    }
+                ).encode()
+            ).hexdigest(): json.dumps(
+                {
+                    "cik": "0000320193",
+                    "name": "Apple Inc.",
+                    "tickers": ["AAPL"],
+                    "exchanges": ["Nasdaq"],
+                    "website": "https://www.apple.com/",
+                    "investorWebsite": "https://investor.apple.com/",
+                }
+            ).encode(),
         sha256(
             json.dumps(
                 [

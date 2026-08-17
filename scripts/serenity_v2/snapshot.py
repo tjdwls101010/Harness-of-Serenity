@@ -163,6 +163,11 @@ def _snapshot_identity(resolution: Mapping[str, Any]) -> dict[str, Any]:
         value = identity.get(field)
         if isinstance(value, str) and value:
             snapshot_identity[field] = value
+    issuer_domains = identity.get("issuer_domains")
+    if issuer_domains is not None:
+        if not isinstance(issuer_domains, list) or not issuer_domains or not all(isinstance(domain, str) and domain for domain in issuer_domains):
+            raise SnapshotBlockedError("issuer_domains_invalid")
+        snapshot_identity["issuer_domains"] = sorted(set(issuer_domains))
     security_type = identity.get("security_type")
     if not isinstance(security_type, str) or not security_type:
         raise SnapshotBlockedError("listing_type_unresolved")

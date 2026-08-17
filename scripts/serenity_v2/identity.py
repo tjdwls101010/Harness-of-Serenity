@@ -133,7 +133,7 @@ class IdentityResolver:
         )
 
     @staticmethod
-    def _identity(sec_lookup: Any, *, figi: str | None, security_type: str | None) -> dict[str, str | None]:
+    def _identity(sec_lookup: Any, *, figi: str | None, security_type: str | None) -> dict[str, Any]:
         return {
             "ticker": sec_lookup.ticker,
             "cik": sec_lookup.cik,
@@ -142,6 +142,7 @@ class IdentityResolver:
             "listing_country": "US",
             "figi": figi,
             "security_type": security_type,
+            "issuer_domains": list(sec_lookup.issuer_domains),
         }
 
     @staticmethod

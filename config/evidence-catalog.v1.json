@@ -16,7 +16,7 @@
     {"provider_id": "cftc", "tier": "adaptive", "capabilities": ["cftc.commitments-of-traders"], "source_kind": "regulator"},
     {"provider_id": "federal-register", "tier": "adaptive", "capabilities": ["federal-register.rulemaking", "federal-register.notices"], "source_kind": "government-publication"},
     {"provider_id": "bis", "tier": "adaptive", "capabilities": ["bis.export-controls", "bis.entity-lists"], "source_kind": "regulator"},
-    {"provider_id": "issuer-ir", "tier": "adaptive", "capabilities": ["issuer-ir.announcements", "issuer-ir.presentations"], "source_kind": "issuer"},
+    {"provider_id": "issuer-ir", "tier": "adaptive", "capabilities": ["issuer-ir.document"], "source_kind": "issuer"},
     {"provider_id": "sam", "tier": "optional", "capabilities": ["sam.procurement-opportunities"], "source_kind": "government-data"},
     {"provider_id": "uspto", "tier": "optional", "capabilities": ["uspto.patent-records"], "source_kind": "government-data"}
   ]

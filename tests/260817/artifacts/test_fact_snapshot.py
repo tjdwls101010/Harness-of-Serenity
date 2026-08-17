@@ -132,6 +132,14 @@ def test_builds_a_schema_valid_snapshot_from_identity_and_market_evidence() -> N
     assert market_cap["identity_bindings"] == {"ticker": "NVDA", "cik": "0001045810", "figi": "BBG000BBJQV0"}
 
 
+def test_snapshot_preserves_sec_resolved_issuer_domains_for_later_ir_binding() -> None:
+    resolution = identity_resolution()
+    resolution["identity"]["issuer_domains"] = ["investor.nvidia.com", "www.nvidia.com"]
+
+    snapshot = build_security_snapshot(run_manifest(), resolution, market_envelope())
+
+    assert snapshot["identity"]["issuer_domains"] == ["investor.nvidia.com", "www.nvidia.com"]
+    validate_document(snapshot, "urn:serenity:schema:fact-snapshot:2")
 def test_historical_snapshot_excludes_facts_that_were_not_yet_available() -> None:
     snapshot = build_security_snapshot(
         run_manifest(cutoff="2026-08-16T23:59:59Z"),

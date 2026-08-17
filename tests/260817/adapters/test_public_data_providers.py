@@ -25,7 +25,8 @@ def test_catalog_declares_typed_priority_and_narrative_capabilities() -> None:
     assert {catalog[key].priority for key in ("bls", "bea", "cftc")} == {"medium"}
     assert catalog["sam"].configured is False
     assert catalog["uspto"].configured is False
-    assert {catalog[key].capability for key in ("federal-register", "bis", "issuer-ir")} == {"narrative_link"}
+    assert {catalog[key].capability for key in ("federal-register", "bis")} == {"narrative_link"}
+    assert "issuer-ir" not in catalog
 
 
 def test_every_public_adapter_is_losslessly_declared_in_the_evidence_catalog() -> None:
@@ -241,7 +242,6 @@ def test_configured_credentials_reach_required_auth_surfaces_but_never_serialize
         ("uspto", {"uspto_api_key": "uspto-key"}, {"patent_number": "12345678"}, {"patentDataBag": []}),
         ("federal-register", {}, {"conditions[type][]": "RULE"}, {"results": []}),
         ("bis", {}, {"q": "export control"}, {"results": []}),
-        ("issuer-ir", {}, {"ticker": "ACME"}, {"results": []}),
     ],
 )
 def test_each_adapter_distinguishes_an_unexpected_2xx_shape_from_a_valid_empty_collection(

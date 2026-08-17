@@ -10,6 +10,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, NoReturn
+from urllib.parse import urlparse
 
 from serenity_v2.research import (
     ResearchArtifactConflictError,
@@ -30,6 +31,7 @@ from serenity_v2.providers.rs_rating import RsRatingProvider
 from serenity_v2.providers.sec import SecIdentityProvider
 from serenity_v2.providers.yfinance import YFinanceProvider
 from serenity_v2.providers.base import ProviderEnvelope
+from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
 from serenity_v2.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
 from serenity_v2.raw_cache import RawPayloadConflictError, cache_provider_raw_payloads
 
@@ -179,6 +181,112 @@ def load_attached_security_snapshot(*, manifest: dict[str, Any], root: Path, run
     return snapshot
 
 
+def resolve_issuer_origin_binding(
+    *, request: dict[str, Any], manifest: dict[str, Any], root: Path, run_id: str
+) -> VerifiedIssuerOrigin | None:
+    if request.get("capability_id") != "issuer-ir.document":
+        return None
+    policy = request.get("provider_policy")
+    if isinstance(policy, dict) and policy.get("allow_network") is False:
+        return None
+    parameters = request.get("provider_parameters")
+    identity = parameters.get("identity") if isinstance(parameters, dict) else None
+    origin = parameters.get("origin_binding") if isinstance(parameters, dict) else None
+    if not isinstance(identity, dict) or not isinstance(origin, dict):
+        raise SerenityError("usage_or_schema", "issuer-ir.document requires identity and origin_binding objects", 2, run_id=run_id)
+    ticker = identity.get("ticker")
+    cik = identity.get("cik")
+    issuer = identity.get("issuer")
+    issuer_domain = origin.get("issuer_domain")
+    binding_source_ref = origin.get("binding_source_ref")
+    if not all(isinstance(value, str) and value.strip() for value in (ticker, cik, issuer, issuer_domain, binding_source_ref)):
+        raise SerenityError("usage_or_schema", "issuer-ir.document origin identity fields must be non-empty strings", 2, run_id=run_id)
+    normalized_cik = cik.strip()
+    if not normalized_cik.isdigit():
+        raise SerenityError("usage_or_schema", "issuer-ir.document identity.cik must be numeric", 2, run_id=run_id)
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict) or "fact-snapshot" not in artifacts:
+        raise SerenityError("identity_blocked", "issuer-ir.document requires an attached fact snapshot", 3, run_id=run_id)
+    snapshot = load_attached_security_snapshot(manifest=manifest, root=root, run_id=run_id)
+    snapshot_identity = snapshot.get("identity")
+    if not isinstance(snapshot_identity, dict):
+        raise SerenityError("persistence_conflict", "attached fact snapshot has no identity", 5, run_id=run_id)
+    provenance = snapshot_identity.get("provenance")
+    submissions = [entry for entry in provenance if isinstance(entry, dict) and entry.get("provider") == "sec.submissions"] if isinstance(provenance, list) else []
+    if len(submissions) != 1:
+        raise SerenityError("identity_blocked", "issuer origin requires raw SEC submissions provenance", 3, run_id=run_id)
+    submission = submissions[0]
+    submission_uri = submission.get("source_uri")
+    submission_hash = submission.get("raw_content_sha256")
+    parsed_submission_uri = urlparse(submission_uri) if isinstance(submission_uri, str) else None
+    if (
+        parsed_submission_uri is None
+        or parsed_submission_uri.scheme != "https"
+        or parsed_submission_uri.hostname != "data.sec.gov"
+        or not isinstance(submission_hash, str)
+        or len(submission_hash) != 64
+    ):
+        raise SerenityError("identity_blocked", "issuer origin has invalid SEC submissions provenance", 3, run_id=run_id)
+    submission_path = root / ".serenity" / "cache" / "provider-raw" / "sha256" / submission_hash
+    try:
+        if submission_path.is_symlink() or not submission_path.is_file():
+            raise OSError("raw SEC submissions payload is missing")
+        submission_raw = submission_path.read_bytes()
+        if hashlib.sha256(submission_raw).hexdigest() != submission_hash:
+            raise OSError("raw SEC submissions payload hash mismatch")
+        submission_document = json.loads(submission_raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SerenityError("persistence_conflict", f"raw SEC submissions provenance cannot be verified: {exc}", 5, run_id=run_id) from exc
+    if not isinstance(submission_document, dict):
+        raise SerenityError("persistence_conflict", "raw SEC submissions payload is not an object", 5, run_id=run_id)
+    domains = snapshot_identity.get("issuer_domains")
+    normalized_domain = issuer_domain.casefold().strip().strip(".")
+    normalized_domains = {
+        domain.casefold().strip().strip(".")
+        for domain in domains
+        if isinstance(domain, str) and domain.strip()
+    } if isinstance(domains, list) else set()
+    expected = (
+        str(snapshot_identity.get("ticker") or "").upper(),
+        str(snapshot_identity.get("cik") or ""),
+        str(snapshot_identity.get("name") or ""),
+        str(snapshot.get("snapshot_id") or ""),
+    )
+    supplied = (
+        ticker.strip().upper(),
+        f"{int(normalized_cik):010d}",
+        issuer.strip(),
+        binding_source_ref.strip(),
+    )
+    raw_domains: set[str] = set()
+    for field in ("website", "investorWebsite"):
+        candidate = submission_document.get(field)
+        parsed = urlparse(candidate) if isinstance(candidate, str) else None
+        if parsed is not None and parsed.scheme == "https" and isinstance(parsed.hostname, str):
+            raw_domains.add(parsed.hostname.casefold().strip("."))
+    submission_cik = str(submission_document.get("cik") or "")
+    normalized_submission_cik = f"{int(submission_cik):010d}" if submission_cik.isdigit() else ""
+    submission_name = str(submission_document.get("name") or "")
+    expected_submission_path = f"/submissions/CIK{expected[1]}.json"
+    if (
+        supplied != expected
+        or normalized_domain not in normalized_domains
+        or normalized_domain not in raw_domains
+        or normalized_submission_cik != expected[1]
+        or submission_name != expected[2]
+        or parsed_submission_uri.path != expected_submission_path
+    ):
+        raise SerenityError("identity_blocked", "issuer-ir.document origin does not match the attached fact snapshot", 3, run_id=run_id)
+    return VerifiedIssuerOrigin(
+        ticker=expected[0],
+        cik=expected[1],
+        issuer=expected[2],
+        issuer_domain=normalized_domain,
+        binding_source_ref=expected[3],
+        binding_content_hash=str(snapshot["content_hash"]),
+    )
+
+
 def cache_live_provider_payloads(envelopes: list[ProviderEnvelope], *, root: Path) -> list[dict[str, str | None]]:
     try:
         return [result.to_dict() for result in cache_provider_raw_payloads(envelopes, root=root / ".serenity" / "cache" / "provider-raw")]
@@ -288,9 +396,9 @@ def document_cli_help(parser: JsonArgumentParser) -> None:
         "serenity.py hypothesis put": ("Store a versioned competing-hypothesis ledger.", "Requires OPEN.", "hypothesis-ledger.json.", "serenity.py hypothesis put RUN_ID --document fixtures/hypotheses.json"),
         "serenity.py evidence": ("Catalog, request, collect, and read typed evidence.", "Request, collect, and manual record operations require OPEN.", "evidence requests and results under the run.", "Workflow: serenity.py evidence request RUN_ID --hypothesis-id hyp-demand-holds --capability-id sec.filings --document fixtures/evidence-request.json\n  -> serenity.py evidence collect RUN_ID evidence-request-001\n  -> serenity.py evidence read RUN_ID evidence-result-001"),
         "serenity.py evidence catalog": ("List known provider capabilities without prioritizing them.", "No run state is required.", "Checked-in evidence-catalog.json is read only.", "serenity.py evidence catalog"),
-        "serenity.py evidence request": ("Persist an adaptive evidence request linked to hypotheses.", "Requires OPEN and an existing ledger.", "evidence/requests/evidence-request-<id>.json.", "serenity.py evidence request RUN_ID --hypothesis-id hyp-demand-holds --capability-id sec.filings --document fixtures/evidence-request.json"),
-        "serenity.py evidence collect": ("Explicitly execute a saved request through the provider registry.", "Requires OPEN; run/request network and cutoff policies must agree.", "One or more evidence/ results, deterministically ordered.", "serenity.py evidence collect RUN_ID evidence-request-001"),
-        "serenity.py evidence read": ("Read a saved result, or explicitly persist a supplied typed result document.", "Requires OPEN for manual persistence; saved reads validate linkage.", "evidence/results/evidence-result-<id>.json.", "serenity.py evidence read RUN_ID evidence-result-001"),
+        "serenity.py evidence request": ("Persist an adaptive evidence request linked to hypotheses. For issuer-ir.document, supply an official issuer-owned URL; Web search only locates the source, while identity/domain/time/raw-byte binding happens at collection. A live SEC-provenance fact snapshot must authorize the issuer domain; a frozen snapshot cannot authorize a live issuer fetch.", "Requires OPEN and an existing ledger.", "evidence/requests/evidence-request-<id>.json.", "serenity.py evidence request RUN_ID --hypothesis-id hyp-demand-holds --capability-id sec.filings --document fixtures/evidence-request.json"),
+        "serenity.py evidence collect": ("Explicitly execute a saved request through the provider registry. For issuer-ir.document, supply an official issuer-owned URL; Web search only locates the source, while identity/domain/time/raw-byte binding happens at collection. A live SEC-provenance fact snapshot must authorize the issuer domain; a frozen snapshot cannot authorize a live issuer fetch.", "Requires OPEN; run/request network and cutoff policies must agree.", "One or more evidence/ results, deterministically ordered.", "serenity.py evidence collect RUN_ID evidence-request-001"),
+        "serenity.py evidence read": ("Read a saved result, or explicitly persist a supplied typed result document. issuer-ir.document must use evidence collect because a supplied document cannot prove the live SEC origin or raw response bytes.", "Requires OPEN for manual persistence; saved reads validate linkage.", "evidence/results/evidence-result-<id>.json.", "serenity.py evidence read RUN_ID evidence-result-001"),
         "serenity.py lens": ("Execute declared arithmetic only from saved facts.", "Lens writes require OPEN.", "lens-result.json.", "Workflow: serenity.py lens run RUN_ID --spec fixtures/lens-spec.json"),
         "serenity.py lens run": ("Evaluate a schema-valid lens spec against its saved snapshot.", "Requires OPEN and fact-snapshot.json.", "lens-result.json.", "serenity.py lens run RUN_ID --spec fixtures/lens-spec.json"),
         "serenity.py decision": ("Validate and seal analyst-authored decisions.", "Validation/finalization require OPEN.", "Validation JSON or immutable records/decisions lineage.", "Workflow: serenity.py decision validate RUN_ID --decision fixtures/decision.json --evidence-manifest fixtures/evidence-manifest.json\n  -> serenity.py decision finalize RUN_ID --decision fixtures/decision.json --evidence-manifest fixtures/evidence-manifest.json --analysis fixtures/analysis.json"),
@@ -595,7 +703,17 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
         try:
             request = artifacts.read_evidence_request(args.request_id)
             execution_request = evidence_execution_request(request, manifest)
-            envelopes = build_evidence_provider_registry(root).collect(execution_request)
+            issuer_origin_binding = resolve_issuer_origin_binding(
+                request=execution_request,
+                manifest=manifest,
+                root=root,
+                run_id=args.run_id,
+            )
+            registry = build_evidence_provider_registry(root)
+            if issuer_origin_binding is None:
+                envelopes = registry.collect(execution_request)
+            else:
+                envelopes = registry.collect(execution_request, issuer_origin_binding=issuer_origin_binding)
             raw_payload_cache = cache_live_provider_payloads([envelope for envelope in envelopes if isinstance(envelope, ProviderEnvelope)], root=root)
             documents = [redact_evidence_envelope(envelope.to_dict(), request_id=request["request_id"]) for envelope in envelopes]
             cutoff = run_historical_cutoff(manifest)
@@ -647,6 +765,14 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
             if args.document:
                 if not args.artifact_id.startswith("evidence-request-"):
                     raise SerenityError("usage_or_schema", "--document requires an evidence request id", 2)
+                request = artifacts.read_evidence_request(args.artifact_id)
+                if request.get("capability_id") == "issuer-ir.document":
+                    raise SerenityError(
+                        "usage_or_schema",
+                        "issuer-ir.document cannot accept a manually supplied result; use evidence collect",
+                        2,
+                        run_id=args.run_id,
+                    )
                 evidence = load_json_document(args.document, label="evidence result")
                 require_evidence_available_by_cutoff(evidence, cutoff=run_historical_cutoff(store.read(args.run_id)), label="evidence result")
                 result = artifacts.record_evidence_result(

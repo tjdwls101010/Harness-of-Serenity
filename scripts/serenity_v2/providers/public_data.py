@@ -496,13 +496,6 @@ class BISProvider(NarrativeLinkProvider):
     source_uri = "https://www.bis.gov/"
 
 
-class InvestorRelationsProvider(NarrativeLinkProvider):
-    provider_id = "issuer-ir"
-    title = "Issuer investor relations"
-    capabilities = ("issuer-ir.announcements", "issuer-ir.presentations")
-    source_uri = "https://www.sec.gov/edgar/browse/"
-
-
 def public_data_catalog(
     *,
     http: HttpClient | None = None,
@@ -523,6 +516,5 @@ def public_data_catalog(
         USPTOAdapter(http=http, clock=clock, config=resolved_config),
         FederalRegisterProvider(http=http, clock=clock, config=resolved_config),
         BISProvider(http=http, clock=clock, config=resolved_config),
-        InvestorRelationsProvider(http=http, clock=clock, config=resolved_config),
     )
     return {adapter.provider_id: adapter for adapter in adapters}

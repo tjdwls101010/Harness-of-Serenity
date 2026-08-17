@@ -182,6 +182,7 @@ def test_catalog_and_every_created_artifact_validate_against_canonical_schemas(t
     assert providers["sec"]["tier"] == "baseline"
     assert "sec.submissions" in providers["sec"]["capabilities"]
     assert providers["usaspending"]["tier"] == "adaptive"
+    assert providers["issuer-ir"]["capabilities"] == ["issuer-ir.document"]
     assert providers["sam"]["tier"] == "optional"
 
     runtime, store, created = initialize_attached_ledger(tmp_path)

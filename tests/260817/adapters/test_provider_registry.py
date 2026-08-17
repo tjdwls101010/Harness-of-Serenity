@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import pytest
 
 from serenity_v2.providers.base import ProviderEnvelope
+from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
 from serenity_v2.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
 from serenity_v2.schema import validate_document
 
@@ -276,6 +277,59 @@ def test_sec_filings_capability_dispatches_through_filings_provider_with_identit
         )
     ]
     assert [envelope.to_dict()["provider"] for envelope in envelopes] == ["sec.filings"]
+
+
+def test_issuer_ir_document_dispatches_the_resolved_official_url_with_cutoff() -> None:
+    received: list[tuple[dict[str, object], str | None, VerifiedIssuerOrigin | None]] = []
+
+    class IssuerIRFixture:
+        def collect(
+            self,
+            parameters: dict[str, object],
+            cutoff: str | None = None,
+            *,
+            verified_origin: VerifiedIssuerOrigin | None = None,
+        ) -> ProviderEnvelope:
+            received.append((parameters, cutoff, verified_origin))
+            return available_envelope(
+                provider="issuer-ir",
+                source_version="official-ir-document",
+                available_at="2026-08-14T20:00:00Z",
+            )
+
+    parameters = {
+        "identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA CORP"},
+        "document": {
+            "url": "https://investor.nvidia.com/events-and-presentations/example",
+            "kind": "presentation",
+        },
+        "origin_binding": {
+            "issuer_domain": "nvidia.com",
+            "binding_source_ref": "snapshot-nvda-binding",
+        },
+    }
+    verified = VerifiedIssuerOrigin(
+        ticker="NVDA",
+        cik="0001045810",
+        issuer="NVIDIA CORP",
+        issuer_domain="nvidia.com",
+        binding_source_ref="snapshot-nvda-binding",
+        binding_content_hash="b" * 64,
+    )
+    envelopes = EvidenceProviderRegistry(
+        provider_factories={"issuer-ir": lambda **_kwargs: IssuerIRFixture()}, clock=lambda: FROZEN_NOW
+    ).collect(
+        request_for(
+            "issuer-ir.document",
+            "issuer-ir",
+            parameters=parameters,
+            cutoff="2026-08-17T00:00:00Z",
+        ),
+        issuer_origin_binding=verified,
+    )
+
+    assert received == [(parameters, "2026-08-17T00:00:00Z", verified)]
+    assert [envelope.to_dict()["provider"] for envelope in envelopes] == ["issuer-ir"]
 
 
 def test_snapshot_owned_baseline_capability_is_explicitly_not_applicable() -> None:
