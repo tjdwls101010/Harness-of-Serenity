@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The single public runtime interface for Serenity v2."""
+"""The single public runtime interface for Harness of Serenity."""
 
 from __future__ import annotations
 
@@ -12,28 +12,28 @@ from pathlib import Path
 from typing import Any, NoReturn
 from urllib.parse import urlparse
 
-from serenity_v2.research import (
+from serenity_core.research import (
     ResearchArtifactConflictError,
     ResearchArtifactStore,
     ResearchArtifactValidationError,
     load_evidence_catalog,
 )
-from serenity_v2.runtime import RUN_MODES, RunStore, SerenityError, parse_as_of, parse_instant
-from serenity_v2.lens import run_lens
-from serenity_v2.schema import SchemaViolation, validate_document
-from serenity_v2.decision import finalize_decision, validate_decision
-from serenity_v2.outcomes import OutcomesError, OutcomesStore
-from serenity_v2.sector_graph import SectorGraphValidationError, build_sector_graph
-from serenity_v2.snapshot import SnapshotBlockedError, SnapshotIntegrityError, build_security_snapshot, validate_security_snapshot
-from serenity_v2.identity import IdentityResolver
-from serenity_v2.providers.openfigi import OpenFigiProvider
-from serenity_v2.providers.rs_rating import RsRatingProvider
-from serenity_v2.providers.sec import SecIdentityProvider
-from serenity_v2.providers.yfinance import YFinanceProvider
-from serenity_v2.providers.base import ProviderEnvelope
-from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
-from serenity_v2.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
-from serenity_v2.raw_cache import RawPayloadConflictError, cache_provider_raw_payloads
+from serenity_core.runtime import RUN_MODES, RunStore, SerenityError, parse_as_of, parse_instant
+from serenity_core.lens import run_lens
+from serenity_core.schema import SchemaViolation, validate_document
+from serenity_core.decision import finalize_decision, validate_decision
+from serenity_core.outcomes import OutcomesError, OutcomesStore
+from serenity_core.sector_graph import SectorGraphValidationError, build_sector_graph
+from serenity_core.snapshot import SnapshotBlockedError, SnapshotIntegrityError, build_security_snapshot, validate_security_snapshot
+from serenity_core.identity import IdentityResolver
+from serenity_core.providers.openfigi import OpenFigiProvider
+from serenity_core.providers.rs_rating import RsRatingProvider
+from serenity_core.providers.sec import SecIdentityProvider
+from serenity_core.providers.yfinance import YFinanceProvider
+from serenity_core.providers.base import ProviderEnvelope
+from serenity_core.providers.issuer_ir import VerifiedIssuerOrigin
+from serenity_core.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
+from serenity_core.raw_cache import RawPayloadConflictError, cache_provider_raw_payloads
 
 
 class JsonArgumentParser(argparse.ArgumentParser):

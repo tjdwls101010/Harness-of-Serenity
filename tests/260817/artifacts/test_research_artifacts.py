@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.research import (
+from serenity_core.research import (
     ResearchArtifactConflictError,
     ResearchArtifactValidationError,
     ResearchArtifactStore,
     load_evidence_catalog,
 )
-from serenity_v2.runtime import RunStore, SerenityError
-from serenity_v2.schema import validate_document
+from serenity_core.runtime import RunStore, SerenityError
+from serenity_core.schema import validate_document
 
 
 def create_run_dir(tmp_path: Path) -> Path:

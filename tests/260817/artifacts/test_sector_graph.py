@@ -6,13 +6,13 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from serenity_v2.runtime import canonical_hash
-from serenity_v2.schema import SchemaViolation, validate_document
-from serenity_v2.sector_graph import SectorGraphValidationError, build_sector_graph, validate_sector_graph
+from serenity_core.runtime import canonical_hash
+from serenity_core.schema import SchemaViolation, validate_document
+from serenity_core.sector_graph import SectorGraphValidationError, build_sector_graph, validate_sector_graph
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SECTOR_SCHEMA = json.loads((ROOT / "schemas" / "v2" / "sector-graph-1.schema.json").read_text(encoding="utf-8"))
+SECTOR_SCHEMA = json.loads((ROOT / "schemas" / "sector-graph-1.schema.json").read_text(encoding="utf-8"))
 
 
 def physical_ai_graph() -> dict:

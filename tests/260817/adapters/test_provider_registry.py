@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from serenity_v2.providers.base import ProviderEnvelope
-from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
-from serenity_v2.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
-from serenity_v2.schema import validate_document
+from serenity_core.providers.base import ProviderEnvelope
+from serenity_core.providers.issuer_ir import VerifiedIssuerOrigin
+from serenity_core.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
+from serenity_core.schema import validate_document
 
 
 FROZEN_NOW = datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc)

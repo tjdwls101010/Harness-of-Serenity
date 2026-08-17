@@ -7,7 +7,7 @@ import subprocess
 import pytest
 from jsonschema import Draft202012Validator
 
-from serenity_v2.candidate_cleanroom import CandidateCleanroomError, build_candidate_cleanroom, launch_candidate_cleanroom, revalidate_candidate_result
+from serenity_core.candidate_cleanroom import CandidateCleanroomError, build_candidate_cleanroom, launch_candidate_cleanroom, revalidate_candidate_result
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -23,7 +23,7 @@ def strict_object_nodes(value: object) -> list[dict]:
 
 
 def test_candidate_result_schema_is_provider_strict_output_compatible() -> None:
-    schema = json.loads((ROOT / "schemas/v2/candidate-result-1.schema.json").read_text(encoding="utf-8"))
+    schema = json.loads((ROOT / "schemas/candidate-result-1.schema.json").read_text(encoding="utf-8"))
 
     Draft202012Validator.check_schema(schema)
     for node in strict_object_nodes(schema):
@@ -105,7 +105,7 @@ def test_build_candidate_cleanroom_copies_only_the_hashed_harness_snapshot_and_c
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=harness_root,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -147,7 +147,7 @@ def test_launch_candidate_cleanroom_envelopes_a_strict_model_body_with_trusted_r
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -211,7 +211,7 @@ def test_candidate_launch_loads_only_the_family_routed_harness_interfaces(tmp_pa
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case(family=family)),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -252,7 +252,7 @@ def test_revalidate_candidate_result_rejects_unknown_evidence_tampered_receipts_
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -314,7 +314,7 @@ def test_revalidate_candidate_result_requires_blocked_for_a_single_ticker_identi
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", packet),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -359,7 +359,7 @@ def test_launch_candidate_cleanroom_reports_invalid_strict_model_body_as_typed_o
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -390,7 +390,7 @@ def test_revalidate_candidate_result_rejects_a_nested_non_evidence_id_even_when_
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", packet),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -425,7 +425,7 @@ def test_launch_candidate_cleanroom_does_not_inherit_provider_secrets_into_child
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,
@@ -462,7 +462,7 @@ def test_macos_candidate_launch_allows_only_the_resolved_codex_runtime_helpers(t
     package = build_candidate_cleanroom(
         candidate_case_path=write_json(inputs / "candidate-case.json", candidate_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        candidate_result_schema_path=ROOT / "schemas/v2/candidate-result-1.schema.json",
+        candidate_result_schema_path=ROOT / "schemas/candidate-result-1.schema.json",
         harness_root=ROOT,
         cleanroom_root=tmp_path / "outside-candidate-cleanrooms",
         repo_root=repo_root,

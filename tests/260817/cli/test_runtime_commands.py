@@ -11,12 +11,12 @@ import sys
 import pytest
 
 import serenity
-from serenity_v2.providers.base import ProviderEnvelope
-from serenity_v2.providers.issuer_ir import VerifiedIssuerOrigin
-from serenity_v2.research import ResearchArtifactStore
-from serenity_v2.runtime import RunStore, SerenityError
-from serenity_v2.snapshot import validate_security_snapshot as public_validate_security_snapshot
-from serenity_v2.identity import IdentityResolution
+from serenity_core.providers.base import ProviderEnvelope
+from serenity_core.providers.issuer_ir import VerifiedIssuerOrigin
+from serenity_core.research import ResearchArtifactStore
+from serenity_core.runtime import RunStore, SerenityError
+from serenity_core.snapshot import validate_security_snapshot as public_validate_security_snapshot
+from serenity_core.identity import IdentityResolution
 
 def write_json(path: Path, value: object) -> Path:
     path.write_text(json.dumps(value), encoding="utf-8")

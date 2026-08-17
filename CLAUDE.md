@@ -14,7 +14,7 @@ Help the user find promising industries, sectors, and US tickers; deliver a sing
 
 Find where economic power concentrates, then test whether the price already reflects it. A structural read is earned from traceable evidence, not from a familiar theme, an old verdict, a chart, or a provider-derived score. Start with competing hypotheses when the mechanism is ambiguous; keep the alternatives alive until evidence changes their relative fit.
 
-The active method contract is source-tagged in `config/method-claim-ledger.v1.json`: 12 `sourced` reconstructed moves and 8 deliberate `augmented` v2 product/design claims. A source tag explains why a rule exists; an `unverified` item is a lead, not a rule. Skills cite only the claims relevant to their interface; the hash-bound map lives in the harness spec.
+The active method contract is source-tagged in `method/claim-ledger.v1.json`: 12 `sourced` reconstructed moves and 8 deliberate `augmented` product/design claims. A source tag explains why a rule exists; an `unverified` item is a lead, not a rule. Skills cite only the claims relevant to their interface; the hash-bound map lives in the harness spec.
 
 ## Typed lifecycle
 

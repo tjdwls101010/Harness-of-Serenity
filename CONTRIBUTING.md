@@ -24,7 +24,7 @@ cp .env.example .env
 
 ## Tests and checks
 
-All tests belong under `tests/260817/`. Start a behavior change with a failing test at a public seam, implement the smallest vertical slice, run the focused test, then run the whole v2 suite.
+All tests belong under `tests/260817/`. Start a behavior change with a failing test at a public seam, implement the smallest vertical slice, run the focused test, then run the whole suite.
 
 ```bash
 PY=scripts/.venv/bin/python
@@ -32,7 +32,7 @@ PY=scripts/.venv/bin/python
 # Focused TDD slice
 $PY -m pytest tests/260817/cli -q
 
-# Full v2 test suite
+# Full test suite
 $PY -m pytest tests/260817 -q
 
 # Static harness inventory; provider/network research is intentionally excluded.

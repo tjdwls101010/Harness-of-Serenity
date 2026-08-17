@@ -4,8 +4,8 @@ import json
 from hashlib import sha256
 from datetime import datetime, timezone
 
-from serenity_v2.providers.fred import FredHttpResponse, FredProvider
-from serenity_v2.schema import validate_document
+from serenity_core.providers.fred import FredHttpResponse, FredProvider
+from serenity_core.schema import validate_document
 
 
 def test_observations_use_cutoff_vintage_and_exclude_later_revision() -> None:

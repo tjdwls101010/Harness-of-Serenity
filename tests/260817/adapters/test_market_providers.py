@@ -8,11 +8,11 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-import serenity_v2.providers.yfinance as yfinance_provider
-from serenity_v2.providers.rs_rating import RsRatingProvider
-from serenity_v2.providers.yfinance import YFinanceProvider
-from serenity_v2.raw_cache import cache_provider_raw_payloads
-from serenity_v2.schema import validate_document
+import serenity_core.providers.yfinance as yfinance_provider
+from serenity_core.providers.rs_rating import RsRatingProvider
+from serenity_core.providers.yfinance import YFinanceProvider
+from serenity_core.raw_cache import cache_provider_raw_payloads
+from serenity_core.schema import validate_document
 
 
 FROZEN_NOW = datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc)

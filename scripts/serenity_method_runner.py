@@ -7,12 +7,12 @@ import argparse
 import json
 from pathlib import Path
 
-from serenity_v2.method_runner import MethodRunnerError, build_method_case, build_method_synthesis_case, launch_method_case, launch_method_synthesis, run_batch_manifest
+from serenity_core.method_runner import MethodRunnerError, build_method_case, build_method_synthesis_case, launch_method_case, launch_method_synthesis, run_batch_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT / "config" / "method-coding-output.schema.json"
-SYNTHESIS_SCHEMA = ROOT / "config" / "method-claim-synthesis.schema.json"
+SCHEMA = ROOT / "schemas" / "method-coding-output.schema.json"
+SYNTHESIS_SCHEMA = ROOT / "schemas" / "method-claim-synthesis.schema.json"
 
 
 def parser() -> argparse.ArgumentParser:

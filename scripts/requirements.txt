@@ -1,4 +1,4 @@
-# Serenity v2 runtime: provider interfaces are verified against these exact releases.
+# Harness of Serenity runtime: provider interfaces are verified against these exact releases.
 yfinance==1.4.1
 edgartools==5.35.1
 ibd-rs-rating==0.3.0

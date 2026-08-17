@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.method_runner import MethodRunnerError, build_method_case, build_method_synthesis_case, launch_method_case, launch_method_synthesis, macos_method_seatbelt_profile, resolve_codex_executable, revalidate_method_case, revalidate_method_synthesis_result, run_batch_manifest
+from serenity_core.method_runner import MethodRunnerError, build_method_case, build_method_synthesis_case, launch_method_case, launch_method_synthesis, macos_method_seatbelt_profile, resolve_codex_executable, revalidate_method_case, revalidate_method_synthesis_result, run_batch_manifest
 
 
 def canonical_hash(value: dict) -> str:
@@ -40,7 +40,7 @@ def build(tmp_path: Path):
     inputs = tmp_path / "inputs"
     inputs.mkdir()
     value = packet()
-    return repo_root, value, build_method_case(packet_path=write_json(inputs / "packet-001.json", value), output_schema_path=Path(__file__).resolve().parents[3] / "config/method-coding-output.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
+    return repo_root, value, build_method_case(packet_path=write_json(inputs / "packet-001.json", value), output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-coding-output.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
 
 
 def write_manifest(packet_dir: Path, packet_ids: list[str]) -> Path:
@@ -107,7 +107,7 @@ def test_build_normalizes_a_symlinked_case_root_before_passing_it_to_codex(tmp_p
     alias_root = tmp_path / "cases-alias"
     alias_root.symlink_to(target_root, target_is_directory=True)
 
-    package = build_method_case(packet_path=write_json(inputs / "packet-001.json", packet()), output_schema_path=Path(__file__).resolve().parents[3] / "config/method-coding-output.schema.json", case_root=alias_root, repo_root=repo_root)
+    package = build_method_case(packet_path=write_json(inputs / "packet-001.json", packet()), output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-coding-output.schema.json", case_root=alias_root, repo_root=repo_root)
 
     assert package.case_dir.parent == target_root.resolve()
 
@@ -118,7 +118,7 @@ def test_synthesis_launch_uses_one_hash_bound_digest_and_the_final_sol_cleanroom
     inputs = tmp_path / "inputs"
     inputs.mkdir()
     digest_path = write_json(inputs / "candidate-digest.json", candidate_digest())
-    case = build_method_synthesis_case(candidate_digest_path=digest_path, output_schema_path=Path(__file__).resolve().parents[3] / "config/method-claim-synthesis.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
+    case = build_method_synthesis_case(candidate_digest_path=digest_path, output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-claim-synthesis.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
     assert {entry.name for entry in case.case_dir.iterdir()} == {"candidate-digest.json", "method-claim-synthesis.schema.json", "prompt.json", "package-manifest.json"}
     prompt = json.loads((case.case_dir / "prompt.json").read_text())["prompt"].casefold()
     for requirement in ("omitted semantics", "reusable principles and interfaces", "ticker, name, or example-specific", "fixed thresholds", "voice imitation", "portfolio sizing", "frozen pipeline rail", "trigger → evidence sought → inference → action/horizon → falsifier", "thin evidence", "frequency or representativeness", "contradictions and counterexamples", "dense and nonduplicative", "materially supported dimensions"):
@@ -159,7 +159,7 @@ def test_synthesis_rejects_claim_refs_not_shown_by_the_candidate_digest(tmp_path
     inputs = tmp_path / "inputs"
     inputs.mkdir()
     digest_path = write_json(inputs / "candidate-digest.json", candidate_digest())
-    case = build_method_synthesis_case(candidate_digest_path=digest_path, output_schema_path=Path(__file__).resolve().parents[3] / "config/method-claim-synthesis.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
+    case = build_method_synthesis_case(candidate_digest_path=digest_path, output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-claim-synthesis.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
 
     def runner(argv: list[str], **kwargs: object) -> object:
         result = synthesis_output(candidate_digest(), digest_sha256=case.candidate_digest_sha256)
@@ -178,7 +178,7 @@ def test_synthesis_rejects_a_non_digest_command_even_after_a_successful_digest_r
     inputs = tmp_path / "inputs"
     inputs.mkdir()
     digest_path = write_json(inputs / "candidate-digest.json", candidate_digest())
-    case = build_method_synthesis_case(candidate_digest_path=digest_path, output_schema_path=Path(__file__).resolve().parents[3] / "config/method-claim-synthesis.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
+    case = build_method_synthesis_case(candidate_digest_path=digest_path, output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-claim-synthesis.schema.json", case_root=tmp_path / "outside-cases", repo_root=repo_root)
 
     def runner(argv: list[str], **kwargs: object) -> object:
         Path(str(argv[argv.index("--output-last-message") + 1])).write_text(json.dumps(synthesis_output(candidate_digest(), digest_sha256=case.candidate_digest_sha256)), encoding="utf-8")
@@ -398,7 +398,7 @@ def test_logical_audited_launch_rejects_missing_or_forbidden_read_evidence(tmp_p
 
 
 def test_output_schema_uses_structured_output_subset_and_runner_enforces_disposition_condition(tmp_path: Path) -> None:
-    schema = json.loads((Path(__file__).resolve().parents[3] / "config/method-coding-output.schema.json").read_text())
+    schema = json.loads((Path(__file__).resolve().parents[3] / "schemas/method-coding-output.schema.json").read_text())
 
     def has_one_of(value: object) -> bool:
         if isinstance(value, dict):
@@ -453,7 +453,7 @@ def test_batch_explicit_packet_selection_records_full_manifest_and_selected_ids(
         Path(str(argv[argv.index("--output-last-message") + 1])).write_text(json.dumps(output(json.loads(packet_path.read_text()), packet_id=packet_id, packet_sha256=hashlib.sha256(packet_path.read_bytes()).hexdigest())), encoding="utf-8")
         return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
-    launches = run_batch_manifest(manifest_path=manifest_path, packet_dir=packet_dir, output_schema_path=Path(__file__).resolve().parents[3] / "config/method-coding-output.schema.json", case_root=tmp_path / "cases", results_root=tmp_path / "results", repo_root=repo_root, max_workers=1, runner=runner, platform_name="Linux", packet_ids=("packet-002", "packet-003"))
+    launches = run_batch_manifest(manifest_path=manifest_path, packet_dir=packet_dir, output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-coding-output.schema.json", case_root=tmp_path / "cases", results_root=tmp_path / "results", repo_root=repo_root, max_workers=1, runner=runner, platform_name="Linux", packet_ids=("packet-002", "packet-003"))
 
     assert observed == ["packet-002", "packet-003"]
     assert len(launches) == 2
@@ -482,7 +482,7 @@ def test_batch_defaults_to_all_manifest_packets(tmp_path: Path) -> None:
         Path(str(argv[argv.index("--output-last-message") + 1])).write_text(json.dumps(output(json.loads(packet_path.read_text()), packet_id=packet_id, packet_sha256=hashlib.sha256(packet_path.read_bytes()).hexdigest())), encoding="utf-8")
         return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
-    launches = run_batch_manifest(manifest_path=manifest_path, packet_dir=packet_dir, output_schema_path=Path(__file__).resolve().parents[3] / "config/method-coding-output.schema.json", case_root=tmp_path / "cases", results_root=tmp_path / "results", repo_root=repo_root, max_workers=1, runner=runner, platform_name="Linux")
+    launches = run_batch_manifest(manifest_path=manifest_path, packet_dir=packet_dir, output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-coding-output.schema.json", case_root=tmp_path / "cases", results_root=tmp_path / "results", repo_root=repo_root, max_workers=1, runner=runner, platform_name="Linux")
 
     assert observed == ["packet-001", "packet-002"]
     assert len(launches) == 2
@@ -505,7 +505,7 @@ def test_batch_selection_rejects_empty_duplicate_or_unknown_before_creating_case
     case_root = tmp_path / "cases"
 
     with pytest.raises(MethodRunnerError, match=error):
-        run_batch_manifest(manifest_path=manifest_path, packet_dir=packet_dir, output_schema_path=Path(__file__).resolve().parents[3] / "config/method-coding-output.schema.json", case_root=case_root, results_root=tmp_path / "results", repo_root=repo_root, packet_ids=packet_ids)
+        run_batch_manifest(manifest_path=manifest_path, packet_dir=packet_dir, output_schema_path=Path(__file__).resolve().parents[3] / "schemas/method-coding-output.schema.json", case_root=case_root, results_root=tmp_path / "results", repo_root=repo_root, packet_ids=packet_ids)
 
     assert not case_root.exists()
 

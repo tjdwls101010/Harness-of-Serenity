@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-import serenity_v2.cleanroom as cleanroom
-from serenity_v2.cleanroom import CleanroomError, build_cleanroom, launch_cleanroom, revalidate_cleanroom
+import serenity_core.cleanroom as cleanroom
+from serenity_core.cleanroom import CleanroomError, build_cleanroom, launch_cleanroom, revalidate_cleanroom
 
 
 def write_json(path: Path, value: dict) -> Path:
@@ -94,7 +94,7 @@ def test_cleanroom_error_defaults_to_a_generic_typed_code() -> None:
 
 def test_qa_result_schema_is_compatible_with_codex_strict_structured_output() -> None:
     schema = json.loads(
-        (Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json").read_text(encoding="utf-8")
+        (Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json").read_text(encoding="utf-8")
     )
 
     for node in strict_object_nodes(schema):
@@ -113,7 +113,7 @@ def test_build_creates_an_outside_repo_allowlist_with_hashed_payloads(tmp_path: 
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -147,7 +147,7 @@ def test_build_rejects_symlinked_or_forbidden_cleanroom_content(tmp_path: Path) 
         build_cleanroom(
             qa_case_path=case_path,
             frozen_packet_path=packet_path,
-            qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+            qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
             cleanroom_root=tmp_path / "outside-cleanrooms",
             repo_root=repo_root,
         )
@@ -165,7 +165,7 @@ def test_build_rejects_a_case_id_that_can_escape_the_cleanroom_root(tmp_path: Pa
         build_cleanroom(
             qa_case_path=write_json(inputs / "qa-case.json", unsafe_case),
             frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-            qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+            qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
             cleanroom_root=tmp_path / "outside-cleanrooms",
             repo_root=repo_root,
         )
@@ -179,7 +179,7 @@ def test_launch_revalidates_before_constructing_the_exact_codex_command(tmp_path
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -277,7 +277,7 @@ def test_launch_omits_the_user_prompt_from_the_hash_bound_reviewer_projection(tm
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", case),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -323,7 +323,7 @@ def test_os_enforced_mode_blocks_non_darwin_before_any_codex_runner_starts(tmp_p
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -350,7 +350,7 @@ def test_os_enforced_transcript_rejects_network_tool_events_after_a_packet_read(
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -386,7 +386,7 @@ def test_os_enforced_transcript_rejects_any_absolute_read_outside_the_case(tmp_p
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -436,7 +436,7 @@ def test_os_enforced_transcript_fails_closed_on_shell_expansion_or_unapproved_re
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -472,7 +472,7 @@ def test_os_enforced_transcript_rejects_codex_zsh_jq_reads_even_of_cleanroom_pac
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -619,7 +619,7 @@ def test_launch_on_macos_wraps_codex_in_a_repo_denial_profile_and_reports_eperm(
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -659,7 +659,7 @@ def test_macos_launch_uses_the_resolved_codex_executable_and_allows_only_its_run
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -726,7 +726,7 @@ def test_launch_refuses_a_package_changed_after_its_hash_was_recorded(tmp_path: 
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -744,7 +744,7 @@ def test_launch_preserves_unique_evidence_refs_after_structured_output_schema_no
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -803,7 +803,7 @@ def test_launch_rejects_result_aggregates_that_disagree_with_invariant_results(
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -837,7 +837,7 @@ def test_launch_accepts_three_decimal_wilson_rounding_when_the_aggregate_is_math
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", two_invariant_case),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -882,7 +882,7 @@ def test_launch_binds_a_case_specific_aggregate_lookup_table_into_the_prompt(tmp
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", two_invariant_case),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -956,7 +956,7 @@ def test_launch_accepts_conventional_z_wilson_bounds(tmp_path: Path, outcomes: t
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", two_invariant_case),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -1003,7 +1003,7 @@ def test_launch_rejects_non_wilson_zero_to_one_interval_for_mixed_invariants(tmp
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", two_invariant_case),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -1048,7 +1048,7 @@ def test_revalidation_rejects_forbidden_harness_paths_added_to_a_cleanroom(tmp_p
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -1066,7 +1066,7 @@ def test_adjudicator_may_launch_sol_once_and_records_its_role(tmp_path: Path) ->
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -1121,7 +1121,7 @@ def test_os_enforced_adjudicator_copies_and_hashes_only_the_explicit_prior_resul
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -1167,7 +1167,7 @@ def test_os_enforced_adjudicator_rejects_a_repo_read_mixed_with_an_allowed_prior
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )
@@ -1218,7 +1218,7 @@ def test_launch_rejects_models_or_roles_outside_the_evaluator_contract(
     package = build_cleanroom(
         qa_case_path=write_json(inputs / "qa-case.json", qa_case()),
         frozen_packet_path=write_json(inputs / "frozen-packet.json", frozen_packet()),
-        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/v2/qa-result-1.schema.json",
+        qa_result_schema_path=Path(__file__).resolve().parents[3] / "schemas/qa-result-1.schema.json",
         cleanroom_root=tmp_path / "outside-cleanrooms",
         repo_root=repo_root,
     )

@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from serenity_v2.providers.base import AVAILABLE_STATES, ProviderEnvelope, exclude_after_cutoff
-from serenity_v2.schema import validate_document
+from serenity_core.providers.base import AVAILABLE_STATES, ProviderEnvelope, exclude_after_cutoff
+from serenity_core.schema import validate_document
 
 
 def test_available_envelope_preserves_source_hash_and_distinct_time_axes() -> None:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the v2 evaluation harness and print exactly one JSON object."""
+"""Run the evaluation harness and print exactly one JSON object."""
 
 from __future__ import annotations
 
@@ -8,17 +8,17 @@ import json
 import sys
 from pathlib import Path
 
-from serenity_v2.evaluation import EvaluationError, evaluate, load_live_packet_dir
+from serenity_core.evaluation import EvaluationError, evaluate, load_live_packet_dir
 
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-DEFAULT_CONFIG = ROOT / "config" / "evaluation.v2.json"
+DEFAULT_CONFIG = ROOT / "config" / "evaluation.json"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="""Run the v2 evaluation root command. This CLI has no evaluator subcommands; every invocation evaluates the configured family descriptors.
+        description="""Run the evaluation root command. This CLI has no evaluator subcommands; every invocation evaluates the configured family descriptors.
 
 Tracks:
   A — retrospective independent-first: make a fresh decision from the cutoff packet before any answer-key comparison; answer keys and old verdicts are excluded from the cleanroom.
@@ -50,7 +50,7 @@ Exit behavior:
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Evaluation descriptor config; default: config/evaluation.v2.json.")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Evaluation descriptor config; default: config/evaluation.json.")
     parser.add_argument("--execute-cli", action="store_true", help="Opt in to cleanroom Codex execution; without it no model or network call is made.")
     parser.add_argument("--cleanroom-root", type=Path, help="Outside-repository directory for allowlisted cleanroom packages; required in durable CLI execution workflows.")
     parser.add_argument("--results-root", type=Path, help="Outside-repository directory for cleanroom command transcripts and output hashes.")

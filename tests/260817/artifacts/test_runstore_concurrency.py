@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from serenity_v2.runtime import RunStore, SerenityError
+from serenity_core.runtime import RunStore, SerenityError
 
 
 def _concurrent_start(root: str, barrier, results) -> None:
@@ -250,7 +250,7 @@ def test_publish_or_refresh_artifact_cas_keeps_the_current_file_unchanged_for_a_
         schema_id="urn:serenity:schema:hypothesis-ledger:1",
     )
     expected = dict(first["artifacts"]["hypothesis-ledger"])
-    second_path = tmp_path / "ledger-v2.json"
+    second_path = tmp_path / "ledger-next.json"
 
     refreshed = store.publish_or_refresh_artifact(
         run["run_id"],
@@ -263,7 +263,7 @@ def test_publish_or_refresh_artifact_cas_keeps_the_current_file_unchanged_for_a_
     )
 
     current = refreshed["artifacts"]["hypothesis-ledger"]
-    assert current["path"] == "ledger-v2.json"
+    assert current["path"] == "ledger-next.json"
     assert first_path.read_bytes() == b'{"revision":1}\n'
     stale_path = tmp_path / "ledger-v3.json"
     with pytest.raises(SerenityError) as stale:

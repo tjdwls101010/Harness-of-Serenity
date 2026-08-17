@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from serenity_v2.schema import validate_document
-from serenity_v2.snapshot import SnapshotBlockedError, SnapshotIntegrityError, build_security_snapshot, validate_security_snapshot
+from serenity_core.schema import validate_document
+from serenity_core.snapshot import SnapshotBlockedError, SnapshotIntegrityError, build_security_snapshot, validate_security_snapshot
 
 
 def run_manifest(*, cutoff: str | None = None) -> dict:
