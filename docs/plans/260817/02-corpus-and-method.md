@@ -22,6 +22,16 @@ The codebook must separately label: observation type; causal-chain hop; claimed 
 
 Build a claim ledger from the codes. Every resulting doctrine item is tagged exactly one of `sourced`, `augmented`, or `unverified`. `sourced` has direct corpus support and representative/counterexample references. `augmented` is a deliberate v2 safety or engineering addition with a stated rationale, not attributed to the corpus. `unverified` is retained as a hypothesis/research question or excluded from operating rules; it must never become an invisible hard gate. The final harness loads sourced and explicitly adopted augmented rules, while a traceability appendix preserves every rule-to-evidence relation.
 
+## Implemented reconstruction evidence
+
+The cutover audit reconciles 1,874 tweets and all 2,062 media relations against a source record that includes DB SHA-256 `6c7cafab481ee721c001746d5a5008e77de5f2cbf989d705929f58fa8403c713`, query `SELECT id, type, media FROM tweets ORDER BY id`, and SQLite `user_version` 0. Of those relations, 1,911 have hash-verified cached bytes and 151 are explicit terminal HTTP 404 `unavailable` records; the available relations deduplicate to 1,892 physical SHA-256 objects. The strict extraction reconciliation has zero blockers.
+
+Blind reconstruction produced 1,874 text chunks plus 1,892 SHA-deduplicated media chunks, 3,766 total, in 76 hash-bound packets. The private source index retains DB rows, media relations, and provenance; blind packets omit ticker, date, URL, DB identity, old doctrine, sessions, rankings, and answer keys. Exactly one selected completed result covers every packet and every chunk: 1,953 chunks were coded and 1,813 were explicit no-move dispositions.
+
+The deterministic aggregate preserves exact labels rather than semantically merging them. Its bounded candidate digest selects frequent labels first and uses deterministic manifest-span quantiles only within a tied cutoff tier, with omitted counts and hashes for every truncated section. The final candidate digest has content hash `3056087bca1f24c5ee660bfce20a47bfdc93961f7b8e1f090efdd8949632d6f3` and raw SHA-256 `a2dd0883ae5aa804d7346ee2695b5be58da463a74ce5a1851e8f71ac0f495cb7`.
+
+One `gpt-5.6-sol` final synthesis was run over that digest, with broad fan-out forbidden. Its historical execution record retains a conservative false-positive transcript classification caused by jq's `//` operator; the same immutable transcript and output were subsequently revalidated read-only after the auditor was corrected, without rerunning the model. The final ledger has content hash `dba5fe018b2061048cb97d0207b363f6ac0ecddef6735bef7f1f2fdbc369aaab` and contains exactly 12 corpus-`sourced`, 8 explicitly engineered `augmented`, and 0 `unverified` operating claims. [The synthesis evidence](../../../config/method-synthesis-evidence.v1.json), [candidate digest](../../../config/method-candidate-digest.v1.json), and [claim ledger](../../../config/method-claim-ledger.v1.json) preserve the bindings.
+
 ## Method principles adopted for v2
 
 The following are v2 operating principles, expressed as interfaces rather than rigid analysis order:

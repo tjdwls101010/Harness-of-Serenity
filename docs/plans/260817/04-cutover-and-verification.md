@@ -29,13 +29,15 @@ Update repository documentation, root harness text, and validation scripts in th
 | Artifacts | `tests/260817/artifacts` | Content hashes, immutable version lineage, current pointer, and append-only prospective records work. |
 | Corpus | Corpus report plus fixtures | Dynamic DB query and manifest reconcile exactly; report the current rebase observation (1,874 rows / 2,062 unique media URLs) or a documented later delta, and every method claim has a traceability tag. |
 | Harness | Harness validator and every hook fixture | Zero validator errors; SessionStart soft health and typed Stop gate behave as specified. |
-| E2E | Six family reports | Each family has deterministic 2 + live 1 evidence, raw counts, taxonomy, and no hidden aggregate score. |
-| Cleanroom | Codex cleanroom fixture | Allowlist manifest/hashes recorded; forbidden v1/harness/corpus paths absent and unreadable. |
-| Symlink compatibility | Local harness integration test | `AGENTS.md -> CLAUDE.md` remains valid and `.codex -> .claude` is retained only if verified. |
+| E2E | Six family reports | Each family has deterministic 2 + live 1 evidence, one shared-Harness Terra candidate per case, two independent Terra reviews per case, raw counts, taxonomy, and no hidden aggregate score. |
+| Cleanroom | Candidate and reviewer cleanroom fixtures | Both allowlist manifests/hashes are recorded; the candidate receives only family-routed Harness instructions and no oracle/history, while reviewers receive no Harness/corpus/oracle and cannot read outside their active package. |
+| Symlink compatibility | Local harness integration test | `AGENTS.md -> CLAUDE.md` remains valid and the verified `.codex -> .claude` link is tracked so a clone receives one shared harness tree. |
 | GitHub v1 record | Annotated tag and remote verification | `v1-final-260817` resolves remotely to the recorded pre-cutover commit before any v1 deletion. |
 | Archive | Temporary extraction/byte comparison | All 16 tracked session files match the manifest before source deletion. |
 
 Run focused tests after each TDD slice and the complete v2 suite before cutover. Follow harness creator validation instructions after any `.claude` change: update `.claude/harness-spec.md`, run the harness validator until zero errors, execute fixture tests for every wired hook, then rerun the validator. Record actual commands and results; do not write a passing-looking report for checks that were not run.
+
+The recorded final E2E gate is [`evaluation-report.v2.json`](evaluation-report.v2.json): canonical content hash `e4e5ae498606ff4489cc06e5e0e587b9b7422165c57cb65d3ccf143878f1fb2d`, 18 passing cases across six separately reported families, 18 shared-Harness Terra candidates, 36 independent Terra reviews, and zero Sol adjudications. Historical diagnostic executions remain evidence of corrected contracts; they do not replace this final gate.
 
 ## Release and PR workflow
 
@@ -45,6 +47,6 @@ The final handoff names the v2 public CLI, changed harness skills/agents/hooks, 
 
 ## Final acceptance decision
 
-The implementation is complete only when all of the following are true: v2 owns the documented runtime path; schema/lifecycle/lens gates prevent invalid decision claims; facts and evidence remain identity/time/provenance-pinned; the corpus audit and cleanroom doctrine work are traceable; both shared harness compatibility and independent Codex cleanroom evaluation pass; all six evaluation families report their own denominators/failure modes; the v1 sessions archive restores byte-identically; and v1-only active code/tests/hooks have been removed without leaving a bypass.
+The implementation is complete only when all of the following are true: v2 owns the documented runtime path; schema/lifecycle/lens gates prevent invalid decision claims; facts and evidence remain identity/time/provenance-pinned; the corpus audit and cleanroom doctrine work are traceable; shared-Harness candidate execution and independent no-Harness review both pass their cleanroom contracts; all six evaluation families report their own denominators/failure modes; the v1 sessions archive restores byte-identically; and v1-only active code/tests/hooks have been removed without leaving a bypass.
 
 If any of these fail, stop at the corresponding stage, retain v1 active state, record the failure evidence, and repair the smallest violated interface. Do not broaden the change into unrelated refactoring or mask the failure with a narrative exception.

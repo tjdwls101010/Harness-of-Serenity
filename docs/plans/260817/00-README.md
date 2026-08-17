@@ -14,7 +14,7 @@ The system must support three ordinary user intents without forcing them through
 - Do not make a ticker recommendation from a fixed score, a chart, a single top-down multiple, or remembered numbers.
 - Do not use the tweet corpus as a routine answer key. It is method evidence during corpus work and an explicitly requested post-hoc comparator only.
 - Do not preserve v1 command compatibility, code, tests, hooks, skills, or obsolete documentation in the active tree after the cutover gates pass. Preserve the exact pre-cutover Git tag and the verified session archive, not a second runtime.
-- Do not duplicate the harness for Codex. Preserve `AGENTS.md -> CLAUDE.md` and preserve a local `.codex -> .claude` compatibility symlink when its E2E gate passes.
+- Do not duplicate the harness for Codex. Preserve `AGENTS.md -> CLAUDE.md` and track the verified `.codex -> .claude` compatibility symlink so a clone receives the same harness tree.
 - Do not conceal unavailable, stale, conflicting, or not-disclosed data behind omitted fields or null values.
 
 ## Product model
@@ -33,10 +33,11 @@ The v2 runtime has one public execution surface:
 scripts/.venv/bin/python scripts/serenity.py run start|status|close|abandon
 scripts/.venv/bin/python scripts/serenity.py snapshot security
 scripts/.venv/bin/python scripts/serenity.py hypothesis put
-scripts/.venv/bin/python scripts/serenity.py evidence catalog|request|read
+scripts/.venv/bin/python scripts/serenity.py evidence catalog|request|collect|read
 scripts/.venv/bin/python scripts/serenity.py lens run
 scripts/.venv/bin/python scripts/serenity.py decision validate|finalize
-scripts/.venv/bin/python scripts/serenity.py outcomes refresh
+scripts/.venv/bin/python scripts/serenity.py outcomes register|refresh
+scripts/.venv/bin/python scripts/serenity.py graph put
 ```
 
 `scripts/serenity_corpus.py` and `scripts/serenity_eval.py` are separate maintenance/evaluation CLIs, not competing analysis runtimes. All runtime commands write exactly one JSON object to stdout and diagnostics only to stderr. The canonical schema set lives in `schemas/v2/`. Tests for this plan live exclusively in `tests/260817/` and exercise public commands and real artifact boundaries rather than private helper implementation.
@@ -65,4 +66,4 @@ Each stage is a vertical slice: write the public seam test under `tests/260817/`
 - The harness never infers a decision from a provider score; `ibd-rs-rating` is evidence only.
 - All tests added by this project live beneath `tests/260817/`; legacy tests are retained only until cutover.
 
-Detailed interfaces and runtime behavior are in [01-contracts-and-runtime.md](01-contracts-and-runtime.md); corpus and method work in [02-corpus-and-method.md](02-corpus-and-method.md); harness/evaluation work in [03-harness-and-evaluation.md](03-harness-and-evaluation.md); and destructive cutover verification in [04-cutover-and-verification.md](04-cutover-and-verification.md).
+Detailed interfaces and runtime behavior are in [01-contracts-and-runtime.md](01-contracts-and-runtime.md); corpus and method work in [02-corpus-and-method.md](02-corpus-and-method.md); harness/evaluation work in [03-harness-and-evaluation.md](03-harness-and-evaluation.md); destructive cutover verification in [04-cutover-and-verification.md](04-cutover-and-verification.md); and the executed gate record in [05-cutover-evidence.md](05-cutover-evidence.md). The hash-valid full 18-case result is preserved as [evaluation-report.v2.json](evaluation-report.v2.json).

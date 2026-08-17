@@ -1,177 +1,67 @@
 # Contributing to Harness of Serenity
 
-Thanks for looking. This is a personal research harness that happens to be public, so the process
-here is deliberately light — no CLA, no issue templates, no required sign-off. What follows is
-what you need to make a change that will actually get merged.
+Thanks for helping improve this research tool. Useful contributions make facts easier to identify, provenance easier to audit, or research decisions harder to overclaim; they do not move investment judgment into a provider, score, hook, or static pipeline.
 
-## The one rule
+## Scope
 
-Everything else in this document is negotiable. This is not:
+Good candidates include typed provider adapters, schema/lifecycle fixes, corpus audit improvements, cleanroom/evaluation cases, harness wiring, and documentation corrections. Discuss a new external dependency, a new provider source, or a method/doctrine change before implementing it, because those choices alter the evidence boundary for every user.
 
-> **Deterministic code may load, normalize, and verify facts. It may never emit a verdict, score,
-> archetype tag, regime label, rating, price target, or option-vehicle recommendation.**
-
-That boundary is the entire point of the project, and it is enforced mechanically. If you add a
-field named `risk_score`, a value of `"BUY"`, or a key containing `regime` anywhere in the
-evidence payload, `serenity_harness.py validate` will fail and so will the contract tests.
-
-The reasoning: a judgment encoded in code drifts silently between runs, and one stale threshold
-among a hundred can invert a conclusion with nothing to catch it. Code answers "is this number
-right." It never answers "is this thesis right."
-
-**In practice this means:**
-
-- New data module? Return the raw measurement. `vix_spot: 18.9` is evidence; `vix_regime:
-  "panic"` is judgment, and the pipeline will strip it.
-- New derived figure? Fine, if it is pure arithmetic over disclosed inputs (`ev_to_revenue`,
-  `net_debt`). Not fine if it embeds a threshold that decides something (`is_cheap`,
-  `quality_grade`).
-- Need a label anyway for your own use? Put it in a skill or in `CLAUDE.md`, which are the
-  judgment layers. See [Architecture](docs/wiki/Architecture.md).
-
-The concrete enforcement lists live in `scripts/pipeline/_evidence.py`
-(`FORBIDDEN_EVIDENCE_KEYS`, `FORBIDDEN_KEY_SUBSTRINGS`, `FORBIDDEN_VALUE_PATTERN`).
-
-## What contributions are wanted
-
-Genuinely useful:
-
-- **Bug fixes**, especially the ones listed in
-  [Known Limitations](docs/wiki/Known-Limitations.md) — they are documented precisely so someone
-  can pick one up.
-- **New data modules** under `scripts/modules/`, following the existing subprocess-CLI shape.
-- **Robustness** in the fetch layer: better degradation, clearer structured errors.
-- **Documentation** corrections. If a doc page contradicts the code, the code is right and the
-  page is a bug.
-- **Test coverage** where a behavior boundary needs protecting.
-
-Please open an issue first for:
-
-- **New dependencies.** The install is already heavy; each addition needs a reason.
-- **Doctrine changes** to `CLAUDE.md` or the skills. These are the judgment layer, and the
-  project's stated design rule is to *generalize an existing principle* rather than append a new
-  case-specific one. A patch per missed case is the failure mode the harness is built against.
-- **Anything that moves a judgment into code**, even a convenient one. Especially then.
+The runtime must not emit a winner label, ranking verdict, conviction score, trade instruction, or portfolio allocation. It may resolve identity, collect and normalize facts, preserve source/time/provenance, execute declared arithmetic, and block invalid artifacts. The analyst/model retains hypothesis formation, materiality, valuation-lens selection, and the research action.
 
 ## Development setup
 
-Python **3.12+** is required — `scripts/pipeline/_evidence.py` uses PEP 695 `type` aliases, which
-older interpreters will not parse.
+Python 3.12 or newer is required. Create the repository-local virtual environment expected by the documented commands.
 
 ```bash
 git clone https://github.com/tjdwls101010/Harness-of-Serenity.git
 cd Harness-of-Serenity
-
 python3 -m venv scripts/.venv
-scripts/.venv/bin/pip install -r scripts/requirements.txt
+scripts/.venv/bin/python -m pip install -r scripts/requirements.txt
 cp .env.example .env
 ```
 
-The virtualenv lives at `scripts/.venv` by convention — the hooks in `.claude/settings.json`
-reference that exact interpreter path, so a venv elsewhere will silently disable them.
-
-Optional keys in `.env`:
-
-| Variable | Needed for |
-| --- | --- |
-| `FRED_API_KEY` | Macro gauges: rates, inflation, net liquidity, ERP. Free from [FRED](https://fred.stlouisfed.org/docs/api/api_key.html). |
-| `EDGAR_IDENTITY` | SEC compliance. Format `"Your Name you@example.com"`. Falls back to a default if unset. |
-
-Neither is needed to run the validator or the offline tests.
+`FRED_API_KEY` enables live FRED/ALFRED evidence. `SERENITY_SEC_USER_AGENT` is the preferred contactable SEC user agent; `EDGAR_IDENTITY` remains a supported legacy setting. Do not put real credentials in a fixture, command transcript, issue, PR, or commit.
 
 ## Tests and checks
 
-Run these before opening a PR. There is no CI, so they are the only gate.
+All tests belong under `tests/260817/`. Start a behavior change with a failing test at a public seam, implement the smallest vertical slice, run the focused test, then run the whole v2 suite.
 
 ```bash
 PY=scripts/.venv/bin/python
 
-# 1. Structural self-check — no network, no keys required.
-#    This is the important one: it replays all 16 golden fixtures
-#    through the evidence builder and enforces the boundary rule.
+# Focused TDD slice
+$PY -m pytest tests/260817/cli -q
+
+# Full v2 test suite
+$PY -m pytest tests/260817 -q
+
+# Static harness inventory; provider/network research is intentionally excluded.
 $PY scripts/serenity_harness.py validate
-$PY scripts/serenity_harness.py validate --verbose   # detail for passing checks too
 
-# 2. Hook behavior fixtures — must exit 0.
-$PY .claude/hooks/tests/run_fixtures.py
-
-# 3. Evidence contract tests.
-#    See Known Limitations — these currently fail on a path bug in the
-#    test file itself, not in the code under test.
-python3 -m pytest scripts/tests/ -q
+# Inspect the public interfaces without writing or contacting providers.
+$PY scripts/serenity.py --help
+$PY scripts/serenity_corpus.py --help
+$PY scripts/serenity_eval.py --help
 ```
 
-A healthy `validate` prints `"ok": true` with `pass: 15, warn: 0, fail: 0`. Warnings never fail
-the run; only hard failures exit non-zero.
-
-### Offline replay
-
-The fastest way to check an evidence-layer change without touching the network:
-
-```bash
-scripts/.venv/bin/python scripts/serenity_pipeline.py evidence \
-  --fixture scripts/tests/golden/AAOI.inputs.json
-```
-
-`build_evidence()` is a pure function of its payload, so this is byte-stable and reproducible.
-
-### Regenerating a golden fixture
-
-Only when a change legitimately moves a captured fact. Fixtures are **blessed from a live
-capture, never hand-written** — hand-typing them would bake in exactly the error they exist to
-catch.
-
-```bash
-cd scripts
-../scripts/.venv/bin/python -m pipeline.legacy legacy-regress AAOI --update
-```
-
-Explain in the PR why the old fixture was wrong.
+Use a real CLI subprocess, a schema document, or an artifact boundary as the seam. External provider/network, filesystem-clock, and process boundaries may be injected or mocked; do not mock private runtime helpers simply to make a test pass. Provider tests must preserve explicit availability, time axes, source identity, raw hashes where a response exists, and degraded outcomes. A provider failure should become a typed result or documented command error, never a fabricated value.
 
 ## Making a change
 
-- **Branch** off `main`. Name it for the change: `fix/next-report-null`,
-  `feat/module-put-call-ratio`, `docs/pipeline-reference`.
-- **Commits** follow Conventional Commits, matching the existing history:
-  `fix(pipeline): …`, `feat(modules): …`, `docs(wiki): …`, `chore: …`.
-- **A good PR** states what changed and why, notes which of the three checks above you ran, and
-  — if it touches `scripts/pipeline/` or `scripts/modules/` — confirms the boundary rule still
-  holds. Keep it focused; one concern per PR.
-- **Review** is by the maintainer, best-effort. This is a side project; a slow response is not
-  disinterest.
+Branch from `main` using `feat/`, `fix/`, `docs/`, `chore/`, or `refactor/` followed by an English kebab-case slug. Keep each change focused: do not reformat or refactor adjacent code unless the requested change made it necessary.
 
-## Code style
+Commits and pull-request titles use `<type>: <Korean title>` and stay within 50 characters; permitted types are `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `build`, and `ci`. Use Korean for commit messages, PR titles, PR bodies, and issues; keep code, paths, commands, and identifiers unchanged.
 
-There is no linter or formatter config in the repo, so the standard is consistency with the file
-you are editing. Observable conventions:
+Open a PR for a feature, bug fix, refactor, documentation overhaul, or behavior-changing configuration. Follow [`.github/pull_request_template.md`](.github/pull_request_template.md) exactly: `## 무엇을 바꿨나`, `## 왜`, `## 영향`, then `## 검증`. The verification section records the commands actually run and their real result counts. A test not run is reported as not run, not implied by a related command.
 
-- Every module in `scripts/modules/` is a standalone argparse CLI with `cmd_<name>(args)`
-  handlers that print JSON via `utils.output_json` and wrap errors with the `@safe_run`
-  decorator. Follow that shape exactly — the pipeline invokes them as subprocesses and depends
-  on it.
-- Private helpers are `_`-prefixed. Public entry points are not.
-- Docstrings explain *why* a piece of code exists and what failure it prevents, not what the next
-  line does. Several modules carry a paragraph of rationale at the top; that is intentional and
-  worth continuing.
-- Type hints where they clarify. `from __future__ import annotations` at the top of new pipeline
-  modules.
+## Code and documentation style
 
-## Reporting bugs and requesting features
+Follow the local style of the file you touch. New Markdown uses one soft-wrapped paragraph per line: do not hard-wrap by column, and do not put every sentence on its own line. Every changed line should directly support the requested behavior. If you discover unrelated dead code, report it but do not remove it.
 
-Open a [GitHub issue](https://github.com/tjdwls101010/Harness-of-Serenity/issues). There are no
-templates; a useful report includes:
+## Reporting bugs and security issues
 
-- the exact command you ran and its full output (JSON errors are structured — paste them whole),
-- your Python version (`scripts/.venv/bin/python --version`),
-- whether `serenity_harness.py validate` passes,
-- for data problems, the ticker and roughly when you ran it, since upstream sources change.
-
-**Security issues do not go in the issue tracker.** Follow [SECURITY.md](SECURITY.md).
+For a normal bug or feature request, open a GitHub issue with the exact command, one JSON stdout result, Python version, and source/provider context needed to reproduce it. For a vulnerability or accidental credential exposure, do not open a public issue; follow [SECURITY.md](SECURITY.md).
 
 ## Code of Conduct
 
 Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
-
----
-
-**Next:** [Architecture](docs/wiki/Architecture.md) · [Testing and Validation](docs/wiki/Testing-and-Validation.md) · [Known Limitations](docs/wiki/Known-Limitations.md)

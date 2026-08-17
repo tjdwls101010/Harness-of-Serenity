@@ -20,11 +20,14 @@ Every invocation uses `scripts/.venv/bin/python scripts/serenity.py`; stdout con
 | `hypothesis put` | Store/replace a versioned competing-hypothesis ledger for an OPEN run | `hypothesis-ledger.json` |
 | `evidence catalog` | List known evidence and unmet needs without deciding their priority | `evidence-catalog.json` |
 | `evidence request` | Persist a typed adaptive evidence request | `evidence-request-<id>.json` |
-| `evidence read` | Persist/read a typed provider result or unavailable result | `evidence-result-<id>.json` |
+| `evidence collect` | Execute the saved request under its source/network policy and persist typed available or unavailable results | `evidence-result-<id>.json` |
+| `evidence read` | Read one already persisted typed evidence result without provider I/O | JSON evidence result |
 | `lens run` | Evaluate a declared arithmetic lens using referenced facts | `lens-result.json` |
 | `decision validate` | Validate a prospective decision without persisting final state | Validation report |
 | `decision finalize` | Persist a valid immutable decision version and update current pointer | `records/decisions/<lineage>/vNNN/` |
+| `outcomes register` | Bind a finalized immutable decision to a prospective benchmark/checkpoint schedule | New local prospective record |
 | `outcomes refresh` | Append a dated measurement checkpoint to a prospective record | Updated local prospective record |
+| `graph put` | Validate and persist an evidence-bound dependency/sector graph for an OPEN run | `sector-graph.json` (`sector-graph/1`) |
 
 The runtime may provide a documented global working-directory/root option only if tests require isolation, but the default project root is the current directory. It must not grow convenience verbs that reintroduce a static `analyze` or `discover` rail.
 
@@ -85,6 +88,8 @@ Prospective measurement stays local and append-only. A refresh records price/ben
 Security identity must resolve and record at least ticker as requested, normalized symbol, exchange/listing, issuer legal name, CIK where applicable, OpenFIGI binding where available, US-listing type (common/ADR/ETF), and resolution source. If SEC, OpenFIGI, and requested ticker conflict materially, snapshot finalization blocks with exit `3` and an evidence result marked `conflict`; the model may not reason past an unresolved identity.
 
 Provider adapters return `provider-envelope/1` before data enters a snapshot. The envelope records request parameters, response status, retry count, provider time/version, identity bindings, raw payload hash, parsing result, source locations, and one explicit availability outcome. A provider field cannot be transformed into a headline recommendation or an implicit minimum-score gate.
+
+Issuer narrative uses the same evidence boundary rather than a search-summary shortcut. `issuer-ir.document` accepts one already-resolved official issuer URL only after the attached live fact snapshot's exact raw SEC submissions payload re-establishes the CIK, issuer name, and declared issuer domain; a frozen snapshot cannot authorize live collection. It captures the exact response bytes, validates every redirect hop and final URL against that domain, preserves response metadata, and records a source-derived publication time or becomes unavailable for historical use. The manual `evidence read --document` seam is unavailable for this capability because supplied JSON cannot prove that origin or raw response. WebSearch/WebFetch may locate the official source, but management claims, hard operating observations, named relationships, omissions, and cross-company read-through candidates remain distinct; no provider or evidence agent turns them into a thesis or action.
 
 ## Lens and decision gates
 

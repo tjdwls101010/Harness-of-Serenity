@@ -1,83 +1,25 @@
 # Security Policy
 
-## Supported versions
+## Supported version
 
-Harness of Serenity is a personal research project with a single active line of development.
-Only the current `main` branch receives fixes.
-
-| Version | Supported |
-| --- | --- |
-| `main` (latest commit) | ✅ |
-| `v0.1.0` and earlier tags | ❌ — upgrade to `main` |
+Only the current `main` branch is supported. Historical v1 material is retained as a tagged/archive recovery record, not as a maintained runtime line.
 
 ## Reporting a vulnerability
 
-**Please do not open a public GitHub issue for a security problem.**
+Please do not open a public issue for a security vulnerability, suspected credential exposure, cleanroom escape, or command/path injection issue. Use GitHub’s private vulnerability reporting for this repository through the Security tab’s **Report a vulnerability** flow. Include the affected commit, reproducible steps, impact, relevant sanitized command/output, and any mitigation you identified.
 
-Email **chunghun1@naver.com** with `[SECURITY]` in the subject line.
+No response-time SLA or disclosure date is promised. The maintainer will assess the report privately and coordinate disclosure when a fix is available.
 
-If you would rather not use email, use GitHub's private vulnerability reporting on the
-repository's **Security** tab → **Report a vulnerability**, which keeps the report private until
-a fix is published.
+## Sensitive configuration
 
-### What to include
+`.env` is local configuration and must remain untracked. Never commit, paste into an issue, or include in a test fixture a real provider credential such as `FRED_API_KEY`, `EIA_API_KEY`, `BEA_API_KEY`, `BLS_REGISTRATION_KEY`, `SAM_API_KEY`, `USPTO_API_KEY`, `X_AUTH_TOKEN`, `X_CT0`, or `X_TWID`. The X values are session credentials used only for thesis-corpus scraping and should be treated as account-access secrets.
 
-- What the issue is and why it is a security problem rather than a bug.
-- Steps to reproduce, ideally a minimal command or payload.
-- The commit SHA or tag you tested against, plus your Python version and OS.
-- What an attacker could actually achieve — data exposure, code execution, credential leakage.
-- Any suggested fix, if you have one.
+SEC requests require a contactable user agent through `SERENITY_SEC_USER_AGENT` or legacy `EDGAR_IDENTITY`. These values are not authentication secrets, but they can contain personal contact information; treat them as private configuration and avoid copying them into logs or public reports. `.env.example` contains empty keys only and is the safe template for documenting new variables.
 
-### What to expect
+Provider envelopes, saved artifacts, test fixtures, cleanroom packages, and evaluation reports must never serialize environment values. When reporting a provider problem, share the typed availability/provenance result after redacting any sensitive request headers or configuration.
 
-This is a solo side project, so no response-time guarantee is offered — but realistically:
+## Cleanroom boundary
 
-- **Acknowledgment** within about a week.
-- **An assessment** — accepted, needs more information, or out of scope — after that.
-- **Coordinated disclosure.** Please give a reasonable window before publishing. Credit is given
-  in the changelog unless you prefer otherwise.
+Normal local Codex uses the repository’s shared harness through its documented symlink. The E2E candidate arm runs outside the repository from an allowlisted, hash-recorded package containing the user case, typed evidence, and a content-hashed Harness receipt; the inline prompt loads only the root plus family-routed skills, while agents, hooks, settings, and the specification remain receipts rather than model instructions. It excludes provider secrets, the tweet database and media, expected invariants, prior verdicts, sessions, and prior evaluation results. The independent reviewer arm is a separate outside-repository package that excludes all Harness files as well as those answer and history surfaces, and receives only the typed candidate artifact plus evidence permitted by the case contract.
 
-## Scope
-
-### In scope
-
-- Code execution or command injection through any CLI in `scripts/`, including through crafted
-  ticker symbols, accession numbers, or fixture files.
-- Credential leakage — anything that causes `.env` values (`FRED_API_KEY`, `EDGAR_IDENTITY`,
-  X/Twitter session cookies) to be written to output, logs, or committed files.
-- Path traversal via `--fixture`, `--db`, or any other path-taking flag.
-- SQL injection in `serenity_tweets.py` against `data/analysis_Serenity.db`.
-- Unsafe deserialization or evaluation anywhere in the fetch and normalization path.
-- A `.claude/hooks/` script that can be induced to execute attacker-controlled input.
-
-### Out of scope
-
-- **Wrong, stale, or missing market data.** Upstream sources (yfinance, FRED, CBOE, SEC EDGAR)
-  go down, rate-limit, and change shape. That is a data-quality bug — file it as a normal issue.
-- **Investment losses.** See the disclaimer in the [README](README.md). This tool provides no
-  advice and guarantees no accuracy.
-- Vulnerabilities in third-party dependencies with no exploitable path through this code —
-  report those upstream. If there *is* a path through this code, that is in scope.
-- Rate limiting or denial of service against public data providers reached by this tool.
-- Findings that require an attacker to already have write access to the repository or shell
-  access to the machine running it.
-
-## Handling secrets in this repository
-
-Worth knowing before you contribute or fork:
-
-- **`.env` is gitignored and must stay that way.** `.gitignore` ignores `.env` and `.env.*` while
-  explicitly re-including `.env.example`. Never commit a real key.
-- **`.env.example` is the template** and contains no live values. Keep it that way when adding a
-  variable.
-- **`EDGAR_IDENTITY` is not a secret** — SEC EDGAR requires a contact string in the User-Agent by
-  policy, so it is transmitted with every request by design. If unset, `serenity_filings.py`
-  falls back to a default identity containing the maintainer's email.
-- **X/Twitter session cookies** (`X_AUTH_TOKEN`, `X_CT0`, `X_TWID`) are listed in `.env.example`
-  for an out-of-tree scraper. No code in this repository reads them. Treat them as
-  account-takeover credentials if you ever populate them.
-- **`data/analysis_Serenity.db` is committed** and contains only public posts. It holds no
-  credentials. See [Concepts](docs/wiki/Concepts.md#the-thesis-db) for how it is used.
-
-If you find a committed secret in the history, report it privately using the process above rather
-than opening an issue that points at it.
+Report any way to read a path outside the active candidate or reviewer allowlist, inject a symlink/path that bypasses package validation, alter a hash-recorded package after validation, expose an evaluator-only invariant to the candidate, expose Harness instructions to a reviewer, or cause a cleanroom transcript to disclose secrets. Data quality, market outcomes, or an unavailable third-party provider are not security vulnerabilities unless they create an exploitable integrity, confidentiality, or execution issue.
