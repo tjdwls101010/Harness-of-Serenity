@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
@@ -437,4 +437,134 @@ def build_security_snapshot(
     snapshot["snapshot_id"] = f"snapshot-{content_hash[:20]}"
     snapshot["content_hash"] = _canonical_hash(snapshot)
     validate_security_snapshot(snapshot)
+    return snapshot
+
+
+DERIVED_FACT_SELECTORS = ("name", "concept", "unit", "period_end", "period_start", "fiscal_period", "fiscal_year", "statement_type", "label")
+_ROW_COLLECTIONS = ("facts", "segments", "rows")
+
+
+class DerivedFactError(ValueError):
+    """A derivation the saved evidence cannot support, stated so it can be fixed."""
+
+
+def parse_fact_selector(raw: str) -> dict[str, str]:
+    """Parse one ``key=value,key=value`` fact selector.
+
+    One option per fact rather than parallel ``--name``/``--concept``/``--unit``
+    lists: those align only while every fact supplies every part, and an omitted
+    optional selector silently pairs a name with another fact's concept. That is
+    the same silent-wrongness this interface exists to prevent.
+    """
+
+    selector: dict[str, str] = {}
+    for part in raw.split(","):
+        key, separator, value = part.partition("=")
+        key, value = key.strip(), value.strip()
+        if not separator or not key or not value:
+            raise DerivedFactError(f"--fact takes key=value pairs separated by commas; {part.strip()!r} is not one")
+        if key not in DERIVED_FACT_SELECTORS:
+            raise DerivedFactError(f"--fact key {key!r} is not one of {', '.join(DERIVED_FACT_SELECTORS)}")
+        selector[key] = value
+    for required in ("name", "concept", "unit"):
+        if required not in selector:
+            raise DerivedFactError(f"--fact requires {required}; got {raw!r}")
+    return selector
+
+
+def evidence_rows(value: Any) -> list[Mapping[str, Any]]:
+    """The XBRL rows a SEC result carries, wherever the capability put them."""
+
+    payload = value.get("result") if isinstance(value, Mapping) and isinstance(value.get("result"), Mapping) else value
+    if not isinstance(payload, Mapping):
+        return []
+    for key in _ROW_COLLECTIONS:
+        rows = payload.get(key)
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, Mapping)]
+    return []
+
+
+def select_fact_row(rows: Sequence[Mapping[str, Any]], selector: Mapping[str, str]) -> Mapping[str, Any]:
+    """Resolve exactly one row, or say what would tell the candidates apart.
+
+    A concept returns a row per period and per dimension, so choosing one
+    silently would put a number nobody selected behind a numeric target.
+    """
+
+    filters = {key: value for key, value in selector.items() if key not in {"name", "unit"}}
+    matched = [row for row in rows if all(str(row.get(key, "")) == value for key, value in filters.items())]
+    if not matched:
+        concepts = sorted({str(row.get("concept")) for row in rows})[:8]
+        raise DerivedFactError(f"no row matches {filters}; the result carries concepts {concepts}")
+    if len(matched) > 1:
+        distinguishing = [
+            f"{key}={sorted({str(row.get(key)) for row in matched})}"
+            for key in ("period_end", "period_start", "is_dimensioned", "fiscal_period", "statement_type")
+            if len({str(row.get(key)) for row in matched}) > 1
+        ]
+        raise DerivedFactError(f"{len(matched)} rows match {filters}; narrow it with {' or '.join(distinguishing) or 'a more specific concept'}")
+    return matched[0]
+
+
+def build_derived_fact_snapshot(
+    *,
+    run_manifest: Mapping[str, Any],
+    pinned_snapshot: Mapping[str, Any],
+    evidence_result: Mapping[str, Any],
+    selectors: Sequence[Mapping[str, str]],
+) -> dict[str, Any]:
+    """Turn selected XBRL rows into a fact snapshot stamped with their filing.
+
+    No schema change is needed: ``fact.provider`` is a free string and the
+    accession URL, raw-byte hash, and identity bindings come straight off the
+    evidence result, so a derived fact is honestly traceable to the filing rather
+    than to whoever computed it. The identity is copied from the run's pinned
+    snapshot, which is what makes pinning a precondition -- a fact cannot be
+    derived for a security whose identity was never bound.
+    """
+
+    rows = evidence_rows(evidence_result.get("value"))
+    if not rows:
+        raise DerivedFactError("the evidence result carries no XBRL rows to derive from")
+    temporal = evidence_result.get("temporal") if isinstance(evidence_result.get("temporal"), Mapping) else {}
+    facts = []
+    for selector in selectors:
+        row = select_fact_row(rows, selector)
+        value = row.get("numeric_value")
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise DerivedFactError(f"row for {selector['name']} has no numeric_value; it carries {row.get('value')!r}")
+        period_start = row.get("period_start") if isinstance(row.get("period_start"), str) else None
+        period_end = row.get("period_end") if isinstance(row.get("period_end"), str) else None
+        facts.append(
+            {
+                "fact_id": selector["name"],
+                "name": selector["name"],
+                "availability": "available",
+                "value": float(value),
+                "unit": selector["unit"],
+                "provider": str(evidence_result.get("provider")),
+                "request_id": str(evidence_result.get("request_id")),
+                "effective_at": period_end or temporal.get("effective_at"),
+                "period_start": period_start,
+                "period_end": period_end,
+                "observed_at": period_end or temporal.get("observed_at"),
+                "available_at": temporal.get("available_at"),
+                "fetched_at": evidence_result.get("fetched_at"),
+                "source_version": temporal.get("source_version"),
+                "source_uri": (evidence_result.get("source") or {}).get("uri"),
+                "raw_content_sha256": evidence_result.get("raw_content_sha256"),
+                "identity_bindings": dict(evidence_result.get("identity_bindings") or {}),
+            }
+        )
+    snapshot = {
+        "schema_id": FACT_SNAPSHOT_SCHEMA_ID,
+        "run_id": run_manifest["run_id"],
+        "as_of": run_manifest["as_of"],
+        "identity": dict(pinned_snapshot["identity"]),
+        "fetched_at": evidence_result.get("fetched_at"),
+        "facts": facts,
+    }
+    snapshot["snapshot_id"] = f"snapshot-{_canonical_hash(snapshot)[:20]}"
+    snapshot["content_hash"] = _canonical_hash(snapshot)
     return snapshot

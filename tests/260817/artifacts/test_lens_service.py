@@ -171,3 +171,70 @@ def test_supported_lenses_calculate_only_from_referenced_facts(formula: str, inp
     assert_schema(result)
     assert result["validity"] == "valid"
     assert result["output"]["value"] == expected
+
+
+def test_declared_evidence_refs_change_the_reproducibility_hash() -> None:
+    """`_input_specs` dropped evidence_refs, so two specs citing different filings
+    hashed identically. A chain back to an accession is only worth something if
+    changing it changes the result's identity."""
+
+    def spec(evidence_refs: list[str]) -> dict:
+        return {
+            "schema_id": "urn:serenity:schema:lens-spec:1",
+            "lens_id": "lens-hash-check",
+            "run_id": "run-abc12345",
+            "question": "Does the declared evidence bind the hash?",
+            "formula": "market_cap / market_cap",
+            "output_unit": "multiple",
+            "assumptions": ["Identity ratio isolates the hash."],
+            "validity_constraints": ["One input only."],
+            "inputs": [{"name": "market_cap", "fact_ref": "fact-market-cap", "unit": "USD", "evidence_refs": evidence_refs}],
+        }
+
+    snapshot = {
+        "schema_id": "urn:serenity:schema:fact-snapshot:2",
+        "fetched_at": "2026-08-17T00:00:00Z",
+        "facts": [{"fact_id": "fact-market-cap", "availability": "available", "value": 4_000_000_000_000, "unit": "USD"}],
+    }
+
+    first = run_lens(spec(["evidence-result-aaaaaaaaaaaaaaaaaaaa"]), snapshot)
+    second = run_lens(spec(["evidence-result-bbbbbbbbbbbbbbbbbbbb"]), snapshot)
+
+    assert first["validity"] == "valid" and second["validity"] == "valid"
+    assert first["reproducibility_hash"] != second["reproducibility_hash"]
+
+
+def test_a_lens_unions_facts_across_every_snapshot_it_is_given() -> None:
+    """Indexing one snapshot meant a lens could reach only the security snapshot's
+    provider-derived numbers, never a fact derived from a filing's own XBRL."""
+
+    security = {
+        "schema_id": "urn:serenity:schema:fact-snapshot:2",
+        "fetched_at": "2026-08-17T00:00:00Z",
+        "facts": [{"fact_id": "fact-market-cap", "availability": "available", "value": 4_000_000_000_000, "unit": "USD"}],
+    }
+    derived = {
+        "schema_id": "urn:serenity:schema:fact-snapshot:2",
+        "fetched_at": "2026-05-20T20:35:52Z",
+        "facts": [{"fact_id": "quarterly_revenue", "availability": "available", "value": 74_550_000_000, "unit": "USD"}],
+    }
+    spec = {
+        "schema_id": "urn:serenity:schema:lens-spec:1",
+        "lens_id": "lens-union",
+        "run_id": "run-abc12345",
+        "question": "What multiple does the filing's own revenue imply?",
+        "formula": "market_cap / quarterly_revenue",
+        "output_unit": "multiple",
+        "assumptions": ["Quarterly revenue is not annualised."],
+        "validity_constraints": ["Both facts share the USD unit."],
+        "inputs": [
+            {"name": "market_cap", "fact_ref": "fact-market-cap", "unit": "USD"},
+            {"name": "quarterly_revenue", "fact_ref": "quarterly_revenue", "unit": "USD"},
+        ],
+    }
+
+    result = run_lens(spec, [security, derived])
+
+    assert result["validity"] == "valid"
+    assert result["output"]["value"] > 0
+    assert result["executed_at"] == "2026-08-17T00:00:00Z"

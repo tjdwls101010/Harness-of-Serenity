@@ -31,6 +31,6 @@ Return `MONITOR`, `PASS`, or `BLOCKED` when qualification, adoption, vendor shar
 
 ## Deliverable and hand-off
 
-Deliver a compact chain map with competing maps, direct versus proxy labels, evidence gaps, the current action, and falsifiers. Hand a selected candidate to single-name research with only its cited relationships and unresolved tests; hand a material set to cohort research for a common comparison, not a pre-decided ranking.
+Deliver a compact chain map with competing maps, direct versus proxy labels, evidence gaps, the current action, and falsifiers. Hand a selected candidate to single-name research with only its cited relationships and unresolved tests; hand a material set to cohort research for a common comparison, not a pre-decided ranking. A `no_clean_vehicle` resolution is worth registering with `"$SERENITY_PYTHON" "$SERENITY_CLI" outcomes register` and revisiting with `outcomes refresh` when a listing or spin-off could change it; it stays optional, because a map never revisited is a research choice.
 
 Method claims: `claim-02-validate-every-causal-hop`, `claim-03-verify-identity-and-revenue-linkage`, `claim-06-test-catalyst-conversion-capacity`, `claim-10-treat-thin-reports-as-leads`, `aug-structural-concentration-and-priced-in`, and `aug-physical-chain-and-vehicle-contract` route chain validation, vehicle resolution, and recursive physical-bottleneck work here.

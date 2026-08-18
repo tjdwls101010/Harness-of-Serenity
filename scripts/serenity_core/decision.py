@@ -32,6 +32,7 @@ FACT_SNAPSHOT_SCHEMA_ID = "urn:serenity:schema:fact-snapshot:2"
 HYPOTHESIS_LEDGER_SCHEMA_ID = "urn:serenity:schema:hypothesis-ledger:1"
 EVIDENCE_RESULT_SCHEMA_ID = "urn:serenity:schema:evidence-result:1"
 LENS_RESULT_SCHEMA_ID = "urn:serenity:schema:lens-result:1"
+SECURITY_SCOPE_KINDS = frozenset({"single-name", "cohort"})
 
 
 def _schema_path() -> Path:
@@ -153,11 +154,12 @@ def _walk(value: Any) -> Iterable[tuple[str, Any]]:
 
 def _artifact_index(
     documents: list[tuple[Path, dict[str, Any]]],
-) -> tuple[dict[str, Path], dict[str, dict[str, Any]], set[str], dict[str, dict[str, Any]]]:
+) -> tuple[dict[str, Path], dict[str, dict[str, Any]], set[str], dict[str, dict[str, Any]], set[str]]:
     locations: dict[str, Path] = {}
     lens_documents: dict[str, dict[str, Any]] = {}
     fact_ids: set[str] = set()
     evidence_documents: dict[str, dict[str, Any]] = {}
+    pinned_subjects: set[str] = set()
     for path, document in documents:
         schema_id = document.get("schema_id")
         if schema_id == HYPOTHESIS_LEDGER_SCHEMA_ID:
@@ -173,10 +175,13 @@ def _artifact_index(
             locations.setdefault(lens_id, path)
             lens_documents.setdefault(lens_id, document)
         elif schema_id == FACT_SNAPSHOT_SCHEMA_ID:
+            identity = document.get("identity")
+            if isinstance(identity, Mapping) and isinstance(identity.get("ticker"), str):
+                pinned_subjects.add(identity["ticker"].strip().upper())
             for fact in document.get("facts", []):
                 if isinstance(fact, Mapping) and isinstance(fact.get("fact_id"), str):
                     fact_ids.add(fact["fact_id"])
-    return locations, lens_documents, fact_ids, evidence_documents
+    return locations, lens_documents, fact_ids, evidence_documents, pinned_subjects
 
 
 def _has_unresolved_identity(run_manifest: Mapping[str, Any], documents: list[tuple[Path, dict[str, Any]]]) -> bool:
@@ -328,7 +333,7 @@ def _assert_common_semantics(
     if not evidence_ids:
         _invalid("decision requires linked evidence")
     documents = _load_attached_artifact_documents(project_root, trusted_manifest, run_dir)
-    locations, lens_documents, fact_ids, evidence_documents = _artifact_index(documents)
+    locations, lens_documents, fact_ids, evidence_documents, pinned_subjects = _artifact_index(documents)
     reference_ids = _as_strings(decision.get("hypothesis_ids")) + evidence_ids
     for lens in decision.get("lens_results", []):
         if isinstance(lens, dict) and isinstance(lens.get("lens_result_id"), str):
@@ -342,10 +347,29 @@ def _assert_common_semantics(
     _assert_required_evidence(decision, evidence_ids=evidence_ids, evidence_documents=evidence_documents)
     _assert_trigger_conditions(decision, evidence_documents)
 
-    single_name_without_snapshot = decision.get("scope", {}).get("kind") == "single-name" and not fact_ids
-    if (_has_unresolved_identity(trusted_manifest, documents) or single_name_without_snapshot) and action != "BLOCKED":
-        raise SerenityError("identity_unresolved", "unresolved identity requires a BLOCKED decision", 3)
+    unpinned = _unpinned_subjects(decision, pinned_subjects)
+    if (_has_unresolved_identity(trusted_manifest, documents) or unpinned) and action != "BLOCKED":
+        detail = f": no pinned fact snapshot for {', '.join(unpinned)}" if unpinned else ""
+        raise SerenityError("identity_unresolved", f"unresolved identity requires a BLOCKED decision{detail}", 3)
     return lens_documents, fact_ids
+
+
+def _unpinned_subjects(decision: Mapping[str, Any], pinned_subjects: set[str]) -> list[str]:
+    """Subjects that name a security the run never bound to an identity.
+
+    Only ``single-name`` and ``cohort`` subjects are securities. A ``macro``
+    subject is a series identifier such as DGS10 and a ``sector`` subject is an
+    industry, so demanding ``snapshot security`` for either would ask for an
+    identity resolution that has no meaning for the subject. A cohort peer left
+    unpinned is the case this exists for: a comparison whose peers were never
+    identity-bound compares whatever their tickers happened to resolve to.
+    """
+
+    scope = decision.get("scope")
+    if not isinstance(scope, Mapping) or scope.get("kind") not in SECURITY_SCOPE_KINDS:
+        return []
+    subjects = {subject.strip().upper() for subject in _as_strings(scope.get("subjects"))}
+    return sorted(subjects - pinned_subjects)
 
 
 def _assert_numeric_target(decision: Mapping[str, Any], lens_documents: Mapping[str, Mapping[str, Any]], fact_ids: set[str]) -> None:
