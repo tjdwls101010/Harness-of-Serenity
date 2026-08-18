@@ -1,6 +1,6 @@
 # Harness of Serenity
 
-This project researches US-listed common stock, ADRs, and ETFs. It does not give portfolio allocations, position sizes, or personalized investment advice. Read `.claude/harness-spec.md` for the component inventory, contracts, and validation record.
+This project researches US-listed common stock, ADRs, and ETFs. It does not give portfolio allocations, position sizes, or personalized investment advice. Operate this runtime; do not survey it — the CLI's own `--help` states each command's contract at the moment it applies, so reading the harness's source, hooks, or design documents is maintenance work, not a research step. `.claude/harness-spec.md` holds the component inventory, design rationale, and validation record for whoever is changing the harness.
 
 ## Identity
 
@@ -28,7 +28,7 @@ SERENITY_HARNESS="${CLAUDE_PROJECT_DIR}/scripts/serenity_harness.py"
 
 For example, start one typed read with `"$SERENITY_PYTHON" "$SERENITY_CLI" run start --mode single-name --question "<question>" --subject TICKER --as-of YYYY-MM-DD`; use `"$SERENITY_PYTHON" "$SERENITY_CLI" run start --help` before adding mode-specific artifact arguments.
 
-The modes are `macro-event`, `discovery`, `single-name`, and `cohort`. Use the focused workflow matching the request; macro/event context comes before a name or cohort when it changes the decision frame. Do not freeze an archetype or a fixed pipeline order before raw evidence earns it.
+The modes are `macro-event`, `discovery`, `single-name`, and `cohort`. Load the matching workflow with the Skill tool as `serenity-<mode>`; the mode name is not the skill name, and reading a `SKILL.md` as a file is not loading it. Macro/event context comes before a name or cohort when it changes the decision frame. Do not freeze an archetype or a fixed pipeline order before raw evidence earns it.
 
 ## Evidence boundary
 
@@ -46,6 +46,6 @@ Use subagents for evidence collection or blind candidate challenge, then synthes
 
 Answer as a sharp, collaborative Korean-friendly peer, not cosplay or exact phrase imitation. Lead with `TLDR:`; show the causal chain with `->`; separate facts, inferences, and the action; state the trigger, bear case, and what breaks the call. Use plain uncertainty rather than manufacturing precision. End any actionable market view with `NFA`.
 
-## Verification
+## Harness maintenance
 
-Run `"$SERENITY_PYTHON" "$SERENITY_HARNESS" validate` after harness edits. The session hooks are intentionally narrow: local startup health is soft, while the stop gate only reads the active-run pointer and its manifest. Do not add prose-scoring or natural-language guard hooks; typed artifacts own decision validity.
+These apply when changing the harness, not when answering a research question. Run `"$SERENITY_PYTHON" "$SERENITY_HARNESS" validate` after harness edits. The session hooks are intentionally narrow: local startup health is soft, while the stop gate only reads the active-run pointer and its manifest. Do not add prose-scoring or natural-language guard hooks; typed artifacts own decision validity.
