@@ -7,7 +7,8 @@ import pytest
 
 from serenity_core.providers.base import ProviderEnvelope
 from serenity_core.providers.issuer_ir import VerifiedIssuerOrigin
-from serenity_core.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
+from serenity_core.providers.registry import _SNAPSHOT_CAPABILITIES, EvidenceProviderRegistry, ProviderRegistryValidationError
+from serenity_core.research import load_evidence_catalog
 from serenity_core.schema import validate_document
 
 
@@ -83,12 +84,12 @@ def test_fred_dispatch_preserves_multiple_vintages_in_deterministic_order() -> N
         request_for(
             "alfred-fred.vintage-series",
             "alfred-fred",
-            parameters={"series_id": "DGS10"},
+            parameters={"series_id": "DGS10", "observation_start": "2026-01-01"},
             cutoff="2026-07-01T00:00:00Z",
         )
     )
 
-    assert calls == [("DGS10", "2026-07-01T00:00:00Z", None, None)]
+    assert calls == [("DGS10", "2026-07-01T00:00:00Z", "2026-01-01", None)]
     assert [envelope.to_dict()["temporal"]["source_version"] for envelope in envelopes] == ["2026-05-15", "2026-06-15"]
     for envelope in envelopes:
         validate_document(envelope.to_dict(), "urn:serenity:schema:provider-envelope:1")
@@ -152,7 +153,7 @@ def test_historical_cutoff_excludes_later_provider_evidence_without_returning_an
     envelopes = EvidenceProviderRegistry(
         provider_factories={"bls": lambda **_kwargs: PublicFixture()}, clock=lambda: FROZEN_NOW
     ).collect(
-        request_for("bls.labor-data", "bls", cutoff="2026-08-01T00:00:00Z")
+        request_for("bls.labor-data", "bls", parameters={"series": ["CES0000000001"]}, cutoff="2026-08-01T00:00:00Z")
     )
 
     assert len(envelopes) == 1
@@ -209,10 +210,10 @@ def test_public_data_capability_dispatches_to_its_catalog_aligned_adapter() -> N
         config={"usaspending": {"api_key": "provider-secret"}},
         clock=lambda: FROZEN_NOW,
     ).collect(
-        request_for("usaspending.federal-awards", "usaspending", parameters={"recipient_search_text": ["Acme"]})
+        request_for("usaspending.federal-awards", "usaspending", parameters={"recipient_search_text": ["Acme"], "award_type_codes": ["A", "B", "C", "D"]})
     )
 
-    assert received == [{"recipient_search_text": ["Acme"]}]
+    assert received == [{"recipient_search_text": ["Acme"], "award_type_codes": ["A", "B", "C", "D"]}]
     assert factory_config == [{"api_key": "provider-secret"}]
     assert [envelope.to_dict()["provider"] for envelope in envelopes] == ["usaspending"]
     assert envelopes[0].to_dict()["source"]["parameters"] == {"api_key": "[REDACTED]"}
@@ -449,7 +450,74 @@ def test_the_two_alfred_fred_capabilities_ask_the_provider_for_different_vintage
     )
     for capability_id in ("alfred-fred.macro-series", "alfred-fred.vintage-series"):
         registry.collect(
-            request_for(capability_id, "alfred-fred", parameters={"series_id": "DGS10"}, cutoff="2026-07-01T00:00:00Z")
+            request_for(capability_id, "alfred-fred", parameters={"series_id": "DGS10", "observation_start": "2026-01-01"}, cutoff="2026-07-01T00:00:00Z")
         )
 
     assert modes == ["active", "history"]
+
+
+@pytest.mark.parametrize(
+    ("capability_id", "provider_id", "parameters", "expected"),
+    [
+        ("sec.filing-section", "sec", {"identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA CORP"}}, "named"),
+        ("sec.filing-section", "sec", {"identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA CORP"}, "named": "liquidity"}, "risk_factors"),
+        ("sec.filings", "sec", {"identity": {"ticker": "NVDA", "cik": "0001045810"}}, "issuer"),
+        ("alfred-fred.macro-series", "alfred-fred", {}, "series_id"),
+        ("eia.energy-data", "eia", {"length": 5}, "route"),
+        ("bls.labor-data", "bls", {"startyear": "2025"}, "series"),
+        ("usaspending.federal-awards", "usaspending", {"recipient_search_text": ["Acme"]}, "award_type_codes"),
+    ],
+)
+def test_a_provider_parameter_shape_the_capability_cannot_serve_names_what_is_missing(
+    capability_id: str, provider_id: str, parameters: dict, expected: str
+) -> None:
+    """A model that guesses the shape wrong currently gets a typed-but-uninformative
+    `unavailable` envelope after a real request went out. Naming the field in the
+    refusal is what lets the next attempt be right rather than another guess."""
+
+    def factory(**_kwargs: object) -> object:
+        raise AssertionError("an invalid parameter shape must not reach a provider")
+
+    registry = EvidenceProviderRegistry(provider_factories={provider_id: factory}, clock=lambda: FROZEN_NOW)
+
+    with pytest.raises(ProviderRegistryValidationError) as failure:
+        registry.collect(request_for(capability_id, provider_id, parameters=parameters, cutoff="2026-07-01T00:00:00Z"))
+
+    assert expected in str(failure.value)
+    assert capability_id in str(failure.value)
+
+
+def test_a_valid_parameter_shape_still_reaches_the_provider() -> None:
+    reached: list[dict] = []
+
+    class SecFixture:
+        def execute(self, request: dict, cutoff: str | None = None) -> ProviderEnvelope:
+            reached.append(request)
+            return available_envelope(provider="sec.filings", source_version="0001045810-26-000021", available_at="2026-06-15T00:00:00Z")
+
+    EvidenceProviderRegistry(provider_factories={"sec": lambda **_kwargs: SecFixture()}, clock=lambda: FROZEN_NOW).collect(
+        request_for(
+            "sec.filing-section",
+            "sec",
+            parameters={"identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA CORP"}, "named": "risk_factors", "form": "10-K"},
+            cutoff="2026-07-01T00:00:00Z",
+        )
+    )
+
+    assert reached and reached[0]["named"] == "risk_factors"
+
+
+def test_every_dispatchable_capability_declares_a_parameter_contract() -> None:
+    """A partial map is a trap: a model that finds no entry for its capability
+    cannot tell "anything goes" from "nobody wrote this one down yet"."""
+
+    catalog = load_evidence_catalog()
+    declared = {capability_id for provider in catalog["providers"] for capability_id in provider.get("capability_parameters", {})}
+    dispatchable = {
+        capability_id
+        for provider in catalog["providers"]
+        for capability_id in provider["capabilities"]
+        if capability_id not in _SNAPSHOT_CAPABILITIES
+    }
+
+    assert dispatchable - declared == set()

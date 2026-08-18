@@ -14,6 +14,9 @@ All notable changes to Harness of Serenity are documented here. Historical sourc
 
 ### Added
 
+- A `capability_parameters` contract per capability in the evidence catalog, validated by the registry before a provider is constructed, so a wrong `provider_parameters` shape is refused by name instead of costing an external request. It replaces the ad-hoc `alfred-fred` special case and is readable one at a time with `evidence catalog --capability <id>`.
+- Bounded evidence reads: `evidence collect` and `evidence read` answer with the value's shape, `--value` opts into the payload, and `evidence read --match REGEX --context N` returns matching spans with character offsets that verify against the stored artifact. A 144k-character section now costs kilobytes to reference.
+- Routed the instruction layer to those interfaces: each skill names the capabilities its mode needs and the bounded-read commands, `serenity-discovery` names `graph put` and the `us_expression.resolution` enum, `serenity-macro-event` names the macro series capabilities for the first time, and `serenity-filings` names the eight `sec.*` capability IDs and its bulk-reading role. `serenity_harness.py validate` now fails when a skill or agent names a capability the catalog does not declare.
 - `alfred-fred.vintage-series` now returns the revision history its name promises; it and `alfred-fred.macro-series` had dispatched identically, so one catalog ID was a dead label.
 - Recorded golden payloads under `tests/260817/fixtures/recorded/`, captured from the live endpoints through each provider's own request builder and replayed through the real adapter, with a capture tool that refuses to write a recording containing a credential.
 - A `live` marker and `pytest.ini`: `pytest -m live` probes the real provider interfaces the adapters parse, and is excluded from the default run and from CI.

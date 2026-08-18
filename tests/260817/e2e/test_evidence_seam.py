@@ -10,6 +10,7 @@ against the name the artifact store accepts.
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,7 +50,7 @@ class RiskFactorsBackend:
 
 
 def collect_through_the_cli(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, run_id: str, request_id: str, backend: object
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, run_id: str, request_id: str, backend: object, value: bool = False
 ) -> list[dict[str, object]]:
     """Drive the one production call site that builds real providers."""
 
@@ -62,7 +63,7 @@ def collect_through_the_cli(
         ),
     )
     return serenity.dispatch(
-        argparse.Namespace(command="evidence", evidence_command="collect", run_id=run_id, request_id=request_id), tmp_path
+        argparse.Namespace(command="evidence", evidence_command="collect", run_id=run_id, request_id=request_id, value=value), tmp_path
     )["results"]
 
 
@@ -149,7 +150,7 @@ def test_a_real_sec_envelope_survives_the_registry_and_becomes_a_saved_evidence_
     backend = RiskFactorsBackend()
 
     results = collect_through_the_cli(
-        tmp_path, monkeypatch, run_id=store.run_id, request_id=request["request_id"], backend=backend
+        tmp_path, monkeypatch, run_id=store.run_id, request_id=request["request_id"], backend=backend, value=True
     )
 
     assert [entry["capability"] for entry in backend.requests] == ["section"]
@@ -157,6 +158,24 @@ def test_a_real_sec_envelope_survives_the_registry_and_becomes_a_saved_evidence_
     assert [result["availability"] for result in results] == ["available"]
     assert results[0]["value"]["result"]["text"].startswith("Our transceiver supply")
     assert store.read_evidence_result(results[0]["result_id"]) == results[0]
+
+
+def test_collect_withholds_a_narrative_value_it_has_nonetheless_stored_in_full(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, prepared_run: tuple[ResearchArtifactStore, dict[str, object]]
+) -> None:
+    """The stored artifact stays complete and hash-anchored; only the read view is
+    bounded. Otherwise collecting a section spends the caller's context before it
+    has decided the section is worth reading."""
+
+    store, request = prepared_run
+
+    results = collect_through_the_cli(
+        tmp_path, monkeypatch, run_id=store.run_id, request_id=request["request_id"], backend=RiskFactorsBackend()
+    )
+
+    assert "Our transceiver supply" not in json.dumps(results)
+    assert results[0]["value"]["text_paths"][0]["path"] == "value.result.text"
+    assert store.read_evidence_result(results[0]["result_id"])["value"]["result"]["text"].startswith("Our transceiver supply")
 
 
 def test_an_unavailable_real_envelope_is_saved_with_the_reason_that_forces_a_blocked_decision(

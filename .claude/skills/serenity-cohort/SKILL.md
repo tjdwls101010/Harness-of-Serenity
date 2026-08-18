@@ -17,6 +17,10 @@ Ask for a blind challenge to the candidate set without prior decisions or rankin
 
 Gather equivalent evidence for each surviving candidate: identity and revenue linkage, customer or supplier relationship, qualification, adoption, substitutability, capacity, capital needs, lens validity, trigger, bear case, and falsifier. Preserve evidence quality and availability gaps alongside the fact. Use later outcomes only with complete time-stamped attribution, including losses and benchmarks, rather than a selected win list.
 
+## Runtime interfaces
+
+The same typed capabilities serve every subject — `sec.filings`, `sec.filing-section`, `sec.xbrl-facts`, `sec.statement`, `sec.segments`, and `issuer-ir.document` — with their parameter contracts at `"$SERENITY_PYTHON" "$SERENITY_CLI" evidence catalog --capability <id>` and the artifact arguments at `"$SERENITY_PYTHON" "$SERENITY_CLI" evidence request --help`. Comparison multiplies volume rather than adding to it: three peers' narrative sections measured 274k characters together, so collect per subject, read with `evidence read RUN_ID RESULT_ID --match REGEX`, and delegate the full sections to the `serenity-filings` subagent. Requesting the same capability with the same parameters for every subject is what keeps a comparison a comparison; a peer read through a different surface is a different measurement wearing the same column heading.
+
 ## Inference
 
 Explain relative fit to the common question: which links are direct, which assumptions differ, and where evidence is stronger or weaker. Provider fields can describe facts but never create an ordering; no hidden score substitutes for comparative judgment. Keep uncertainty beside each comparison and distinguish a cohort ordering from a directional action.

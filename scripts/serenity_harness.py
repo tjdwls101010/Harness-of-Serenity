@@ -237,6 +237,30 @@ def _check_codex_distribution(errors: list[str]) -> None:
             errors.append(f"README Quick Start must explain Codex distribution: {contract}")
 
 
+def _declared_capabilities() -> tuple[set[str], set[str]]:
+    catalog = json.loads((ROOT / "config" / "evidence-catalog.v1.json").read_text(encoding="utf-8"))
+    return (
+        {entry["provider_id"] for entry in catalog["providers"]},
+        {capability for entry in catalog["providers"] for capability in entry["capabilities"]},
+    )
+
+
+def _check_capability_references(path: Path, text: str, errors: list[str]) -> None:
+    """A capability ID written in prose is a pointer, so it has to resolve.
+
+    Named wrongly it sends the model to build a request the registry refuses, and
+    the instruction layer is the one surface no test exercises. Only tokens whose
+    prefix is a declared provider are checked, which is what keeps `serenity.py`
+    and a `sec.*` glob from reading as capability names.
+    """
+
+    providers, capabilities = _declared_capabilities()
+    for token in re.findall(r"`([a-z][a-z0-9.-]*)`", text):
+        prefix, separator, _ = token.partition(".")
+        if separator and prefix in providers and token not in capabilities:
+            errors.append(f"{path.relative_to(ROOT)} names a capability the evidence catalog does not declare: {token}")
+
+
 def _check_skills(errors: list[str]) -> list[str]:
     directory = ROOT / ".claude" / "skills"
     observed = sorted(path.parent.name for path in directory.glob("*/SKILL.md")) if directory.is_dir() else []
@@ -261,6 +285,7 @@ def _check_skills(errors: list[str]) -> list[str]:
         for forbidden in ("fixed pipeline", "hardcoded threshold", "v1 encyclopedia", "voice cosplay"):
             if forbidden in text.lower():
                 errors.append(f"{path.relative_to(ROOT)} must not restore a legacy method rail: {forbidden}")
+        _check_capability_references(path, text, errors)
     return observed
 
 
@@ -282,6 +307,7 @@ def _check_agents(errors: list[str]) -> list[str]:
             errors.append(f"{path.relative_to(ROOT)} needs a delegation description")
         if fields.get("model") != "sonnet":
             errors.append(f"{path.relative_to(ROOT)} must use the default sonnet exploration tier")
+        _check_capability_references(path, text, errors)
     if len(names) != len(set(names)):
         errors.append("agent frontmatter names must be unique")
     filings = _read(directory / "serenity-filings.md", errors)
