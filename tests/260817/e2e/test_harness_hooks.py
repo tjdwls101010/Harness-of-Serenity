@@ -333,6 +333,10 @@ def test_session_start_is_silent_when_local_health_is_green(monkeypatch: pytest.
     payload = json.loads((FIXTURES / "session-start-healthy.json").read_text(encoding="utf-8"))
     payload["cwd"] = str(ROOT)
     monkeypatch.setenv("SERENITY_SEC_USER_AGENT", "Fixture User fixture@example.test")
+    # Both keys, because the hook reports them separately on purpose: setting only
+    # one made this test read the developer's own .env for the other, so it passed
+    # on the author's machine and nowhere else.
+    monkeypatch.setenv("EDGAR_IDENTITY", "Fixture User fixture@example.test")
 
     code, stdout, stderr = _run_hook(SESSION_START, payload, cwd=ROOT)
 

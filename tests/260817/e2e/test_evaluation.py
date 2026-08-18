@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -638,6 +639,7 @@ def test_outcome_bearing_or_expected_invariant_paraphrase_is_not_substantive_evi
         evaluate(config_path, repo_root=ROOT)
 
 
+@pytest.mark.skipif(platform.system() != "Darwin", reason="launch_cleanroom defaults to the os-enforced mode, which requires Darwin")
 def test_opt_in_cli_runs_two_terra_reviews_then_one_sol_adjudication(tmp_path: Path) -> None:
     descriptor = write_case(tmp_path, family="physical-ai", index=1)
     config_path = write_config(tmp_path, [{"family": "physical-ai", "cases": [descriptor]}])
@@ -678,6 +680,7 @@ def test_opt_in_cli_runs_two_terra_reviews_then_one_sol_adjudication(tmp_path: P
     assert all(json.loads(path.read_text(encoding="utf-8"))["transcript_audit"]["command_count"] == 0 for path in records)
 
 
+@pytest.mark.skipif(platform.system() != "Darwin", reason="launch_cleanroom defaults to the os-enforced mode, which requires Darwin")
 def test_cli_preserves_model_reviewer_identity_but_binds_it_to_the_assigned_terra_slot(tmp_path: Path) -> None:
     descriptor = write_case(tmp_path, family="single-ticker", index=1, track="cutoff-frozen")
     config_path = write_config(tmp_path, [{"family": "single-ticker", "cases": [descriptor]}])

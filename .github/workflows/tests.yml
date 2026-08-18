@@ -56,8 +56,14 @@ jobs:
       # 이들은 codex를 *실행하지* 않는다 — 어떤 명령줄이 구성되고 어떤 샌드박스 프로파일이
       # 나오는지를 검사할 뿐이다. 그래서 스텁이면 커버리지가 그대로 유지된다. 대안이었던
       # "codex 없으면 skip"은 CI가 58개를 조용히 건너뛰게 만드는데, 그건 이 PR이 없애려는
-      # 실패 양식(초록불 뒤의 죽은 기능) 그 자체다. macOS seatbelt 경계를 검사하는 5개는
-      # Darwin 게이트가 걸려 있어 ubuntu에서는 원래 skip된다.
+      # 실패 양식(초록불 뒤의 죽은 기능) 그 자체다.
+      #
+      # 반대로 클린룸을 *실행*하는 8개는 ubuntu에서 skip된다. `launch_cleanroom`이
+      # os-enforced 모드를 기본으로 쓰고 그 모드는 Darwin을 요구하므로, 리눅스에서는
+      # 검사 대상에 닿기도 전에 거부된다. 이건 선언된 플랫폼 경계이지 조용한 누락이
+      # 아니다 — 다만 그중 둘(evaluation CLI 오케스트레이션)은 OS 경계 자체가 아니라
+      # 기본 격리 모드 때문에 걸린 것이라, logical-audited로도 돌 수 있게 하면 리눅스
+      # 커버리지를 되찾을 수 있다.
       - name: Provide a codex stub the cleanroom tests can resolve
         run: |
           mkdir -p "$HOME/.local/bin"
