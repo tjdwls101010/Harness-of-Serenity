@@ -6,6 +6,7 @@ All notable changes to Harness of Serenity are documented here. Historical sourc
 
 ### Fixed
 
+- Separated the operator from the maintainer in the always-loaded root. `CLAUDE.md` opened with an unconditional `Read .claude/harness-spec.md`, named no way to load a mode workflow (and the mode names are not the skill names), and carried the harness-editing procedure under `## Verification` with nothing marking it out of scope. A research session therefore read the design record, `cat`'d a `SKILL.md` instead of invoking the Skill tool, and picked up the hook contract before taking a first research action. The root now says the runtime is operated rather than surveyed, because the CLI's own `--help` states each command's contract at the moment it applies; it names the `serenity-<mode>` Skill-tool load path; and its maintenance section is scoped to sessions changing the harness.
 - Stopped the lens dropping `inputs[].evidence_refs`, which left the reproducibility hash blind to the evidence a spec claims, so two specs citing different filings hashed identically.
 - Drove `outcomes register` and `outcomes refresh` against a real finalized decision for the first time; both worked, and the gap was that nothing named them as a step. They are now reachable from `CLAUDE.md`'s lifecycle line and every skill's hand-off, and covered at the CLI seam rather than only at the store.
 - Settled what a `macro-event` run's subjects mean: series identifiers, not tickers, stated in that mode's skill.
