@@ -58,7 +58,7 @@ jobs:
       # "codex 없으면 skip"은 CI가 58개를 조용히 건너뛰게 만드는데, 그건 이 PR이 없애려는
       # 실패 양식(초록불 뒤의 죽은 기능) 그 자체다.
       #
-      # 반대로 클린룸을 *실행*하는 8개는 ubuntu에서 skip된다. `launch_cleanroom`이
+      # 반대로 클린룸을 *실행*하는 3개는 ubuntu에서 skip된다(기존 Darwin 게이트 4개와 합쳐 7개). `launch_cleanroom`이
       # os-enforced 모드를 기본으로 쓰고 그 모드는 Darwin을 요구하므로, 리눅스에서는
       # 검사 대상에 닿기도 전에 거부된다. 이건 선언된 플랫폼 경계이지 조용한 누락이
       # 아니다 — 다만 그중 둘(evaluation CLI 오케스트레이션)은 OS 경계 자체가 아니라
