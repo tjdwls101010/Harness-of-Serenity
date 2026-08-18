@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[3]
 HARNESS = ROOT / "scripts" / "serenity_harness.py"
@@ -327,9 +329,10 @@ def test_filings_agent_collects_official_issuer_narrative_without_deciding_the_t
     assert "Cross-company read-through remains an inference candidate" in single_name
 
 
-def test_session_start_is_silent_when_local_health_is_green() -> None:
+def test_session_start_is_silent_when_local_health_is_green(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = json.loads((FIXTURES / "session-start-healthy.json").read_text(encoding="utf-8"))
     payload["cwd"] = str(ROOT)
+    monkeypatch.setenv("SERENITY_SEC_USER_AGENT", "Fixture User fixture@example.test")
 
     code, stdout, stderr = _run_hook(SESSION_START, payload, cwd=ROOT)
 
@@ -396,3 +399,29 @@ def test_stop_conservatively_blocks_a_corrupt_claimed_active_state(tmp_path: Pat
     result = json.loads(stdout)
     assert result["decision"] == "block"
     assert result["reason"].startswith("The claimed active research run cannot be verified:")
+
+
+def test_session_start_names_a_missing_sec_contact_identity(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SERENITY_SEC_USER_AGENT", raising=False)
+    monkeypatch.delenv("EDGAR_IDENTITY", raising=False)
+    payload = {"hook_event_name": "SessionStart", "cwd": str(tmp_path), "source": "startup"}
+
+    code, stdout, stderr = _run_hook(SESSION_START, payload, cwd=tmp_path)
+
+    assert (code, stderr) == (0, "")
+    context = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SEC contact identity is unset" in context
+
+
+def test_session_start_reads_the_sec_contact_identity_from_the_project_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SERENITY_SEC_USER_AGENT", raising=False)
+    monkeypatch.delenv("EDGAR_IDENTITY", raising=False)
+    (tmp_path / ".env").write_text("SERENITY_SEC_USER_AGENT=Fixture User fixture@example.test\n", encoding="utf-8")
+    payload = {"hook_event_name": "SessionStart", "cwd": str(tmp_path), "source": "startup"}
+
+    code, stdout, stderr = _run_hook(SESSION_START, payload, cwd=tmp_path)
+
+    assert (code, stderr) == (0, "")
+    context = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SEC contact identity is unset" not in context
+    assert "Fixture User fixture@example.test" not in context
