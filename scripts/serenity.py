@@ -17,6 +17,8 @@ from serenity_core.research import (
     ResearchArtifactStore,
     ResearchArtifactValidationError,
     load_evidence_catalog,
+    match_evidence_value,
+    summarize_evidence_result,
 )
 from serenity_core.runtime import RUN_MODES, RunStore, SerenityError, parse_as_of, parse_instant
 from serenity_core.lens import run_lens
@@ -399,7 +401,7 @@ def document_cli_help(parser: JsonArgumentParser) -> None:
         "serenity.py hypothesis": ("Maintain competing research hypotheses.", "Hypothesis mutations require OPEN.", "hypothesis-ledger.json.", "Workflow: serenity.py hypothesis put RUN_ID --document fixtures/hypotheses.json"),
         "serenity.py hypothesis put": ("Store a versioned competing-hypothesis ledger.", "Requires OPEN.", "hypothesis-ledger.json.", "serenity.py hypothesis put RUN_ID --document fixtures/hypotheses.json"),
         "serenity.py evidence": ("Catalog, request, collect, and read typed evidence.", "Request, collect, and manual record operations require OPEN.", "evidence requests and results under the run.", "Workflow: serenity.py evidence request RUN_ID --hypothesis-id hyp-demand-holds --capability-id sec.filings --document fixtures/evidence-request.json\n  -> serenity.py evidence collect RUN_ID evidence-request-001\n  -> serenity.py evidence read RUN_ID evidence-result-001"),
-        "serenity.py evidence catalog": ("List known provider capabilities without prioritizing them.", "No run state is required.", "Checked-in evidence-catalog.json is read only.", "serenity.py evidence catalog"),
+        "serenity.py evidence catalog": ("List known provider capabilities without prioritizing them. --capability prints one capability's provider_parameters contract, which is the shape the registry validates a request against before any provider runs.", "No run state is required.", "Checked-in evidence-catalog.json is read only. The capability list omits the parameter contracts; read one with --capability.", "serenity.py evidence catalog --capability sec.filing-section"),
         "serenity.py evidence request": ("Persist an adaptive evidence request linked to hypotheses. For issuer-ir.document, supply an official issuer-owned URL; Web search only locates the source, while identity/domain/time/raw-byte binding happens at collection. A live SEC-provenance fact snapshot must authorize the issuer domain; a frozen snapshot cannot authorize a live issuer fetch.", "Requires OPEN and an existing ledger.", "evidence/requests/evidence-request-<id>.json.", "serenity.py evidence request RUN_ID --hypothesis-id hyp-demand-holds --capability-id sec.filings --document fixtures/evidence-request.json"),
         "serenity.py evidence collect": ("Explicitly execute a saved request through the provider registry. For issuer-ir.document, supply an official issuer-owned URL; Web search only locates the source, while identity/domain/time/raw-byte binding happens at collection. A live SEC-provenance fact snapshot must authorize the issuer domain; a frozen snapshot cannot authorize a live issuer fetch.", "Requires OPEN; run/request network and cutoff policies must agree.", "One or more evidence/ results, deterministically ordered.", "serenity.py evidence collect RUN_ID evidence-request-001"),
         "serenity.py evidence read": ("Read a saved result, or explicitly persist a supplied typed result document. issuer-ir.document must use evidence collect because a supplied document cannot prove the live SEC origin or raw response bytes.", "Requires OPEN for manual persistence; saved reads validate linkage.", "evidence/results/evidence-result-<id>.json.", "serenity.py evidence read RUN_ID evidence-result-001"),
@@ -473,19 +475,25 @@ def build_parser() -> JsonArgumentParser:
 
     evidence = commands.add_parser("evidence")
     evidence_commands = evidence.add_subparsers(dest="evidence_command", required=True, parser_class=JsonArgumentParser)
-    evidence_commands.add_parser("catalog")
+    catalog_parser = evidence_commands.add_parser("catalog")
+    catalog_parser.add_argument("--capability", help="print one capability's provider_parameters contract instead of the whole catalog")
     request = evidence_commands.add_parser("request")
     request.add_argument("run_id")
     request.add_argument("--hypothesis-id", action="append", required=True)
     request.add_argument("--capability-id", required=True)
     request.add_argument("--document", required=True)
     collect = evidence_commands.add_parser("collect")
+    collect.add_argument("--value", action="store_true", help="print each collected result's whole document; omit to get its value's shape instead")
     collect.add_argument("run_id")
     collect.add_argument("request_id")
     read = evidence_commands.add_parser("read")
     read.add_argument("run_id")
     read.add_argument("artifact_id")
     read.add_argument("--document")
+    read.add_argument("--value", action="store_true", help="print the whole result document including its value; omit to get the value's shape instead")
+    read.add_argument("--match", help="regex; return only matching spans of the value, with character offsets into the stored string")
+    read.add_argument("--context", type=int, default=200, help="characters of surrounding text to include with each span (default 200)")
+    read.add_argument("--max-spans", type=int, default=20, help="stop after this many spans (default 20); match_count still reports the total")
 
     lens = commands.add_parser("lens")
     lens_commands = lens.add_subparsers(dest="lens_command", required=True, parser_class=JsonArgumentParser)
@@ -520,6 +528,13 @@ def build_parser() -> JsonArgumentParser:
     graph_put.add_argument("--file", required=True)
     document_cli_help(parser)
     return parser
+
+
+def _shown_evidence_result(result: dict, args) -> dict:
+    """The value's shape unless --value was asked for. A caller that already holds
+    the value (it just supplied it) gains nothing from having it echoed back."""
+
+    return result if getattr(args, "value", False) else summarize_evidence_result(result)
 
 
 def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
@@ -665,9 +680,24 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
         return {"command": "hypothesis.put", "ok": True, "ledger": prepared.ledger, "run": run}
     if args.command == "evidence" and args.evidence_command == "catalog":
         try:
-            return {"command": "evidence.catalog", "ok": True, "catalog": load_evidence_catalog()}
+            catalog = load_evidence_catalog()
         except ResearchArtifactValidationError as exc:
             raise SerenityError("persistence_conflict", str(exc), 5) from exc
+        contracts = {
+            capability_id: (provider["provider_id"], contract)
+            for provider in catalog["providers"]
+            for capability_id, contract in provider.get("capability_parameters", {}).items()
+        }
+        if args.capability is not None:
+            if args.capability not in contracts:
+                raise SerenityError("usage_or_schema", f"no capability contract is declared for {args.capability}; declared: {', '.join(sorted(contracts))}", 2)
+            provider_id, contract = contracts[args.capability]
+            return {"command": "evidence.catalog", "ok": True, "capability_id": args.capability, "provider_id": provider_id, "contract": contract}
+        # The contracts are omitted here on purpose: all of them together are an
+        # order of magnitude larger than the capability list, and a caller needs
+        # exactly one of them once it has chosen a capability.
+        listing = {**catalog, "providers": [{key: value for key, value in provider.items() if key != "capability_parameters"} for provider in catalog["providers"]]}
+        return {"command": "evidence.catalog", "ok": True, "catalog": listing}
     if args.command == "evidence" and args.evidence_command == "request":
         prior = store.read(args.run_id).get("artifacts", {}).get("hypothesis-ledger")
         artifacts = research_store(store, root, args.run_id)
@@ -765,7 +795,10 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
             raise SerenityError("persistence_conflict", str(exc), 5, run_id=args.run_id) from exc
         except ResearchArtifactValidationError as exc:
             raise SerenityError("usage_or_schema", str(exc), 2, run_id=args.run_id) from exc
-        return {"command": "evidence.collect", "ok": True, "results": results, "run": run, "raw_payload_cache": raw_payload_cache}
+        # Collected values reach the caller's context whether or not it wanted them;
+        # one risk-factors section measured 91k-144k characters. Shape by default.
+        shown = results if getattr(args, "value", False) else [summarize_evidence_result(result) for result in results]
+        return {"command": "evidence.collect", "ok": True, "results": shown, "run": run, "raw_payload_cache": raw_payload_cache}
     if args.command == "evidence" and args.evidence_command == "read":
         artifacts = research_store(store, root, args.run_id)
         try:
@@ -788,10 +821,19 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
                 )
                 path = root / ".serenity" / "runs" / args.run_id / "evidence" / "results" / f"{result['result_id']}.json"
                 run = store.attach_artifact(args.run_id, name=result["result_id"], path=path, schema_id=result["schema_id"], phase="evidence_recorded")
-                return {"command": "evidence.read", "ok": True, "result": result, "run": run}
+                return {"command": "evidence.read", "ok": True, "result": _shown_evidence_result(result, args), "run": run}
             if not args.artifact_id.startswith("evidence-result-"):
                 raise SerenityError("usage_or_schema", "evidence read requires an evidence result id", 2)
-            return {"command": "evidence.read", "ok": True, "result": artifacts.read_evidence_result(args.artifact_id)}
+            result = artifacts.read_evidence_result(args.artifact_id)
+            if getattr(args, "match", None) is not None:
+                matched = match_evidence_value(
+                    result.get("value"),
+                    args.match,
+                    context=max(0, getattr(args, "context", 200)),
+                    max_spans=max(1, getattr(args, "max_spans", 20)),
+                )
+                return {"command": "evidence.read", "ok": True, "result_id": result["result_id"], **matched}
+            return {"command": "evidence.read", "ok": True, "result": _shown_evidence_result(result, args)}
         except ResearchArtifactConflictError as exc:
             raise SerenityError("persistence_conflict", str(exc), 5, run_id=args.run_id) from exc
         except ResearchArtifactValidationError as exc:

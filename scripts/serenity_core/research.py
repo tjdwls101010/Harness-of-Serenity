@@ -713,3 +713,73 @@ def _validate_catalog_semantics(catalog: Mapping[str, Any]) -> None:
     sec = providers_by_id["sec"]
     if sec["tier"] != "baseline" or not {"sec.identity", "sec.submissions", "sec.filings"} <= set(sec["capabilities"]):
         raise ResearchArtifactValidationError("SEC must provide baseline identity, submissions, and filings capabilities")
+
+
+def _string_leaves(value: Any, prefix: str = "") -> list[tuple[str, str]]:
+    """Every string in a value, with a dotted path a later reader can walk back."""
+
+    if isinstance(value, str):
+        return [(prefix, value)]
+    if isinstance(value, Mapping):
+        return [leaf for key, item in value.items() for leaf in _string_leaves(item, f"{prefix}.{key}" if prefix else str(key))]
+    if isinstance(value, list):
+        return [leaf for index, item in enumerate(value) for leaf in _string_leaves(item, f"{prefix}[{index}]")]
+    return []
+
+
+def _value_path(path: str) -> str:
+    return f"value.{path}" if path else "value"
+
+
+def evidence_value_shape(value: Any) -> dict[str, Any]:
+    """Describe a result's value without reproducing it.
+
+    Sizes are what let a caller decide whether to read the value at all, which is
+    the decision it cannot make once the value is already in its context.
+    """
+
+    leaves = sorted(_string_leaves(value), key=lambda leaf: -len(leaf[1]))
+    return {
+        "characters": len(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))),
+        "text_paths": [{"path": _value_path(path), "characters": len(text)} for path, text in leaves[:5]],
+    }
+
+
+def summarize_evidence_result(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Everything the stored result says about itself, except what it says."""
+
+    value = result.get("value")
+    shape = None if value is None else evidence_value_shape(value)
+    return {**{key: item for key, item in result.items() if key != "value"}, "value": shape}
+
+
+def match_evidence_value(value: Any, pattern: str, *, context: int, max_spans: int) -> dict[str, Any]:
+    """Return matching spans with offsets into the stored string.
+
+    The analyst chooses the excerpt, never the provider: the filings adapter
+    deliberately does not decide whether text is relevant, and a read-side
+    selector keeps that true while making a large disclosure affordable. Offsets
+    are what separate a citation from an assertion -- the next reader can walk
+    ``path`` in the saved artifact and slice ``[start:end]`` to check it.
+    """
+
+    try:
+        expression = re.compile(pattern)
+    except re.error as error:
+        raise ResearchArtifactValidationError(f"--match is not a valid regular expression: {error}") from error
+    spans: list[dict[str, Any]] = []
+    total = 0
+    for path, text in _string_leaves(value):
+        for found in expression.finditer(text):
+            total += 1
+            if len(spans) < max_spans:
+                spans.append(
+                    {
+                        "path": _value_path(path),
+                        "start": found.start(),
+                        "end": found.end(),
+                        "match": found.group(0),
+                        "excerpt": text[max(0, found.start() - context) : found.end() + context],
+                    }
+                )
+    return {"matches": spans, "match_count": total, "truncated": total > len(spans)}

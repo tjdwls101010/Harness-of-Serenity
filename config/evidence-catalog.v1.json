@@ -3,21 +3,984 @@
   "catalog_id": "evidence-catalog-free-v1",
   "created_at": "2026-08-17T00:00:00Z",
   "providers": [
-    {"provider_id": "yfinance", "tier": "baseline", "capabilities": ["yfinance.market-data", "yfinance.financial-statements", "yfinance.valuation"], "source_kind": "library"},
-    {"provider_id": "sec", "tier": "baseline", "capabilities": ["sec.identity", "sec.submissions", "sec.filings", "sec.filing-text", "sec.filing-section", "sec.xbrl-facts", "sec.segments", "sec.statement", "sec.eightk"], "source_providers": ["sec.company_tickers", "sec.submissions", "sec.filings"], "source_kind": "regulator"},
-    {"provider_id": "openfigi", "tier": "baseline", "capabilities": ["openfigi.security-identity"], "source_providers": ["openfigi.mapping"], "source_kind": "identifier-registry"},
-    {"provider_id": "alfred-fred", "tier": "baseline", "capabilities": ["alfred-fred.macro-series", "alfred-fred.vintage-series"], "source_providers": ["fred"], "source_kind": "government-data"},
-    {"provider_id": "ibd-rs-rating", "version": "0.3.0", "tier": "baseline", "capabilities": ["ibd-rs-rating.relative-strength-observation"], "source_kind": "library"},
-    {"provider_id": "usaspending", "tier": "adaptive", "capabilities": ["usaspending.federal-awards", "usaspending.contract-obligations"], "source_kind": "government-data"},
-    {"provider_id": "usitc", "tier": "adaptive", "capabilities": ["usitc.trade-data", "usitc.tariff-data"], "source_kind": "government-data"},
-    {"provider_id": "eia", "tier": "adaptive", "capabilities": ["eia.energy-data"], "source_kind": "government-data"},
-    {"provider_id": "bls", "tier": "adaptive", "capabilities": ["bls.labor-data", "bls.price-data"], "source_kind": "government-data"},
-    {"provider_id": "bea", "tier": "adaptive", "capabilities": ["bea.national-accounts", "bea.industry-data"], "source_kind": "government-data"},
-    {"provider_id": "cftc", "tier": "adaptive", "capabilities": ["cftc.commitments-of-traders"], "source_kind": "regulator"},
-    {"provider_id": "federal-register", "tier": "adaptive", "capabilities": ["federal-register.rulemaking", "federal-register.notices"], "source_kind": "government-publication"},
-    {"provider_id": "bis", "tier": "adaptive", "capabilities": ["bis.export-controls", "bis.entity-lists"], "source_kind": "regulator"},
-    {"provider_id": "issuer-ir", "tier": "adaptive", "capabilities": ["issuer-ir.document"], "source_kind": "issuer"},
-    {"provider_id": "sam", "tier": "optional", "capabilities": ["sam.procurement-opportunities"], "source_kind": "government-data"},
-    {"provider_id": "uspto", "tier": "optional", "capabilities": ["uspto.patent-records"], "source_kind": "government-data"}
+    {
+      "provider_id": "yfinance",
+      "tier": "baseline",
+      "capabilities": [
+        "yfinance.market-data",
+        "yfinance.financial-statements",
+        "yfinance.valuation"
+      ],
+      "source_kind": "library"
+    },
+    {
+      "provider_id": "sec",
+      "tier": "baseline",
+      "capabilities": [
+        "sec.identity",
+        "sec.submissions",
+        "sec.filings",
+        "sec.filing-text",
+        "sec.filing-section",
+        "sec.xbrl-facts",
+        "sec.segments",
+        "sec.statement",
+        "sec.eightk"
+      ],
+      "source_providers": [
+        "sec.company_tickers",
+        "sec.submissions",
+        "sec.filings"
+      ],
+      "source_kind": "regulator",
+      "capability_parameters": {
+        "sec.submissions": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              }
+            },
+            "description": "The filer's submissions index. Its availability is the acceptance instant of the newest filing it lists, so a historical cutoff refuses it: today's index names filings a reader at that cutoff could not have seen."
+          }
+        },
+        "sec.filings": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "form": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Selects the newest filing of this form at or before the cutoff. Omit to take the newest filing of any form."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bounds how many records a list returns. It never bounds an accession search."
+              }
+            },
+            "description": "Filing metadata only. Use sec.filing-text or sec.filing-section for content."
+          }
+        },
+        "sec.filing-text": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "accession": {
+                "type": "string",
+                "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$"
+              },
+              "format": {
+                "enum": [
+                  "text",
+                  "markdown"
+                ]
+              },
+              "form": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Selects the newest filing of this form at or before the cutoff. Omit to take the newest filing of any form."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bounds how many records a list returns. It never bounds an accession search."
+              }
+            },
+            "description": "Whole-document text, which for a 10-K runs to hundreds of thousands of characters. Prefer sec.filing-section, and read the result with `evidence read --match` rather than `--value`."
+          }
+        },
+        "sec.filing-section": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "named": {
+                "enum": [
+                  "business",
+                  "risk_factors",
+                  "mda"
+                ],
+                "description": "A 10-K defines all three; a 10-Q defines risk_factors and mda only. An unsupported form/section pair returns a typed invalid naming what the form does define, never not_disclosed."
+              },
+              "item": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Part-qualified on a 10-Q ('Part II, Item 1A'), because a bare 'Item 1' silently resolves to Part I. Bare on a 10-K ('Item 1A')."
+              },
+              "form": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Selects the newest filing of this form at or before the cutoff. Omit to take the newest filing of any form."
+              },
+              "accession": {
+                "type": "string",
+                "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bounds how many records a list returns. It never bounds an accession search."
+              }
+            },
+            "description": "Exactly one of named or item. Sections are large: a risk-factors section measured 91k-144k characters, so route bulk narrative through the serenity-filings subagent.",
+            "oneOf": [
+              {
+                "required": [
+                  "named"
+                ]
+              },
+              {
+                "required": [
+                  "item"
+                ]
+              }
+            ]
+          }
+        },
+        "sec.xbrl-facts": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "concept": {
+                "type": "string",
+                "description": "A qualified XBRL concept such as us-gaap:Revenues."
+              },
+              "axis": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "form": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Selects the newest filing of this form at or before the cutoff. Omit to take the newest filing of any form."
+              },
+              "accession": {
+                "type": "string",
+                "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bounds how many records a list returns. It never bounds an accession search."
+              }
+            },
+            "description": "Rows carry concept, label, value, numeric_value, period_start, period_end, unit_ref, fiscal_period, fiscal_year, statement_type. These are the columns `snapshot facts --from-evidence` selects on."
+          }
+        },
+        "sec.segments": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "axis": {
+                "type": "string",
+                "description": "The dimension to break out, such as a segment or geography axis."
+              },
+              "concept": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "form": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Selects the newest filing of this form at or before the cutoff. Omit to take the newest filing of any form."
+              },
+              "accession": {
+                "type": "string",
+                "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bounds how many records a list returns. It never bounds an accession search."
+              }
+            },
+            "description": "Dimensioned XBRL facts. Without axis this returns the same rows as sec.xbrl-facts."
+          }
+        },
+        "sec.statement": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "statement": {
+                "enum": [
+                  "income",
+                  "balance",
+                  "cashflow"
+                ],
+                "description": "Defaults to income when omitted."
+              },
+              "view": {
+                "type": "string"
+              },
+              "form": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Selects the newest filing of this form at or before the cutoff. Omit to take the newest filing of any form."
+              },
+              "accession": {
+                "type": "string",
+                "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bounds how many records a list returns. It never bounds an accession search."
+              }
+            },
+            "description": "A rendered financial statement from the filing's own XBRL, not a provider-computed ratio."
+          }
+        },
+        "sec.eightk": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "item": {
+                "type": "string",
+                "description": "A dotted 8-K item label such as 'Item 1.01'. Omit to list every event's items without bodies."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Bounds how many records a list returns. It never bounds an accession search."
+              }
+            },
+            "description": "Recent 8-K events with their item labels."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "openfigi",
+      "tier": "baseline",
+      "capabilities": [
+        "openfigi.security-identity"
+      ],
+      "source_providers": [
+        "openfigi.mapping"
+      ],
+      "source_kind": "identifier-registry"
+    },
+    {
+      "provider_id": "alfred-fred",
+      "tier": "baseline",
+      "capabilities": [
+        "alfred-fred.macro-series",
+        "alfred-fred.vintage-series"
+      ],
+      "source_providers": [
+        "fred"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "alfred-fred.macro-series": {
+          "requires_historical_cutoff": true,
+          "parameters": {
+            "type": "object",
+            "required": [
+              "series_id"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "series_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A FRED series identifier such as DGS10 or GDPC1."
+              },
+              "observation_start": {
+                "type": "string",
+                "format": "date"
+              },
+              "observation_end": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "description": "The one vintage in force at the cutoff. ALFRED is vintage-addressed, so the run cutoff is required: without it there is no vintage to ask for."
+          }
+        },
+        "alfred-fred.vintage-series": {
+          "requires_historical_cutoff": true,
+          "parameters": {
+            "type": "object",
+            "required": [
+              "series_id",
+              "observation_start"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "series_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observation_start": {
+                "type": "string",
+                "format": "date",
+                "description": "Required here, unlike macro-series: an unbounded revision history returns a row per observation per vintage and has written over a thousand artifacts in one request."
+              },
+              "observation_end": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "description": "Every vintage published by the cutoff, including revisions since superseded. Answers how a number was revised, where macro-series answers what it was."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "ibd-rs-rating",
+      "version": "0.3.0",
+      "tier": "baseline",
+      "capabilities": [
+        "ibd-rs-rating.relative-strength-observation"
+      ],
+      "source_kind": "library"
+    },
+    {
+      "provider_id": "usaspending",
+      "tier": "adaptive",
+      "capabilities": [
+        "usaspending.federal-awards",
+        "usaspending.contract-obligations"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "usaspending.federal-awards": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "award_type_codes"
+            ],
+            "properties": {
+              "award_type_codes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                },
+                "description": "Not optional: USASpending answers HTTP 422 without it. Contracts are ['A','B','C','D']."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "description": "Every other key is passed through as a search filter."
+          }
+        },
+        "usaspending.contract-obligations": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "award_type_codes"
+            ],
+            "properties": {
+              "award_type_codes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                },
+                "description": "Not optional: USASpending answers HTTP 422 without it."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "description": "Every other key is passed through as a search filter."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "usitc",
+      "tier": "adaptive",
+      "capabilities": [
+        "usitc.trade-data",
+        "usitc.tariff-data"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "usitc.trade-data": {
+          "parameters": {
+            "type": "object",
+            "description": "Not bound: dataweb.usitc.gov/api/data answers HTML with HTTP 200, and the queryable host is token-gated. Requests return a typed not_requested."
+          }
+        },
+        "usitc.tariff-data": {
+          "parameters": {
+            "type": "object",
+            "description": "Not bound: dataweb.usitc.gov/api/data answers HTML with HTTP 200, and the queryable host is token-gated. Requests return a typed not_requested."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "eia",
+      "tier": "adaptive",
+      "capabilities": [
+        "eia.energy-data"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "eia.energy-data": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "route"
+            ],
+            "properties": {
+              "route": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A v2 route such as electricity/rto/region-data."
+              },
+              "facets": {
+                "type": "object",
+                "description": "Facet name to value or list of values."
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "bls",
+      "tier": "adaptive",
+      "capabilities": [
+        "bls.labor-data",
+        "bls.price-data"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "bls.labor-data": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "series"
+            ],
+            "properties": {
+              "series": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                },
+                "description": "BLS series IDs such as CES0000000001."
+              },
+              "startyear": {
+                "type": "string"
+              },
+              "endyear": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "bls.price-data": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "series"
+            ],
+            "properties": {
+              "series": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "startyear": {
+                "type": "string"
+              },
+              "endyear": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "bea",
+      "tier": "adaptive",
+      "capabilities": [
+        "bea.national-accounts",
+        "bea.industry-data"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "bea.national-accounts": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "method",
+              "datasetname"
+            ],
+            "properties": {
+              "method": {
+                "type": "string",
+                "description": "A BEA API method such as GetData."
+              },
+              "datasetname": {
+                "type": "string",
+                "description": "A BEA dataset such as NIPA."
+              }
+            },
+            "description": "Every other key is passed through as a BEA parameter. Needs BEA_API_KEY."
+          }
+        },
+        "bea.industry-data": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "method",
+              "datasetname"
+            ],
+            "properties": {
+              "method": {
+                "type": "string"
+              },
+              "datasetname": {
+                "type": "string"
+              }
+            },
+            "description": "Every other key is passed through as a BEA parameter. Needs BEA_API_KEY."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "cftc",
+      "tier": "adaptive",
+      "capabilities": [
+        "cftc.commitments-of-traders"
+      ],
+      "source_kind": "regulator",
+      "capability_parameters": {
+        "cftc.commitments-of-traders": {
+          "parameters": {
+            "type": "object",
+            "description": "Passed through as Socrata query parameters, so $limit, $where, and $order all apply."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "federal-register",
+      "tier": "adaptive",
+      "capabilities": [
+        "federal-register.rulemaking",
+        "federal-register.notices"
+      ],
+      "source_kind": "government-publication",
+      "capability_parameters": {
+        "federal-register.rulemaking": {
+          "parameters": {
+            "type": "object",
+            "description": "Passed through as Federal Register query parameters, such as conditions[type][]=RULE."
+          }
+        },
+        "federal-register.notices": {
+          "parameters": {
+            "type": "object",
+            "description": "Passed through as Federal Register query parameters, such as conditions[type][]=NOTICE."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "bis",
+      "tier": "adaptive",
+      "capabilities": [
+        "bis.export-controls",
+        "bis.entity-lists"
+      ],
+      "source_kind": "regulator",
+      "capability_parameters": {
+        "bis.export-controls": {
+          "parameters": {
+            "type": "object",
+            "description": "Not bound: bis.gov publishes no query API. Requests return a typed not_requested."
+          }
+        },
+        "bis.entity-lists": {
+          "parameters": {
+            "type": "object",
+            "description": "Not bound: bis.gov publishes no query API. Requests return a typed not_requested."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "issuer-ir",
+      "tier": "adaptive",
+      "capabilities": [
+        "issuer-ir.document"
+      ],
+      "source_kind": "issuer",
+      "capability_parameters": {
+        "issuer-ir.document": {
+          "parameters": {
+            "type": "object",
+            "required": [
+              "identity",
+              "document",
+              "origin_binding"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object",
+                "required": [
+                  "ticker",
+                  "cik",
+                  "issuer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ticker": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cik": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$",
+                    "description": "Zero-padded to ten digits."
+                  },
+                  "issuer": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "All three, because a partial SEC identity is refused rather than repaired from memory. Resolve it with `snapshot security` before requesting a filing."
+              },
+              "document": {
+                "type": "object",
+                "required": [
+                  "url",
+                  "kind"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "pattern": "^https://",
+                    "description": "https only."
+                  },
+                  "kind": {
+                    "enum": [
+                      "press_release",
+                      "presentation",
+                      "prepared_remarks",
+                      "call_transcript",
+                      "other"
+                    ]
+                  }
+                }
+              },
+              "origin_binding": {
+                "type": "object",
+                "required": [
+                  "issuer_domain",
+                  "binding_source_ref"
+                ],
+                "properties": {
+                  "issuer_domain": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "binding_source_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The SEC record that ties this domain to the issuer. The run verifies it; an unverified binding is refused."
+                  }
+                }
+              }
+            },
+            "description": "An issuer that declares no website in its SEC submission puts this capability structurally out of reach. Record that with `evidence unmet` as typed not_disclosed rather than leaving the run with nothing saved."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "sam",
+      "tier": "optional",
+      "capabilities": [
+        "sam.procurement-opportunities"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "sam.procurement-opportunities": {
+          "parameters": {
+            "type": "object",
+            "description": "Passed through as SAM.gov entity query parameters, such as uei. Needs SAM_API_KEY."
+          }
+        }
+      }
+    },
+    {
+      "provider_id": "uspto",
+      "tier": "optional",
+      "capabilities": [
+        "uspto.patent-records"
+      ],
+      "source_kind": "government-data",
+      "capability_parameters": {
+        "uspto.patent-records": {
+          "parameters": {
+            "type": "object",
+            "description": "Passed through as USPTO patent search parameters, such as q. Needs USPTO_API_KEY."
+          }
+        }
+      }
+    }
   ]
 }

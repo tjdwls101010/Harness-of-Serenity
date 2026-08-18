@@ -7,6 +7,8 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
+from jsonschema import Draft202012Validator, FormatChecker
+
 from serenity_core.providers.base import ProviderEnvelope
 from serenity_core.providers.issuer_ir import VerifiedIssuerOrigin
 from serenity_core.research import ResearchArtifactValidationError, load_evidence_catalog
@@ -105,6 +107,11 @@ class EvidenceProviderRegistry:
         except SchemaViolation as exc:
             raise ProviderRegistryValidationError(f"evidence catalog is invalid: {exc}") from exc
         self._owners = self._capability_owners(catalog_document)
+        self._contracts = {
+            capability_id: contract
+            for provider in catalog_document["providers"]
+            for capability_id, contract in provider.get("capability_parameters", {}).items()
+        }
         self._provider_ids = {provider["provider_id"] for provider in catalog_document["providers"]}
         self._factories = dict(provider_factories or {})
         self._config = {provider_id: dict(values) for provider_id, values in (config or {}).items() if isinstance(values, Mapping)}
@@ -207,13 +214,34 @@ class EvidenceProviderRegistry:
                 _as_instant(cutoff)
             except (TypeError, ValueError) as exc:
                 raise ProviderRegistryValidationError("historical_cutoff must be an ISO instant") from exc
-        if provider_id == "alfred-fred" and request["provider_policy"].get("allow_network", True) is not False:
-            series_id = request["provider_parameters"].get("series_id")
-            if not isinstance(series_id, str) or not series_id:
-                raise ProviderRegistryValidationError("alfred-fred requires provider_parameters.series_id")
-            if cutoff is None:
-                raise ProviderRegistryValidationError("alfred-fred requires provider_policy.historical_cutoff")
+        if request["provider_policy"].get("allow_network", True) is not False:
+            self._enforce_capability_contract(capability_id, request["provider_parameters"], cutoff)
         return request
+
+    def _enforce_capability_contract(self, capability_id: str, parameters: Mapping[str, Any], cutoff: str | None) -> None:
+        """Refuse a shape the capability cannot serve, naming the field that is wrong.
+
+        Guessing wrong otherwise costs a real external request and returns a
+        typed-but-uninformative ``unavailable`` envelope, which tells the caller
+        that something failed but not what to send instead. Skipped when the
+        policy disables network access, because nothing is dispatched then.
+        """
+
+        contract = self._contracts.get(capability_id)
+        if contract is None:
+            return
+        if contract.get("requires_historical_cutoff") and cutoff is None:
+            raise ProviderRegistryValidationError(f"{capability_id} is vintage-addressed and requires provider_policy.historical_cutoff")
+        validator = Draft202012Validator(contract["parameters"], format_checker=FormatChecker())
+        errors = sorted(validator.iter_errors(dict(parameters)), key=lambda error: list(error.absolute_path))
+        if errors:
+            first = errors[0]
+            location = ".".join(str(part) for part in first.absolute_path)
+            where = f"provider_parameters.{location}" if location else "provider_parameters"
+            # A oneOf failure reports only that nothing matched; its sub-errors are
+            # the half that names the field, which is the whole point of refusing here.
+            detail = "; ".join(sorted({sub.message for sub in first.context})) if first.context else first.message
+            raise ProviderRegistryValidationError(f"{capability_id} rejected {where}: {detail}")
 
     def _dispatch(
         self,

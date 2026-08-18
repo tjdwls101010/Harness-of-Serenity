@@ -4,32 +4,105 @@
   "title": "Serenity evidence provider capability catalog",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "catalog_id", "created_at", "providers"],
+  "required": [
+    "schema_id",
+    "catalog_id",
+    "created_at",
+    "providers"
+  ],
   "properties": {
-    "schema_id": {"const": "urn:serenity:schema:evidence-catalog:1"},
-    "catalog_id": {"$ref": "#/$defs/id"},
-    "created_at": {"type": "string", "format": "date-time"},
-    "providers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/provider"}}
+    "schema_id": {
+      "const": "urn:serenity:schema:evidence-catalog:1"
+    },
+    "catalog_id": {
+      "$ref": "#/$defs/id"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/provider"
+      }
+    }
   },
   "$defs": {
-    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"
+    },
     "provider": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider_id", "tier", "capabilities", "source_kind"],
+      "required": [
+        "provider_id",
+        "tier",
+        "capabilities",
+        "source_kind"
+      ],
       "properties": {
-        "provider_id": {"$ref": "#/$defs/id"},
-        "version": {"type": "string", "minLength": 1},
-        "tier": {"enum": ["baseline", "adaptive", "optional"]},
-        "capabilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "provider_id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tier": {
+          "enum": [
+            "baseline",
+            "adaptive",
+            "optional"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "source_providers": {
           "description": "Source-identity names this owner's adapters may stamp on a provider envelope, beyond the always-accepted provider_id.",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "source_kind": {"type": "string", "minLength": 1}
+        "source_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capability_parameters": {
+          "description": "Per-capability contract for an evidence request's provider_parameters, keyed by capability ID. A sibling of capabilities rather than a reshaping of it, so the flat capability list stays a flat list of strings.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "parameters"
+            ],
+            "properties": {
+              "parameters": {
+                "description": "A JSON Schema the registry validates provider_parameters against before any provider is constructed, so a wrong shape is refused by name instead of becoming an uninformative unavailable envelope after a real request went out.",
+                "type": "object"
+              },
+              "requires_historical_cutoff": {
+                "description": "True for a vintage-addressed capability, which has no vintage to ask for without provider_policy.historical_cutoff.",
+                "type": "boolean"
+              }
+            }
+          }
+        }
       }
     }
   }

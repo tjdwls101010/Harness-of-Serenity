@@ -1901,3 +1901,89 @@ def test_issuer_without_a_declared_website_records_the_absence_instead_of_errori
     assert [result["availability"] for result in collected["results"]] == ["not_disclosed"]
     assert [result["provider"] for result in collected["results"]] == ["issuer-ir"]
     assert "issuer declares no website" in collected["results"][0]["error"]["reason"]
+
+
+def _recorded_evidence_request(tmp_path: Path, run_cli) -> tuple[str, str]:
+    run_id = start_run(run_cli)
+    run_cli("hypothesis", "put", run_id, "--document", str(write_json(tmp_path / "hyp.json", hypotheses())))
+    request = run_cli(
+        "evidence", "request", run_id,
+        "--hypothesis-id", "hyp-demand-holds",
+        "--capability-id", "sec.submissions",
+        "--document", str(write_json(tmp_path / "req.json", evidence_request())),
+    )["request"]
+    return run_id, request["request_id"]
+
+
+def _large_evidence_result() -> dict[str, object]:
+    body = "Item 1A. Risk Factors\n\n" + ("Supply concentration remains material. " * 4000) + "A single foundry supplies the leading node.\n"
+    return {**evidence_result(), "value": {"result": {"section": "risk_factors", "text": body}}}
+
+
+def test_evidence_read_answers_with_the_value_shape_rather_than_the_value(tmp_path: Path, run_cli) -> None:
+    """A single risk-factors section measured 91k-144k characters. Printing it by
+    default spends the caller's context on text it has not yet decided to read."""
+
+    run_id, request_id = _recorded_evidence_request(tmp_path, run_cli)
+    result = run_cli("evidence", "read", run_id, request_id, "--document", str(write_json(tmp_path / "big.json", _large_evidence_result())))["result"]
+
+    summary = run_cli("evidence", "read", run_id, result["result_id"])["result"]
+
+    assert summary["result_id"] == result["result_id"]
+    assert summary["availability"] == "available"
+    assert summary["raw_content_sha256"] == result["raw_content_sha256"]
+    assert summary["source"]["uri"] == result["source"]["uri"]
+    assert summary["value"]["characters"] > 100_000
+    assert summary["value"]["text_paths"][0]["path"] == "value.result.text"
+    assert "Supply concentration" not in json.dumps(summary)
+
+
+def test_evidence_read_value_opts_into_the_whole_document(tmp_path: Path, run_cli) -> None:
+    """Persisting a document answers with its shape too: the caller that just
+    supplied the value gains nothing from having it read back at it."""
+
+    run_id, request_id = _recorded_evidence_request(tmp_path, run_cli)
+    stored = run_cli("evidence", "read", run_id, request_id, "--document", str(write_json(tmp_path / "big.json", _large_evidence_result())))["result"]
+
+    full = run_cli("evidence", "read", run_id, stored["result_id"], "--value")["result"]
+
+    assert "Supply concentration" not in json.dumps(stored)
+    assert full["value"] == _large_evidence_result()["value"]
+    assert full["content_hash"] == stored["content_hash"]
+
+
+def test_evidence_read_match_returns_spans_that_verify_against_the_saved_artifact(tmp_path: Path, run_cli) -> None:
+    """An excerpt without offsets is an assertion; with them it is a citation the
+    next reader can check against the stored bytes."""
+
+    run_id, request_id = _recorded_evidence_request(tmp_path, run_cli)
+    stored = run_cli("evidence", "read", run_id, request_id, "--document", str(write_json(tmp_path / "big.json", _large_evidence_result())))["result"]
+
+    matched = run_cli("evidence", "read", run_id, stored["result_id"], "--match", "single foundry", "--context", "20")
+
+    saved = json.loads((tmp_path / ".serenity" / "runs" / run_id / "evidence" / "results" / f"{stored['result_id']}.json").read_text())
+    span = matched["matches"][0]
+    assert span["path"] == "value.result.text"
+    assert saved["value"]["result"]["text"][span["start"] : span["end"]] == "single foundry"
+    assert "single foundry" in span["excerpt"]
+    assert matched["match_count"] == 1
+
+
+def test_evidence_read_match_bounds_how_many_spans_it_returns(tmp_path: Path, run_cli) -> None:
+    run_id, request_id = _recorded_evidence_request(tmp_path, run_cli)
+    stored = run_cli("evidence", "read", run_id, request_id, "--document", str(write_json(tmp_path / "big.json", _large_evidence_result())))["result"]
+
+    matched = run_cli("evidence", "read", run_id, stored["result_id"], "--match", "Supply concentration", "--max-spans", "3")
+
+    assert len(matched["matches"]) == 3
+    assert matched["match_count"] == 4000
+    assert matched["truncated"] is True
+
+
+def test_an_unparsable_match_pattern_is_refused_by_name(tmp_path: Path, run_cli) -> None:
+    run_id, request_id = _recorded_evidence_request(tmp_path, run_cli)
+    stored = run_cli("evidence", "read", run_id, request_id, "--document", str(write_json(tmp_path / "big.json", _large_evidence_result())))["result"]
+
+    failure = run_cli("evidence", "read", run_id, stored["result_id"], "--match", "unbalanced(", expected_exit=2)
+
+    assert "--match" in failure["error"]["message"]
