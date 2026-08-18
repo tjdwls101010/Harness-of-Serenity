@@ -4,9 +4,9 @@
   "created_at": "2026-08-17T00:00:00Z",
   "providers": [
     {"provider_id": "yfinance", "tier": "baseline", "capabilities": ["yfinance.market-data", "yfinance.financial-statements", "yfinance.valuation"], "source_kind": "library"},
-    {"provider_id": "sec", "tier": "baseline", "capabilities": ["sec.identity", "sec.submissions", "sec.filings"], "source_kind": "regulator"},
-    {"provider_id": "openfigi", "tier": "baseline", "capabilities": ["openfigi.security-identity"], "source_kind": "identifier-registry"},
-    {"provider_id": "alfred-fred", "tier": "baseline", "capabilities": ["alfred-fred.macro-series", "alfred-fred.vintage-series"], "source_kind": "government-data"},
+    {"provider_id": "sec", "tier": "baseline", "capabilities": ["sec.identity", "sec.submissions", "sec.filings"], "source_providers": ["sec.company_tickers", "sec.submissions", "sec.filings"], "source_kind": "regulator"},
+    {"provider_id": "openfigi", "tier": "baseline", "capabilities": ["openfigi.security-identity"], "source_providers": ["openfigi.mapping"], "source_kind": "identifier-registry"},
+    {"provider_id": "alfred-fred", "tier": "baseline", "capabilities": ["alfred-fred.macro-series", "alfred-fred.vintage-series"], "source_providers": ["fred"], "source_kind": "government-data"},
     {"provider_id": "ibd-rs-rating", "version": "0.3.0", "tier": "baseline", "capabilities": ["ibd-rs-rating.relative-strength-observation"], "source_kind": "library"},
     {"provider_id": "usaspending", "tier": "adaptive", "capabilities": ["usaspending.federal-awards", "usaspending.contract-obligations"], "source_kind": "government-data"},
     {"provider_id": "usitc", "tier": "adaptive", "capabilities": ["usitc.trade-data", "usitc.tariff-data"], "source_kind": "government-data"},
