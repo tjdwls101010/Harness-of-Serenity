@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from hashlib import sha256
 from urllib.error import HTTPError
@@ -10,7 +11,7 @@ import pytest
 
 from serenity_core.identity import IdentityResolver
 from serenity_core.providers.openfigi import OpenFigiProvider
-from serenity_core.providers.sec import SecIdentityProvider
+from serenity_core.providers.sec import SEC_FORBIDDEN_REMEDY, SecIdentityProvider
 from serenity_core.snapshot import build_security_snapshot
 
 
@@ -498,6 +499,7 @@ def test_sec_directory_http_error_is_reported_as_a_retryable_availability_failur
         "retryable": True,
         "http_status": 403,
         "detail": "SEC company_tickers unavailable: HTTP Error 403: Forbidden",
+        "remedy": SEC_FORBIDDEN_REMEDY,
     }
     assert lookup.envelopes[0]["status"] == "unavailable"
     assert lookup.envelopes[0]["source"]["http_status"] == 403
@@ -576,3 +578,78 @@ def test_a_missing_sec_contact_identity_is_a_configuration_failure_not_an_outage
     assert lookup.rejection is not None
     assert lookup.rejection["category"] == "configuration"
     assert lookup.rejection["retryable"] is False
+
+
+def test_an_issuer_that_discloses_no_website_still_resolves_without_an_empty_domain_list() -> None:
+    sec, openfigi = providers(
+        submission={
+            "cik": "0000320193",
+            "name": "Apple Inc.",
+            "tickers": ["AAPL"],
+            "exchanges": ["Nasdaq"],
+            "website": "",
+            "investorWebsite": "",
+        }
+    )
+
+    resolution = IdentityResolver(sec=sec, openfigi=openfigi).resolve("AAPL").to_dict()
+
+    assert resolution["status"] == "available"
+    assert "issuer_domains" not in resolution["identity"]
+
+
+UNDECLARED_TOOL_BODY = b"<html><head><title>SEC.gov | Your Request Originates from an Undeclared Automated Tool</title></head><body>Automated access must comply with SEC.gov's Privacy and Security Policy.</body></html>"
+RATE_THRESHOLD_BODY = b"<html><head><title>SEC.gov | Request Rate Threshold Exceeded</title></head><body>Please visit www.sec.gov/developer.</body></html>"
+
+
+def blocked_provider(body: bytes | None, status: int = 403) -> SecIdentityProvider:
+    def blocked(uri: str, headers: dict[str, str]) -> bytes:
+        raise HTTPError(uri, status, "Forbidden", {}, io.BytesIO(body) if body is not None else None)
+
+    return SecIdentityProvider(http_get=blocked, clock=fixed_clock, user_agent="Serenity research contact@domain.test")
+
+
+def test_a_user_agent_sec_refuses_is_a_configuration_failure_not_a_retryable_outage() -> None:
+    lookup = blocked_provider(UNDECLARED_TOOL_BODY).resolve("AAPL")
+
+    assert lookup.rejection is not None
+    assert lookup.rejection["code"] == "sec_directory_unavailable"
+    assert lookup.rejection["category"] == "configuration"
+    assert lookup.rejection["retryable"] is False
+    assert lookup.rejection["sec_notice"] == "SEC.gov | Your Request Originates from an Undeclared Automated Tool"
+
+
+def test_a_sec_rate_threshold_block_stays_a_retryable_availability_failure() -> None:
+    lookup = blocked_provider(RATE_THRESHOLD_BODY).resolve("AAPL")
+
+    assert lookup.rejection is not None
+    assert lookup.rejection["category"] == "availability"
+    assert lookup.rejection["retryable"] is True
+    assert lookup.rejection["sec_notice"] == "SEC.gov | Request Rate Threshold Exceeded"
+
+
+def test_an_unrecognised_sec_block_stays_retryable_but_still_quotes_what_sec_said() -> None:
+    lookup = blocked_provider(b"<html><head><title>SEC.gov | Scheduled Maintenance</title></head></html>").resolve("AAPL")
+
+    assert lookup.rejection is not None
+    assert lookup.rejection["category"] == "availability"
+    assert lookup.rejection["retryable"] is True
+    assert lookup.rejection["sec_notice"] == "SEC.gov | Scheduled Maintenance"
+
+
+def test_every_sec_403_names_the_user_agent_first_because_sec_reuses_its_rate_limit_page() -> None:
+    rate_page = blocked_provider(RATE_THRESHOLD_BODY).resolve("AAPL").rejection
+    tool_page = blocked_provider(UNDECLARED_TOOL_BODY).resolve("AAPL").rejection
+
+    assert rate_page is not None and tool_page is not None
+    for rejection in (rate_page, tool_page):
+        assert "SERENITY_SEC_USER_AGENT" in rejection["remedy"]
+        assert "rate" in rejection["remedy"].lower()
+
+
+def test_a_non_403_transport_failure_carries_no_user_agent_remedy() -> None:
+    lookup = blocked_provider(b"<html><title>SEC.gov | Gateway Timeout</title></html>", status=504).resolve("AAPL")
+
+    assert lookup.rejection is not None
+    assert "remedy" not in lookup.rejection
+    assert lookup.rejection["retryable"] is True

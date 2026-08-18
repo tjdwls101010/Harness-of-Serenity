@@ -141,7 +141,7 @@ class IdentityResolver:
 
     @staticmethod
     def _identity(sec_lookup: Any, *, figi: str | None, security_type: str | None) -> dict[str, Any]:
-        return {
+        identity: dict[str, Any] = {
             "ticker": sec_lookup.ticker,
             "cik": sec_lookup.cik,
             "official_name": sec_lookup.official_name,
@@ -149,8 +149,12 @@ class IdentityResolver:
             "listing_country": "US",
             "figi": figi,
             "security_type": security_type,
-            "issuer_domains": list(sec_lookup.issuer_domains),
         }
+        # An issuer that files no website is a disclosure absence, not a broken identity: the key
+        # stays out entirely so no issuer-IR domain is ever authorized for it.
+        if sec_lookup.issuer_domains:
+            identity["issuer_domains"] = list(sec_lookup.issuer_domains)
+        return identity
 
     @staticmethod
     def _rejected(
