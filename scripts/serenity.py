@@ -31,7 +31,7 @@ from serenity_core.providers.rs_rating import RsRatingProvider
 from serenity_core.providers.sec import SecIdentityProvider
 from serenity_core.providers.yfinance import YFinanceProvider
 from serenity_core.providers.base import ProviderEnvelope
-from serenity_core.providers.issuer_ir import VerifiedIssuerOrigin
+from serenity_core.providers.issuer_ir import IssuerOriginUndisclosed, VerifiedIssuerOrigin
 from serenity_core.providers.registry import EvidenceProviderRegistry, ProviderRegistryValidationError
 from serenity_core.raw_cache import RawPayloadConflictError, cache_provider_raw_payloads
 
@@ -183,7 +183,7 @@ def load_attached_security_snapshot(*, manifest: dict[str, Any], root: Path, run
 
 def resolve_issuer_origin_binding(
     *, request: dict[str, Any], manifest: dict[str, Any], root: Path, run_id: str
-) -> VerifiedIssuerOrigin | None:
+) -> VerifiedIssuerOrigin | IssuerOriginUndisclosed | None:
     if request.get("capability_id") != "issuer-ir.document":
         return None
     policy = request.get("provider_policy")
@@ -270,12 +270,16 @@ def resolve_issuer_origin_binding(
     expected_submission_path = f"/submissions/CIK{expected[1]}.json"
     if (
         supplied != expected
-        or normalized_domain not in normalized_domains
-        or normalized_domain not in raw_domains
         or normalized_submission_cik != expected[1]
         or submission_name != expected[2]
         or parsed_submission_uri.path != expected_submission_path
     ):
+        raise SerenityError("identity_blocked", "issuer-ir.document origin does not match the attached fact snapshot", 3, run_id=run_id)
+    if not any(isinstance(submission_document.get(field), str) and submission_document[field].strip() for field in ("website", "investorWebsite")):
+        return IssuerOriginUndisclosed(
+            reason="issuer declares no website in its SEC submission, so no issuer-ir origin can be bound"
+        )
+    if normalized_domain not in normalized_domains or normalized_domain not in raw_domains:
         raise SerenityError("identity_blocked", "issuer-ir.document origin does not match the attached fact snapshot", 3, run_id=run_id)
     return VerifiedIssuerOrigin(
         ticker=expected[0],
@@ -711,7 +715,9 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
                 run_id=args.run_id,
             )
             registry = build_evidence_provider_registry(root)
-            if issuer_origin_binding is None:
+            if isinstance(issuer_origin_binding, IssuerOriginUndisclosed):
+                envelopes = registry.unmet_precondition(execution_request, status="not_disclosed", reason=issuer_origin_binding.reason)
+            elif issuer_origin_binding is None:
                 envelopes = registry.collect(execution_request)
             else:
                 envelopes = registry.collect(execution_request, issuer_origin_binding=issuer_origin_binding)

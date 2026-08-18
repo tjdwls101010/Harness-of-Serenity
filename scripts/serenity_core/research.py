@@ -339,6 +339,7 @@ class ResearchArtifactStore:
             else evidence["identity_bindings"],
             "fact_refs": _normalize_identifiers(evidence["fact_refs"], "fact_refs", required=False),
             "value": evidence["value"],
+            **({"error": dict(evidence["error"])} if isinstance(evidence.get("error"), Mapping) else {}),
             **({"conflicts": list(evidence["conflicts"])} if "conflicts" in evidence else {}),
         }
 
@@ -380,6 +381,7 @@ class ResearchArtifactStore:
             "identity_bindings": dict(envelope.get("identity_bindings", {})),
             "fact_refs": _normalize_identifiers(evidence.get("fact_refs", []), "fact_refs", required=False),
             "value": envelope["data"],
+            **({"error": dict(envelope["error"])} if isinstance(envelope.get("error"), Mapping) else {}),
             **({"conflicts": list(evidence["conflicts"])} if "conflicts" in evidence else {}),
         }
 

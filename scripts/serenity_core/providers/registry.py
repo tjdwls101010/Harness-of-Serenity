@@ -154,6 +154,20 @@ class EvidenceProviderRegistry:
         envelopes = self._enforce_cutoff(envelopes, cutoff, provider_id, request)
         return self._finalize(envelopes, provider_id=provider_id, request=request)
 
+    def unmet_precondition(self, request_doc: Mapping[str, Any], *, status: str, reason: str) -> list[ProviderEnvelope]:
+        """Return one typed envelope for a precondition the caller resolved as unmet.
+
+        The registry cannot see what the caller holds — an issuer that declares
+        no website in its SEC submission puts issuer-ir.document structurally
+        out of reach. That absence is recordable evidence, so it becomes a
+        typed result instead of an error, which is what lets a decision say
+        BLOCKED honestly rather than leaving the run with nothing saved.
+        """
+
+        request = self._validate_request(request_doc)
+        provider_id = self._owners[request["capability_id"]]
+        return self._finalize([self._registry_envelope(provider_id, request, status, reason)])
+
     @staticmethod
     def _capability_owners(catalog: Mapping[str, Any]) -> dict[str, str]:
         owners: dict[str, str] = {}

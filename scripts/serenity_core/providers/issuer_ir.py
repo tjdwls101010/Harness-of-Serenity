@@ -42,6 +42,18 @@ class VerifiedIssuerOrigin:
     binding_content_hash: str
 
 
+@dataclass(frozen=True)
+class IssuerOriginUndisclosed:
+    """SEC requires no website, so its absence is a disclosure fact, not a binding failure.
+
+    Without a declared domain there is nothing to bind an official document to,
+    and inventing one would dissolve the identity binding this provider exists
+    to enforce. The caller records this as typed evidence instead.
+    """
+
+    reason: str
+
+
 class _IssuerHTMLParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
