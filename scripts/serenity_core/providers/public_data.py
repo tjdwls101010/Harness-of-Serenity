@@ -473,7 +473,6 @@ class USPTOAdapter(OptionalAPIAdapter):
 class NarrativeLinkProvider(PublicDataAdapter):
     priority = "narrative"
     capability = "narrative_link"
-    unavailable_reason = "narrative links are evidence references, not numeric source substitution"
 
     def build_request(self, query: Mapping[str, Any]) -> HttpRequest:
         return HttpRequest(method="GET", url=self.source_uri, query={key: str(value) for key, value in query.items()})
@@ -490,10 +489,13 @@ class FederalRegisterProvider(NarrativeLinkProvider):
 
 
 class BISProvider(NarrativeLinkProvider):
+    """Declared but not bound: the US agency publishes at bis.doc.gov and exposes no query API here."""
+
     provider_id = "bis"
     title = "Bureau of Industry and Security"
     capabilities = ("bis.export-controls", "bis.entity-lists")
     source_uri = "https://www.bis.gov/"
+    unavailable_reason = "no BIS API endpoint is bound; https://www.bis.gov/ is a homepage, not a query API"
 
 
 def public_data_catalog(

@@ -259,3 +259,21 @@ def test_each_adapter_distinguishes_an_unexpected_2xx_shape_from_a_valid_empty_c
     assert empty["parse"] == {"status": "parsed", "transform_version": "public-data/1"}
     validate_document(invalid, "urn:serenity:schema:provider-envelope:1")
     validate_document(empty, "urn:serenity:schema:provider-envelope:1")
+
+
+def test_federal_register_is_bound_to_its_real_documents_endpoint() -> None:
+    provider = public_data_catalog(clock=lambda: FROZEN_NOW)["federal-register"]
+
+    assert provider.configured is True
+    assert provider.build_request({"conditions[type][]": "RULE"}).url == "https://www.federalregister.gov/api/v1/documents.json"
+
+
+def test_bis_stays_disabled_for_the_true_reason_that_no_api_endpoint_is_bound() -> None:
+    provider = public_data_catalog(clock=lambda: FROZEN_NOW)["bis"]
+
+    envelope = provider.collect({"q": "export control"}).to_dict()
+
+    assert provider.configured is False
+    assert envelope["status"] == "not_requested"
+    assert envelope["error"] == {"reason": "no BIS API endpoint is bound; https://www.bis.gov/ is a homepage, not a query API"}
+    validate_document(envelope, "urn:serenity:schema:provider-envelope:1")
