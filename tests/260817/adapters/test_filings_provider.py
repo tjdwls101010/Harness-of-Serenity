@@ -290,3 +290,33 @@ def test_an_injected_cache_is_reusable_without_a_default_global_cache() -> None:
     assert cache
     assert second["status"] == "available"
     assert second["source"]["content_sha256"] == first["source"]["content_sha256"]
+
+
+def test_edgar_acceptance_instant_survives_as_the_filing_availability_time() -> None:
+    """edgartools hands back a datetime, and only a datetime knows the intraday instant.
+
+    Dropping it left every filing with an unknown availability, which an
+    intraday cutoff -- the shape every run derives from --as-of -- then refuses.
+    """
+
+    backend = FixtureBackend(
+        {
+            "filing": {
+                "form": "10-K",
+                "filing_date": datetime(2026, 2, 26, tzinfo=timezone.utc).date(),
+                "report_date": "2025-12-31",
+                "accession": "0001437749-26-005875",
+                "primary_document": "aaoi20251231_10k.htm",
+                "acceptance_datetime": datetime(2026, 2, 26, 21, 24, 24, tzinfo=timezone.utc),
+            },
+            "data": {"section": "risk_factors", "text": "Vendor concentration."},
+        }
+    )
+
+    envelope = FilingsProvider(backend=backend, clock=lambda: FROZEN_NOW).execute(
+        {"capability": "section", "identity": IDENTITY, "form": "10-K", "named": "risk_factors"},
+        cutoff="2026-08-17T23:59:59Z",
+    ).to_dict()
+
+    assert envelope["status"] == "available"
+    assert envelope["temporal"]["available_at"] == "2026-02-26T21:24:24Z"
