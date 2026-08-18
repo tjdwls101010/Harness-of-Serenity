@@ -317,3 +317,65 @@ def test_an_observation_window_bounds_what_one_request_turns_into_evidence() -> 
 
     assert requested["observation_start"] == "2026-08-01"
     assert requested["observation_end"] == "2026-08-18"
+
+
+def test_vintage_history_keeps_every_superseded_revision_the_cutoff_could_see() -> None:
+    """``vintages="active"`` answers what the number *was* at the cutoff; ``"history"``
+    answers how it *got* there. They differ only in whether a revision that has since
+    been superseded still counts as evidence."""
+
+    requested: dict[str, str] = {}
+    raw_response = json.dumps(
+        {
+            "observations": [
+                {"date": "2026-06-01", "value": "4.0", "realtime_start": "2026-06-15", "realtime_end": "2026-07-31", "vintage": "2026-06-15"},
+                {"date": "2026-06-01", "value": "3.9", "realtime_start": "2026-08-01", "realtime_end": "9999-12-31", "vintage": "2026-08-01"},
+            ]
+        }
+    ).encode()
+
+    def http_get(url: str, params: dict[str, str]) -> bytes:
+        requested.update(params)
+        return raw_response
+
+    provider = FredProvider(api_key="test-key", http_get=http_get, clock=lambda: datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc))
+
+    envelopes = provider.observations("GDPC1", cutoff="2026-08-17T00:00:00Z", vintages="history")
+
+    assert requested["realtime_start"] == "1776-07-04"
+    assert requested["realtime_end"] == "2026-08-15"
+    assert [envelope.to_dict()["temporal"]["source_version"] for envelope in envelopes] == ["2026-06-15", "2026-08-01"]
+    assert [envelope.to_dict()["data"]["observation"]["value"] for envelope in envelopes] == ["4.0", "3.9"]
+
+
+def test_vintage_history_still_refuses_a_revision_published_after_the_cutoff() -> None:
+    raw_response = json.dumps(
+        {
+            "observations": [
+                {"date": "2026-06-01", "value": "4.0", "realtime_start": "2026-06-15", "realtime_end": "2026-07-31", "vintage": "2026-06-15"},
+                {"date": "2026-06-01", "value": "3.9", "realtime_start": "2026-08-10", "realtime_end": "9999-12-31", "vintage": "2026-08-10"},
+            ]
+        }
+    ).encode()
+
+    provider = FredProvider(
+        api_key="test-key",
+        http_get=lambda url, params: raw_response,
+        clock=lambda: datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc),
+    )
+
+    envelopes = provider.observations("GDPC1", cutoff="2026-07-01T00:00:00Z", vintages="history")
+
+    assert [envelope.to_dict()["temporal"]["source_version"] for envelope in envelopes] == ["2026-06-15"]
+
+
+def test_an_unknown_vintage_mode_is_refused_before_a_request_is_made() -> None:
+    def http_get(url: str, params: dict[str, str]) -> bytes:
+        raise AssertionError("an invalid mode must not reach the network")
+
+    provider = FredProvider(api_key="test-key", http_get=http_get, clock=lambda: datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc))
+
+    envelope = provider.observations("GDPC1", cutoff="2026-07-01T00:00:00Z", vintages="latest")[0].to_dict()
+
+    assert envelope["status"] == "invalid"
+    assert envelope["error"]["reason"] == "vintages must be 'active' (the vintage in force at the cutoff) or 'history' (every vintage published by then)"

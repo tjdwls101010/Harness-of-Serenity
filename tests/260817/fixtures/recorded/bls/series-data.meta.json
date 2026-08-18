@@ -1,0 +1,20 @@
+{
+  "calls": [
+    {
+      "bytes": 1172,
+      "payload": "series-data-0.json",
+      "sha256": "b9a64bc356949bb9c704c296769b9903ade5a359a8cb3b99f8809a7459daacbc",
+      "uri": "https://api.bls.gov/publicAPI/v2/timeseries/data/"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:32Z",
+  "case": "series-data",
+  "provider_id": "bls",
+  "query": {
+    "endyear": "2025",
+    "series": [
+      "CES0000000001"
+    ],
+    "startyear": "2025"
+  }
+}

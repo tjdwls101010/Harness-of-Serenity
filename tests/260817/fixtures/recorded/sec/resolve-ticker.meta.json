@@ -1,0 +1,22 @@
+{
+  "calls": [
+    {
+      "bytes": 794753,
+      "payload": "resolve-ticker-0.json",
+      "sha256": "5fa0f09f8e8dd83ad338adb5ac56403d0ac1df122bf4dadf772984c4a749d783",
+      "uri": "https://www.sec.gov/files/company_tickers.json"
+    },
+    {
+      "bytes": 158247,
+      "payload": "resolve-ticker-1.json",
+      "sha256": "090541e89c1c265ba3aeb5dd8e3b98c9e8bf5d6850100f3f9a8822ce19cb7b59",
+      "uri": "https://data.sec.gov/submissions/CIK0000093556.json"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:38Z",
+  "case": "resolve-ticker",
+  "provider_id": "sec",
+  "query": {
+    "ticker": "SWK"
+  }
+}

@@ -16,6 +16,8 @@ from serenity_core.providers.base import ProviderEnvelope
 FRED_OBSERVATIONS_URL = "https://api.stlouisfed.org/fred/series/observations"
 FRED_PROVIDER_VERSION = "alfred-v1"
 _AVAILABILITY_LAG_DAYS = 2
+_FRED_EPOCH = "1776-07-04"
+VINTAGE_MODES = ("active", "history")
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,19 @@ def _is_active_at(observation: Mapping[str, Any], cutoff: str) -> bool:
     return realtime_start <= cutoff <= realtime_end
 
 
+def _was_published_by(observation: Mapping[str, Any], cutoff: str) -> bool:
+    """Keep a vintage a reader at the cutoff could already have seen.
+
+    This is ``_is_active_at`` without the upper bound. Dropping ``realtime_end``
+    is the whole difference between the two capabilities: a revision superseded
+    before the cutoff fails the active test precisely because it was replaced,
+    which is the fact a revision history exists to record.
+    """
+
+    realtime_start = observation.get("realtime_start")
+    return _is_iso_date(realtime_start) and realtime_start <= cutoff
+
+
 def _is_iso_date(value: Any) -> bool:
     if not isinstance(value, str):
         return False
@@ -120,9 +135,18 @@ class FredProvider:
         cutoff: str,
         observation_start: str | None = None,
         observation_end: str | None = None,
+        vintages: str = "active",
     ) -> list[ProviderEnvelope]:
         fetched_at = self._clock()
-        request: dict[str, Any] = {"series_id": series_id, "cutoff": cutoff}
+        request: dict[str, Any] = {"series_id": series_id, "cutoff": cutoff, "vintages": vintages}
+        if vintages not in VINTAGE_MODES:
+            return [
+                self._invalid(
+                    request=request,
+                    fetched_at=fetched_at,
+                    reason="vintages must be 'active' (the vintage in force at the cutoff) or 'history' (every vintage published by then)",
+                )
+            ]
         try:
             vintage_date, cutoff_at = _cutoff_boundary(cutoff)
         except ValueError as error:
@@ -146,7 +170,7 @@ class FredProvider:
             "api_key": self._api_key,
             "file_type": "json",
             "series_id": series_id,
-            "realtime_start": vintage_date,
+            "realtime_start": _FRED_EPOCH if vintages == "history" else vintage_date,
             "realtime_end": vintage_date,
         }
         for name, window in (("observation_start", observation_start), ("observation_end", observation_end)):
@@ -246,7 +270,8 @@ class FredProvider:
             if not isinstance(observation, dict):
                 invalid_count += 1
                 continue
-            if not _is_active_at(observation, vintage_date):
+            visible = _was_published_by if vintages == "history" else _is_active_at
+            if not visible(observation, vintage_date):
                 continue
             period = observation.get("date")
             realtime_start = observation.get("realtime_start")

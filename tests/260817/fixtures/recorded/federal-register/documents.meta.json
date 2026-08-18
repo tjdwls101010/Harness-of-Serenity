@@ -1,0 +1,17 @@
+{
+  "calls": [
+    {
+      "bytes": 2258,
+      "payload": "documents-0.json",
+      "sha256": "774806109ca8eae682d4dd3df7884a6ca239203d51dd3d28f83c9d9554c163c6",
+      "uri": "https://www.federalregister.gov/api/v1/documents.json"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:36Z",
+  "case": "documents",
+  "provider_id": "federal-register",
+  "query": {
+    "order": "newest",
+    "per_page": 2
+  }
+}

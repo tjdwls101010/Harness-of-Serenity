@@ -22,6 +22,10 @@ FILINGS_PROVIDER_VERSION = "edgartools-adapter/1"
 FILINGS_TRANSFORM_VERSION = "filings-provider/1"
 _CAPABILITY_ALIASES = {"8-K": "eightk", "8k": "eightk"}
 _CAPABILITIES = frozenset({"submissions", "filings", "filing_text", "section", "eightk", "xbrl_facts", "segments", "statement", *_CAPABILITY_ALIASES})
+_NAMED_SECTIONS = {
+    "10-K": {"business": "Item 1", "risk_factors": "Item 1A", "mda": "Item 7"},
+    "10-Q": {"risk_factors": "Part II, Item 1A", "mda": "Part I, Item 2"},
+}
 
 
 class FilingsBackend(Protocol):
@@ -156,6 +160,11 @@ def _filing_metadata(value: Any) -> dict[str, Any]:
         "report_date": _date_string(source.get("report_date")),
         "accession": accession if isinstance(accession, str) and accession else None,
         "primary_document": source.get("primary_document") if isinstance(source.get("primary_document"), str) else None,
+        # Always present, so an unknown acceptance reads as None rather than as a
+        # KeyError at whichever call site happens to meet the first filer that
+        # has none. Absent availability is a fact this adapter reports, not a
+        # shape callers should have to guard for.
+        "available_at": None,
     }
     for key in ("available_at", "acceptance_at", "acceptance_datetime", "acceptanceDateTime"):
         acceptance = source.get(key)
@@ -166,6 +175,35 @@ def _filing_metadata(value: Any) -> dict[str, Any]:
             metadata["available_at"] = acceptance
             break
     return metadata
+
+
+def _form_family(form: Any) -> str:
+    """Collapse an amendment onto the form it amends; a 10-K/A parses as a TenK."""
+
+    return form.split("/", 1)[0].upper() if isinstance(form, str) else ""
+
+
+def _named_section_key(form: Any, named: str) -> str | None:
+    return _NAMED_SECTIONS.get(_form_family(form), {}).get(named)
+
+
+def _unsupported_section_reason(form: Any, named: str) -> str:
+    """Name the valid space at the moment of failure.
+
+    A caller reads this exactly when its request did not resolve, so it carries
+    what the request should have said instead. On a 10-Q the part qualifier is
+    load-bearing rather than decorative: ``tenq["Item 1"]`` silently answers
+    Part I (Financial Statements) and never Part II (Legal Proceedings).
+    """
+
+    defined = _NAMED_SECTIONS.get(_form_family(form))
+    displayed = form if isinstance(form, str) and form else "(unknown)"
+    if defined is None:
+        return f"form {displayed} defines no named sections; name a section with item= instead, using an item label listed by sec.filings"
+    return (
+        f"form {displayed} does not define the named section {named}; it defines {', '.join(sorted(defined))}. "
+        f"Reach any other section with item=, part-qualified on a 10-Q (for example 'Part II, Item 1A')"
+    )
 
 
 def _source_parameters(request: Mapping[str, Any]) -> dict[str, Any]:
@@ -226,13 +264,12 @@ class EdgarToolsBackend:
 
         identity = request["identity"]
         capability = request["capability"]
-        company = Company(identity["cik"])
         if capability == "submissions":
-            return {"data": {"submissions": {"cik": str(getattr(company, "cik", "")), "name": getattr(company, "name", None), "tickers": getattr(company, "tickers", None), "exchanges": self._call(company, "get_exchanges")}}}
-        if capability == "filing_text":
+            return self._submissions(identity)
+        company = Company(identity["cik"])
+        filing = self._select_filing(company, request)
+        if filing is None and capability == "filing_text" and isinstance(request.get("accession"), str):
             filing = get_by_accession_number(request["accession"])
-        else:
-            filing = self._select_filing(company, request)
         if filing is None:
             return None
         if capability == "filings":
@@ -242,14 +279,15 @@ class EdgarToolsBackend:
             text = filing.markdown(include_page_breaks=True) if request.get("format") == "markdown" and hasattr(filing, "markdown") else filing.text()
             return self._result(filing, {"text": str(text), "format": request.get("format", "text")})
         if capability == "section":
-            obj = filing.obj()
             named = request.get("named")
             item = request.get("item")
             if named:
-                names = {"business": "business", "risk_factors": "risk_factors", "mda": "management_discussion"}
-                text = getattr(obj, names.get(named, ""), None)
-            else:
-                text = obj[item] if isinstance(item, str) else None
+                form = self._metadata(filing)["form"]
+                key = _named_section_key(form, named)
+                if key is None:
+                    return {"filing": self._metadata(filing), "status": "invalid", "reason": _unsupported_section_reason(form, named)}
+                item = key
+            text = filing.obj()[item] if isinstance(item, str) else None
             return None if text is None else self._result(filing, {"section": named or item, "text": str(text)})
         if capability == "eightk":
             filings = self._filings(company, {**request, "form": "8-K"})
@@ -276,6 +314,45 @@ class EdgarToolsBackend:
         statement = next((getattr(statements, name)() for name in names if callable(getattr(statements, name, None))), None)
         return None if statement is None else self._result(filing, {"rows": self._records(statement.to_dataframe(view=request.get("view")))})
 
+    def _submissions(self, identity: Mapping[str, str]) -> Mapping[str, Any] | None:
+        """Return the submissions index anchored to the newest filing it lists.
+
+        The index is a live document with no acceptance instant of its own, so
+        its availability is the acceptance instant of its newest entry: the
+        moment it could first have said what it now says. That anchor is also
+        what makes a historical cutoff refuse it honestly, because today's index
+        lists filings a reader at that cutoff could not have seen.
+        """
+
+        from edgar.httprequests import download_text
+
+        source_uri = f"{SEC_SUBMISSIONS_ROOT}/CIK{identity['cik']}.json"
+        raw = download_text(source_uri)
+        payload = json.loads(raw)
+        recent = payload.get("filings", {}).get("recent", {}) if isinstance(payload.get("filings"), Mapping) else {}
+        acceptances = recent.get("acceptanceDateTime") if isinstance(recent.get("acceptanceDateTime"), list) else []
+        newest = max(range(len(acceptances)), key=acceptances.__getitem__, default=None)
+
+        def column(name: str) -> Any:
+            values = recent.get(name)
+            return values[newest] if newest is not None and isinstance(values, list) and newest < len(values) else None
+
+        return {
+            "source_uri": source_uri,
+            "filing": _filing_metadata(
+                {
+                    "form": column("form"),
+                    "filing_date": column("filingDate"),
+                    "report_date": column("reportDate"),
+                    "accession": column("accessionNumber"),
+                    "primary_document": column("primaryDocument"),
+                    "acceptance_datetime": column("acceptanceDateTime"),
+                }
+            ),
+            "data": {"submissions": {"cik": str(payload.get("cik", "")), "name": payload.get("name"), "tickers": payload.get("tickers"), "exchanges": payload.get("exchanges")}},
+            "raw_content": raw.encode("utf-8"),
+        }
+
     def _filings(self, company: Any, request: Mapping[str, Any]) -> list[Any]:
         kwargs = {"form": request["form"]} if isinstance(request.get("form"), str) else {}
         filings = company.get_filings(**kwargs)
@@ -289,7 +366,7 @@ class EdgarToolsBackend:
     def _select_filing(self, company: Any, request: Mapping[str, Any]) -> Any:
         accession = request.get("accession")
         if isinstance(accession, str):
-            return next((filing for filing in self._filings(company, request) if self._metadata(filing)["accession"] == accession), None)
+            return next((filing for filing in self._filings(company, {**request, "limit": None}) if self._metadata(filing)["accession"] == accession), None)
         filings = self._filings(company, request)
         return filings[0] if filings else None
 
