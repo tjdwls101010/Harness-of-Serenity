@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -40,19 +41,66 @@ def default_http_get(uri: str, headers: dict[str, str]) -> bytes:
         return response.read()
 
 
+MAX_ERROR_BODY_BYTES = 65536
+SEC_CONFIGURATION_NOTICE = "undeclared automated tool"
+# SEC answers a refused User-Agent and a genuine rate block with the same 403, and www.sec.gov serves
+# its rate-limit page for both -- so the notice text alone cannot separate them. Name both causes,
+# refused-identity first, because that one never clears by waiting.
+SEC_FORBIDDEN_REMEDY = (
+    "verify SERENITY_SEC_USER_AGENT declares a contactable address SEC accepts -- a refused email "
+    "domain is answered with 403, not an auth error -- then consider SEC rate limiting"
+)
+_TITLE_PATTERN = re.compile(rb"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+
+
 def _http_status(exc: BaseException) -> int | None:
     return exc.code if isinstance(exc, HTTPError) else None
+
+
+def _error_body(exc: BaseException) -> bytes | None:
+    """SEC states the reason for a refusal in the response body; read it once instead of discarding it."""
+    if not isinstance(exc, HTTPError):
+        return None
+    try:
+        return exc.read(MAX_ERROR_BODY_BYTES)
+    except Exception:  # a refusal we cannot read is still a refusal
+        return None
+
+
+def _sec_notice(body: bytes | None) -> str | None:
+    if not body:
+        return None
+    match = _TITLE_PATTERN.search(body)
+    if match is None:
+        return None
+    notice = " ".join(match.group(1).decode("utf-8", "replace").split())
+    return notice or None
 
 
 def _identity_rejection(code: str, reason: str) -> dict[str, Any]:
     return {"code": code, "reason": reason, "category": "identity", "retryable": False}
 
 
-def _unavailable_rejection(code: str, reason: str, detail: str, http_status: int | None) -> dict[str, Any]:
-    """Separate a transport outage from an identity conflict so the operator knows whether to retry."""
-    rejection: dict[str, Any] = {"code": code, "reason": reason, "category": "availability", "retryable": True, "detail": detail}
+def _unavailable_rejection(code: str, reason: str, detail: str, http_status: int | None, notice: str | None = None) -> dict[str, Any]:
+    """Separate a transport outage from an identity conflict so the operator knows whether to retry.
+
+    A refused User-Agent also arrives as HTTP 403, and retrying it never succeeds -- only SEC's own
+    notice text separates that configuration failure from a genuine rate-limit block.
+    """
+    configuration = bool(notice) and SEC_CONFIGURATION_NOTICE in notice.lower()
+    rejection: dict[str, Any] = {
+        "code": code,
+        "reason": reason,
+        "category": "configuration" if configuration else "availability",
+        "retryable": not configuration,
+        "detail": detail,
+    }
     if http_status is not None:
         rejection["http_status"] = http_status
+    if notice is not None:
+        rejection["sec_notice"] = notice
+    if http_status == 403:
+        rejection["remedy"] = SEC_FORBIDDEN_REMEDY
     return rejection
 
 
@@ -129,6 +177,8 @@ class SecIdentityProvider:
         except Exception as exc:  # external provider boundary
             detail = f"SEC company_tickers unavailable: {exc}"
             http_status = _http_status(exc)
+            error_body = _error_body(exc)
+            notice = _sec_notice(error_body)
             envelope = ProviderEnvelope.unavailable(
                 provider="sec.company_tickers",
                 provider_version="v1",
@@ -139,6 +189,7 @@ class SecIdentityProvider:
                 reason=detail,
                 available_at=available_at,
                 http_status=http_status,
+                raw_content=error_body,
                 parse={"status": "not_parsed", "transform_version": "sec-identity/1"},
             )
             return SecLookup(
@@ -148,7 +199,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(envelope.to_dict(),),
                 provider_envelopes=(envelope,),
-                rejection=_unavailable_rejection("sec_directory_unavailable", "SEC company_tickers could not be loaded", detail, http_status),
+                rejection=_unavailable_rejection("sec_directory_unavailable", "SEC company_tickers could not be loaded", detail, http_status, notice),
             )
 
         record = self._find_record(directory, normalized_ticker)
@@ -219,6 +270,8 @@ class SecIdentityProvider:
         except Exception as exc:  # external provider boundary
             detail = f"SEC submissions unavailable: {exc}"
             http_status = _http_status(exc)
+            error_body = _error_body(exc)
+            notice = _sec_notice(error_body)
             submission_envelope = ProviderEnvelope.unavailable(
                 provider="sec.submissions",
                 provider_version="v1",
@@ -229,6 +282,7 @@ class SecIdentityProvider:
                 reason=detail,
                 available_at=available_at,
                 http_status=http_status,
+                raw_content=error_body,
                 identity_bindings={"ticker": normalized_ticker, "cik": cik},
                 parse={"status": "not_parsed", "transform_version": "sec-identity/1"},
             )
@@ -239,7 +293,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(directory_envelope.to_dict(), submission_envelope.to_dict()),
                 provider_envelopes=(directory_envelope, submission_envelope),
-                rejection=_unavailable_rejection("sec_submission_unavailable", "SEC submissions could not be loaded", detail, http_status),
+                rejection=_unavailable_rejection("sec_submission_unavailable", "SEC submissions could not be loaded", detail, http_status, notice),
             )
 
         submission_data = submission if isinstance(submission, dict) else {}

@@ -425,3 +425,16 @@ def test_session_start_reads_the_sec_contact_identity_from_the_project_env_file(
     context = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
     assert "SEC contact identity is unset" not in context
     assert "Fixture User fixture@example.test" not in context
+
+
+def test_session_start_names_the_filings_credential_even_when_identity_is_configured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SERENITY_SEC_USER_AGENT", "Fixture User fixture@example.test")
+    monkeypatch.delenv("EDGAR_IDENTITY", raising=False)
+    payload = {"hook_event_name": "SessionStart", "cwd": str(tmp_path), "source": "startup"}
+
+    code, stdout, stderr = _run_hook(SESSION_START, payload, cwd=tmp_path)
+
+    assert (code, stderr) == (0, "")
+    context = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SEC contact identity is unset" not in context
+    assert "EDGAR_IDENTITY is unset" in context

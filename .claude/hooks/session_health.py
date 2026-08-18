@@ -37,14 +37,14 @@ def _root(payload: dict[str, Any]) -> Path:
 SEC_IDENTITY_SETTINGS = ("SERENITY_SEC_USER_AGENT", "EDGAR_IDENTITY")
 
 
-def _has_sec_contact_identity(root: Path) -> bool:
-    """The only mandatory provider credential: without it every identity-pinned run stops at the SEC gate.
+def _configured(root: Path, names: tuple[str, ...]) -> bool:
+    """True when any of `names` has a non-empty value.
 
     Checked for presence alone and never echoed, because this hook stays local, network-free, and secret-free.
     The process environment is checked first, then the project .env, which the hook reads directly because
     only the CLI loads it through python-dotenv.
     """
-    if any(os.environ.get(name, "").strip() for name in SEC_IDENTITY_SETTINGS):
+    if any(os.environ.get(name, "").strip() for name in names):
         return True
     try:
         lines = (root / ".env").read_text(encoding="utf-8").splitlines()
@@ -52,9 +52,21 @@ def _has_sec_contact_identity(root: Path) -> bool:
         return False
     for line in lines:
         name, separator, value = line.partition("=")
-        if separator and name.strip() in SEC_IDENTITY_SETTINGS and value.strip():
+        if separator and name.strip() in names and value.strip():
             return True
     return False
+
+
+def _check_sec_credentials(root: Path, problems: list[str]) -> None:
+    """Two consumers, two keys: sec.py accepts either, but edgartools reads only EDGAR_IDENTITY.
+
+    Reporting them together would call the harness healthy in the exact state where identity resolution
+    works and every filings request fails.
+    """
+    if not _configured(root, SEC_IDENTITY_SETTINGS):
+        problems.append("SEC contact identity is unset (SERENITY_SEC_USER_AGENT or EDGAR_IDENTITY)")
+    if not _configured(root, ("EDGAR_IDENTITY",)):
+        problems.append("EDGAR_IDENTITY is unset, so SEC filings evidence is unavailable")
 
 
 def _check_active(root: Path, problems: list[str]) -> None:
@@ -102,8 +114,7 @@ def main() -> int:
     for path in (root / "scripts" / "serenity.py", root / "scripts" / "serenity_harness.py", root / "schemas" / "run-manifest-2.schema.json"):
         if not path.is_file():
             problems.append(f"required local file is missing ({path.relative_to(root)})")
-    if not _has_sec_contact_identity(root):
-        problems.append("SEC contact identity is unset (SERENITY_SEC_USER_AGENT or EDGAR_IDENTITY)")
+    _check_sec_credentials(root, problems)
     _check_active(root, problems)
     if not problems:
         return 0
