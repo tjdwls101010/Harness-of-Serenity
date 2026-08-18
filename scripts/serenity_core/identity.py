@@ -63,7 +63,12 @@ class IdentityResolver:
                 envelopes,
                 provider_envelopes,
                 status="invalid",
-                rejection={"code": "non_us_listing", "reason": "SEC submission does not identify a US-listed exchange"},
+                rejection={
+                    "code": "non_us_listing",
+                    "reason": "SEC submission does not identify a US-listed exchange",
+                    "category": "identity",
+                    "retryable": False,
+                },
             )
 
         figi_lookup = self._openfigi.lookup(normalized_ticker)
@@ -96,6 +101,8 @@ class IdentityResolver:
                 rejection={
                     "code": "openfigi_ticker_exchange_conflict",
                     "reason": "OpenFIGI mapping does not corroborate SEC ticker and US exchange",
+                    "category": "identity",
+                    "retryable": False,
                 },
             )
         return IdentityResolution(

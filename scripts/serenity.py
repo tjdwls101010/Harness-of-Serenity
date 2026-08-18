@@ -596,9 +596,10 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
             if not isinstance(identity_document, dict):
                 raise SerenityError("provider_failure", "live identity provider returned no typed resolution", 4, run_id=args.run_id)
             if identity_document.get("status") != "available":
-                rejection = identity_document.get("rejection")
-                reason = rejection.get("code") if isinstance(rejection, dict) else "identity_unresolved"
-                raise SerenityError("identity_blocked", str(reason), 3, run_id=args.run_id)
+                rejection = identity_document.get("rejection") if isinstance(identity_document.get("rejection"), dict) else {}
+                reason = rejection.get("code", "identity_unresolved")
+                diagnosis = {key: value for key, value in rejection.items() if key != "code"}
+                raise SerenityError("identity_blocked", str(reason), 3, run_id=args.run_id, **diagnosis)
             identity_envelopes = getattr(identity, "provider_envelopes", ())
             if not isinstance(identity_envelopes, tuple) or not all(isinstance(item, ProviderEnvelope) for item in identity_envelopes):
                 raise SerenityError("provider_failure", "live identity provider returned invalid source envelopes", 4, run_id=args.run_id)
@@ -621,7 +622,7 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
                 provider_error_code,
             ) from exc
         except SnapshotBlockedError as exc:
-            raise SerenityError("identity_blocked", exc.reason, 3, run_id=args.run_id) from exc
+            raise SerenityError("identity_blocked", exc.reason, 3, run_id=args.run_id, **exc.diagnosis) from exc
         except Exception as exc:
             raise SerenityError("provider_failure", f"snapshot providers could not build a typed fact snapshot: {exc}", 4, run_id=args.run_id) from exc
         run = publish_run_document(

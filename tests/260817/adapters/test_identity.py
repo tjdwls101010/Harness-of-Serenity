@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
+from urllib.error import HTTPError
 from datetime import datetime, timezone
 from typing import Any
+
+import pytest
 
 from serenity_core.identity import IdentityResolver
 from serenity_core.providers.openfigi import OpenFigiProvider
@@ -345,6 +348,8 @@ def test_resolver_marks_openfigi_ticker_or_exchange_mismatch_as_conflict() -> No
     assert resolution["rejection"] == {
         "code": "openfigi_ticker_exchange_conflict",
         "reason": "OpenFIGI mapping does not corroborate SEC ticker and US exchange",
+        "category": "identity",
+        "retryable": False,
     }
     assert resolution["provider_envelopes"][-1]["status"] == "available"
 
@@ -366,6 +371,8 @@ def test_resolver_rejects_non_us_listing_from_sec_submission() -> None:
     assert resolution["rejection"] == {
         "code": "non_us_listing",
         "reason": "SEC submission does not identify a US-listed exchange",
+        "category": "identity",
+        "retryable": False,
     }
     assert [envelope["provider"] for envelope in resolution["provider_envelopes"]] == [
         "sec.company_tickers",
@@ -380,7 +387,12 @@ def test_resolver_rejects_unknown_ticker_with_typed_sec_envelope() -> None:
 
     assert resolution["status"] == "invalid"
     assert resolution["identity"] is None
-    assert resolution["rejection"] == {"code": "unresolved_ticker", "reason": "ticker is not present in SEC company_tickers"}
+    assert resolution["rejection"] == {
+        "code": "unresolved_ticker",
+        "reason": "ticker is not present in SEC company_tickers",
+        "category": "identity",
+        "retryable": False,
+    }
     assert len(resolution["provider_envelopes"]) == 1
     assert resolution["provider_envelopes"][0]["status"] == "invalid"
 
@@ -399,6 +411,8 @@ def test_sec_provider_requires_an_explicit_user_agent_before_any_network_call(mo
     assert lookup.rejection == {
         "code": "sec_user_agent_required",
         "reason": "SEC requests require user_agent or SERENITY_SEC_USER_AGENT",
+        "category": "configuration",
+        "retryable": False,
     }
     assert lookup.envelopes[0]["status"] == "unavailable"
 
@@ -415,7 +429,12 @@ def test_sec_provider_uses_the_documented_environment_user_agent(monkeypatch) ->
     lookup = SecIdentityProvider(http_get=directory_only, clock=fixed_clock).resolve("AAPL")
 
     assert seen_headers == [{"Accept": "application/json", "User-Agent": "Serenity research contact@domain.test"}]
-    assert lookup.rejection == {"code": "unresolved_ticker", "reason": "ticker is not present in SEC company_tickers"}
+    assert lookup.rejection == {
+        "code": "unresolved_ticker",
+        "reason": "ticker is not present in SEC company_tickers",
+        "category": "identity",
+        "retryable": False,
+    }
 
 
 def test_sec_provider_accepts_legacy_edgar_identity_when_the_new_setting_is_missing(monkeypatch) -> None:
@@ -430,7 +449,12 @@ def test_sec_provider_accepts_legacy_edgar_identity_when_the_new_setting_is_miss
     lookup = SecIdentityProvider(http_get=directory_only, clock=fixed_clock).resolve("AAPL")
 
     assert seen_headers == [{"Accept": "application/json", "User-Agent": "Legacy contact@domain.test"}]
-    assert lookup.rejection == {"code": "unresolved_ticker", "reason": "ticker is not present in SEC company_tickers"}
+    assert lookup.rejection == {
+        "code": "unresolved_ticker",
+        "reason": "ticker is not present in SEC company_tickers",
+        "category": "identity",
+        "retryable": False,
+    }
 
 
 def test_sec_provider_prefers_an_injected_user_agent_over_environment_settings(monkeypatch) -> None:
@@ -449,4 +473,106 @@ def test_sec_provider_prefers_an_injected_user_agent_over_environment_settings(m
     ).resolve("AAPL")
 
     assert seen_headers == [{"Accept": "application/json", "User-Agent": "Serenity injected@domain.test"}]
-    assert lookup.rejection == {"code": "unresolved_ticker", "reason": "ticker is not present in SEC company_tickers"}
+    assert lookup.rejection == {
+        "code": "unresolved_ticker",
+        "reason": "ticker is not present in SEC company_tickers",
+        "category": "identity",
+        "retryable": False,
+    }
+
+
+def test_sec_directory_http_error_is_reported_as_a_retryable_availability_failure() -> None:
+    def blocked(uri: str, headers: dict[str, str]) -> bytes:
+        raise HTTPError(uri, 403, "Forbidden", {}, None)
+
+    lookup = SecIdentityProvider(
+        http_get=blocked,
+        clock=fixed_clock,
+        user_agent="Serenity research contact@domain.test",
+    ).resolve("AAPL")
+
+    assert lookup.rejection == {
+        "code": "sec_directory_unavailable",
+        "reason": "SEC company_tickers could not be loaded",
+        "category": "availability",
+        "retryable": True,
+        "http_status": 403,
+        "detail": "SEC company_tickers unavailable: HTTP Error 403: Forbidden",
+    }
+    assert lookup.envelopes[0]["status"] == "unavailable"
+    assert lookup.envelopes[0]["source"]["http_status"] == 403
+
+
+def sec_provider(gets: dict[str, bytes]) -> SecIdentityProvider:
+    def get(uri: str, headers: dict[str, str]) -> bytes:
+        assert headers["User-Agent"]
+        if uri not in gets:
+            raise HTTPError(uri, 503, "Service Unavailable", {}, None)
+        return gets[uri]
+
+    return SecIdentityProvider(http_get=get, clock=fixed_clock, user_agent="Serenity research contact@domain.test")
+
+
+APPLE_DIRECTORY = json.dumps({"0": {"cik_str": 320193, "ticker": "AAPL", "title": "Apple Inc."}}).encode()
+
+
+def submissions(**overrides: Any) -> bytes:
+    record = {"cik": "0000320193", "name": "Apple Inc.", "tickers": ["AAPL"], "exchanges": ["Nasdaq"]}
+    record.update(overrides)
+    return json.dumps(record).encode()
+
+
+@pytest.mark.parametrize(
+    ("gets", "expected_code", "expected_category", "expected_retryable"),
+    [
+        ({COMPANY_TICKERS_URI: json.dumps({}).encode()}, "unresolved_ticker", "identity", False),
+        (
+            {COMPANY_TICKERS_URI: json.dumps({"0": {"cik_str": "not-a-cik", "ticker": "AAPL"}}).encode()},
+            "invalid_sec_cik",
+            "identity",
+            False,
+        ),
+        ({COMPANY_TICKERS_URI: APPLE_DIRECTORY}, "sec_submission_unavailable", "availability", True),
+        (
+            {COMPANY_TICKERS_URI: APPLE_DIRECTORY, SUBMISSIONS_URI: submissions(cik="0000000001")},
+            "sec_submission_cik_conflict",
+            "identity",
+            False,
+        ),
+        (
+            {COMPANY_TICKERS_URI: APPLE_DIRECTORY, SUBMISSIONS_URI: submissions(tickers=["MSFT"])},
+            "sec_submission_ticker_conflict",
+            "identity",
+            False,
+        ),
+        (
+            {COMPANY_TICKERS_URI: APPLE_DIRECTORY, SUBMISSIONS_URI: submissions(exchanges=[])},
+            "invalid_sec_submission",
+            "identity",
+            False,
+        ),
+    ],
+)
+def test_every_sec_rejection_states_whether_retrying_can_help(
+    gets: dict[str, bytes], expected_code: str, expected_category: str, expected_retryable: bool
+) -> None:
+    lookup = sec_provider(gets).resolve("AAPL")
+
+    assert lookup.rejection is not None
+    assert lookup.rejection["code"] == expected_code
+    assert lookup.rejection["category"] == expected_category
+    assert lookup.rejection["retryable"] is expected_retryable
+
+
+def test_a_missing_sec_contact_identity_is_a_configuration_failure_not_an_outage(monkeypatch) -> None:
+    monkeypatch.delenv("SERENITY_SEC_USER_AGENT", raising=False)
+    monkeypatch.delenv("EDGAR_IDENTITY", raising=False)
+
+    def unexpected_network(uri: str, headers: dict[str, str]) -> bytes:
+        raise AssertionError("network must not be called without a SEC identity")
+
+    lookup = SecIdentityProvider(http_get=unexpected_network, clock=fixed_clock).resolve("AAPL")
+
+    assert lookup.rejection is not None
+    assert lookup.rejection["category"] == "configuration"
+    assert lookup.rejection["retryable"] is False
