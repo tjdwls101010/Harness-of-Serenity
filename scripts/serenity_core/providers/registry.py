@@ -26,6 +26,16 @@ _SNAPSHOT_CAPABILITIES = frozenset(
         "ibd-rs-rating.relative-strength-observation",
     }
 )
+SEC_FILING_VERBS = {
+    "sec.submissions": "submissions",
+    "sec.filings": "filings",
+    "sec.filing-text": "filing_text",
+    "sec.filing-section": "section",
+    "sec.xbrl-facts": "xbrl_facts",
+    "sec.segments": "segments",
+    "sec.statement": "statement",
+    "sec.eightk": "eightk",
+}
 _SECRET_PARAMETER_NAMES = frozenset(
     {
         "api_key",
@@ -202,9 +212,11 @@ class EvidenceProviderRegistry:
         provider = self._provider(provider_id)
         if provider_id == "alfred-fred":
             result = provider.observations(parameters["series_id"], cutoff=cutoff)
-        elif provider_id == "sec" and capability_id in {"sec.submissions", "sec.filings"}:
-            filing_request = {**parameters, "capability": capability_id.split(".", 1)[1]}
-            result = provider.execute(filing_request, cutoff=cutoff)
+        elif provider_id == "sec":
+            verb = SEC_FILING_VERBS.get(capability_id)
+            if verb is None:
+                raise LookupError("no SEC filing verb is bound to this catalog capability")
+            result = provider.execute({**parameters, "capability": verb}, cutoff=cutoff)
         elif provider_id == "issuer-ir" and capability_id == "issuer-ir.document":
             result = provider.collect(parameters, cutoff=cutoff, verified_origin=issuer_origin_binding)
         else:

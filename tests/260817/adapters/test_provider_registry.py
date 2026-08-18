@@ -340,3 +340,48 @@ def test_snapshot_owned_baseline_capability_is_explicitly_not_applicable() -> No
     assert len(envelopes) == 1
     assert envelopes[0].to_dict()["status"] == "not_applicable"
     assert envelopes[0].to_dict()["error"] == {"reason": "baseline snapshot capability is owned by the snapshot service"}
+
+
+@pytest.mark.parametrize(
+    ("capability_id", "backend_verb", "parameters"),
+    [
+        ("sec.submissions", "submissions", {}),
+        ("sec.filings", "filings", {"form": "10-Q"}),
+        ("sec.filing-text", "filing_text", {"accession": "0001158114-26-000012", "format": "markdown"}),
+        ("sec.filing-section", "section", {"form": "10-K", "named": "risk_factors"}),
+        ("sec.xbrl-facts", "xbrl_facts", {"form": "10-K", "concept": "Revenues"}),
+        ("sec.segments", "segments", {"form": "10-K", "axis": "ProductOrServiceAxis"}),
+        ("sec.statement", "statement", {"form": "10-K", "statement": "income"}),
+        ("sec.eightk", "eightk", {"item": "2.02"}),
+    ],
+)
+def test_every_catalog_sec_capability_dispatches_to_its_declared_backend_verb(
+    capability_id: str, backend_verb: str, parameters: dict[str, object]
+) -> None:
+    received: list[dict[str, object]] = []
+
+    class FilingsFixture:
+        def execute(self, request: dict[str, object], cutoff: str | None) -> ProviderEnvelope:
+            received.append(request)
+            return available_envelope(provider="sec.filings", source_version="0001158114-26-000012", available_at="2026-08-14T00:00:00Z")
+
+    identity = {"ticker": "AAOI", "cik": "0001158114", "issuer": "APPLIED OPTOELECTRONICS, INC."}
+    envelopes = EvidenceProviderRegistry(
+        provider_factories={"sec": lambda **_kwargs: FilingsFixture()}, clock=lambda: FROZEN_NOW
+    ).collect(
+        request_for(capability_id, "sec", parameters={"identity": identity, **parameters}, cutoff="2026-08-17T00:00:00Z")
+    )
+
+    assert received == [{"identity": identity, **parameters, "capability": backend_verb}]
+    assert [envelope.to_dict()["status"] for envelope in envelopes] == ["available"]
+
+
+def test_no_catalog_sec_capability_is_left_without_a_real_filings_verb() -> None:
+    from serenity_core.providers.filings import _CAPABILITIES
+    from serenity_core.providers.registry import SEC_FILING_VERBS
+    from serenity_core.research import load_evidence_catalog
+
+    declared = next(provider["capabilities"] for provider in load_evidence_catalog()["providers"] if provider["provider_id"] == "sec")
+
+    assert set(SEC_FILING_VERBS.values()) <= set(_CAPABILITIES)
+    assert set(declared) - {"sec.identity"} == set(SEC_FILING_VERBS)
