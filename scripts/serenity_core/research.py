@@ -86,6 +86,23 @@ def _document_bytes(document: Mapping[str, Any]) -> bytes:
     return (canonical_json(dict(document)) + "\n").encode("utf-8")
 
 
+def catalog_source_providers(catalog: Mapping[str, Any]) -> dict[str, frozenset[str]]:
+    """Map each capability to the source-provider names its catalog owner accepts.
+
+    A catalog ``provider_id`` names who owns a capability; an envelope's
+    ``provider`` names which endpoint produced the bytes. One SEC owner emits
+    ``sec.company_tickers``, ``sec.submissions``, and ``sec.filings``, so a
+    provider declares the source names it may stamp and the owner is always
+    accepted for the envelopes the registry itself mints.
+    """
+
+    return {
+        capability: frozenset({provider["provider_id"], *provider.get("source_providers", ())})
+        for provider in catalog["providers"]
+        for capability in provider["capabilities"]
+    }
+
+
 def load_evidence_catalog(path: Path | None = None) -> dict[str, Any]:
     """Load the checked-in provider-capability registry without fetching any data."""
 
@@ -117,6 +134,7 @@ class ResearchArtifactStore:
             for provider in self.catalog["providers"]
             for capability in provider["capabilities"]
         }
+        self._capability_source_providers = catalog_source_providers(self.catalog)
         self._provider_ids = {provider["provider_id"] for provider in self.catalog["providers"]}
         self._ledger_revision_dir = self.run_dir / "evidence" / "ledger-revisions"
         self._request_dir = self.run_dir / "evidence" / "requests"
@@ -253,9 +271,12 @@ class ResearchArtifactStore:
         ]:
             raise ResearchArtifactValidationError("hypothesis_ids do not match request")
         result_seed = self._result_seed_from_evidence(request, evidence)
-        owner = self._capability_owners[request["capability_id"]]
-        if result_seed.get("provider") != owner:
-            raise ResearchArtifactValidationError("evidence provider does not own the request capability")
+        accepted = self._capability_source_providers[request["capability_id"]]
+        if result_seed.get("provider") not in accepted:
+            raise ResearchArtifactValidationError(
+                f"evidence provider {result_seed.get('provider')!r} is not a declared source of "
+                f"{request['capability_id']}; the catalog owner accepts {sorted(accepted)}"
+            )
         result_id = f"evidence-result-{content_hash(result_seed)[:20]}"
         if "result_id" in evidence and evidence["result_id"] != result_id:
             raise ResearchArtifactValidationError("result_id does not match content-addressed result")
@@ -278,8 +299,8 @@ class ResearchArtifactStore:
         request = self.read_evidence_request(result["request_id"])
         if result["hypothesis_ids"] != request["hypothesis_ids"] or result["capability_id"] != request["capability_id"]:
             raise ResearchArtifactValidationError("stored result does not match its request")
-        if result["provider"] != self._capability_owners[request["capability_id"]]:
-            raise ResearchArtifactValidationError("stored result provider does not own the request capability")
+        if result["provider"] not in self._capability_source_providers[request["capability_id"]]:
+            raise ResearchArtifactValidationError("stored result provider is not a declared source of the request capability")
         return result
 
     def _result_seed_from_evidence(self, request: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any]:
@@ -318,6 +339,7 @@ class ResearchArtifactStore:
             else evidence["identity_bindings"],
             "fact_refs": _normalize_identifiers(evidence["fact_refs"], "fact_refs", required=False),
             "value": evidence["value"],
+            **({"error": dict(evidence["error"])} if isinstance(evidence.get("error"), Mapping) else {}),
             **({"conflicts": list(evidence["conflicts"])} if "conflicts" in evidence else {}),
         }
 
@@ -359,6 +381,7 @@ class ResearchArtifactStore:
             "identity_bindings": dict(envelope.get("identity_bindings", {})),
             "fact_refs": _normalize_identifiers(evidence.get("fact_refs", []), "fact_refs", required=False),
             "value": envelope["data"],
+            **({"error": dict(envelope["error"])} if isinstance(envelope.get("error"), Mapping) else {}),
             **({"conflicts": list(evidence["conflicts"])} if "conflicts" in evidence else {}),
         }
 

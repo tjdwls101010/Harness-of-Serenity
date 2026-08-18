@@ -22,6 +22,7 @@
     "identity_bindings": {"type": "object", "additionalProperties": {"type": "string"}},
     "fact_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
     "value": {},
+    "error": {"$ref": "#/$defs/error"},
     "conflicts": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "content_hash": {"$ref": "#/$defs/sha256"}
   },
@@ -31,6 +32,7 @@
   "$defs": {
     "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "error": {"type": "object", "additionalProperties": false, "required": ["reason"], "properties": {"reason": {"type": "string", "minLength": 1}, "code": {"type": "string", "minLength": 1}, "retryable": {"type": "boolean"}}},
     "availability": {"enum": ["available", "not_disclosed", "not_applicable", "unavailable", "invalid", "not_requested", "stale", "conflict"]},
     "nullableDate": {"oneOf": [{"type": "string", "format": "date"}, {"type": "null"}]},
     "nullableDateTime": {"oneOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},

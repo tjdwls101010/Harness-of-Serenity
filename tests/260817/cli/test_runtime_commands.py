@@ -1785,3 +1785,119 @@ def test_frozen_snapshot_carries_the_identity_rejection_diagnosis_into_the_cli_e
     assert error["category"] == "availability"
     assert error["retryable"] is True
     assert error["http_status"] == 503
+
+
+def test_issuer_without_a_declared_website_records_the_absence_instead_of_erroring_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = RunStore(tmp_path)
+    run = runtime.start(
+        mode="single-name",
+        question="What did management disclose about the operating constraint?",
+        subjects=["NVDA"],
+        as_of="2026-08-17",
+        source_policy={
+            "policy_id": "live-issuer-ir-v1",
+            "allow_network": True,
+            "historical_cutoff": "2026-08-17T23:59:59Z",
+            "allowed_providers": ["issuer-ir", "openfigi", "sec", "yfinance"],
+        },
+    )
+    packet = frozen_snapshot_packet()
+    submissions_raw = json.dumps(
+        {"cik": "0001045810", "name": "NVIDIA Corporation", "tickers": ["NVDA"], "exchanges": ["Nasdaq"]}
+    ).encode()
+    identity_envelopes = tuple(
+        ProviderEnvelope.available(
+            provider=provider,
+            provider_version="fixture/1",
+            source_uri=source_uri,
+            raw_content=raw_content,
+            data={},
+            fetched_at="2026-08-17T12:00:00Z",
+            request={"ticker": "NVDA"},
+            available_at="2026-08-17T12:00:00Z",
+            source_version="fixture/1",
+            parse={"status": "parsed", "transform_version": "fixture/1"},
+        )
+        for provider, source_uri, raw_content in (
+            ("sec.company_tickers", "https://www.sec.gov/files/company_tickers.json", b"exact SEC directory bytes"),
+            ("sec.submissions", "https://data.sec.gov/submissions/CIK0001045810.json", submissions_raw),
+            ("openfigi.mapping", "https://api.openfigi.com/v3/mapping", b"exact OpenFIGI bytes"),
+        )
+    )
+    market = ProviderEnvelope.available(
+        provider="yfinance",
+        provider_version="fixture/1",
+        source_uri="https://fixture.test/NVDA",
+        raw_content=b"exact market bytes",
+        data=packet["market_envelope"]["data"],
+        fetched_at="2026-08-17T12:00:00Z",
+        request={"ticker": "NVDA"},
+        available_at="2026-08-17T12:00:00Z",
+        source_version="fixture/1",
+        parse={"status": "parsed", "transform_version": "fixture/1"},
+    )
+    monkeypatch.setattr(
+        serenity,
+        "build_live_snapshot_inputs",
+        lambda **_kwargs: (IdentityResolution(packet["identity_resolution"], identity_envelopes), market, None),
+    )
+    snapshot = serenity.dispatch(
+        argparse.Namespace(command="snapshot", snapshot_command="security", run_id=run["run_id"], frozen_packet=None), tmp_path
+    )["snapshot"]
+    artifacts = ResearchArtifactStore(tmp_path / ".serenity" / "runs" / run["run_id"])
+    prepared_ledger = artifacts.prepare_hypotheses(hypotheses())
+    run = runtime.publish_or_refresh_artifact(
+        run["run_id"],
+        name="hypothesis-ledger",
+        expected_attachment=None,
+        path=prepared_ledger.ledger_path,
+        content=prepared_ledger.ledger_content,
+        schema_id=prepared_ledger.ledger["schema_id"],
+        phase="hypotheses_updated",
+    )
+    prepared = artifacts.prepare_evidence_request(
+        hypothesis_ids=["hyp-demand-holds"],
+        capability_id="issuer-ir.document",
+        request={
+            "question": "What operating constraint did management disclose?",
+            "evidence_type": "issuer-narrative",
+            "provider_policy": {"providers": ["issuer-ir"], "allow_network": True, "historical_cutoff": "2026-08-17T23:59:59Z"},
+            "acceptance_criteria": ["Preserve official source provenance."],
+            "requested_at": "2026-08-17T00:00:00Z",
+            "provider_parameters": {
+                "identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA Corporation"},
+                "document": {"url": "https://investor.nvidia.com/prepared-remarks", "kind": "prepared_remarks"},
+                "origin_binding": {"issuer_domain": "investor.nvidia.com", "binding_source_ref": snapshot["snapshot_id"]},
+            },
+        },
+    )
+    run = runtime.publish_or_refresh_artifact(
+        run["run_id"],
+        name="hypothesis-ledger",
+        expected_attachment=run["artifacts"]["hypothesis-ledger"],
+        path=prepared.ledger_path,
+        content=prepared.ledger_content,
+        schema_id=prepared.ledger["schema_id"],
+        phase="hypotheses_updated",
+    )
+    run = runtime.publish_artifact(
+        run["run_id"],
+        name=prepared.request["request_id"],
+        path=prepared.request_path,
+        content=prepared.request_content,
+        schema_id=prepared.request["schema_id"],
+        phase="evidence_requested",
+    )
+
+    collected = serenity.dispatch(
+        argparse.Namespace(
+            command="evidence", evidence_command="collect", run_id=run["run_id"], request_id=prepared.request["request_id"]
+        ),
+        tmp_path,
+    )
+
+    assert [result["availability"] for result in collected["results"]] == ["not_disclosed"]
+    assert [result["provider"] for result in collected["results"]] == ["issuer-ir"]
+    assert "issuer declares no website" in collected["results"][0]["error"]["reason"]

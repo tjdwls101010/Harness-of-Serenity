@@ -91,6 +91,8 @@ $PY scripts/serenity.py decision finalize RUN_ID \
   --analysis path/to/analysis.json
 ```
 
+SEC filing evidence is requested by capability: `sec.submissions`, `sec.filings`, `sec.filing-text`, `sec.filing-section` (`named` accepts `business`, `risk_factors`, `mda`), `sec.xbrl-facts`, `sec.segments`, `sec.statement`, and `sec.eightk`. Each carries the accession, the SEC acceptance instant, and exact raw bytes, so a section read stays traceable to the filing it came from. `alfred-fred.macro-series` and `alfred-fred.vintage-series` accept `observation_start` and `observation_end`; without them one request turns an entire series history into evidence.
+
 For issuer narrative, Web search may locate an official issuer-owned URL but does not make the snippet or page a fact. First create the run's fact snapshot through the live SEC/OpenFIGI provider seam; a `--frozen-packet` snapshot remains useful for deterministic tests but cannot authorize a live issuer fetch. Save a request document like the following on a network-permitted run whose provider allowlist includes `issuer-ir`, then request capability `issuer-ir.document` and collect it through the same evidence command. Collection reopens the content-hashed SEC submissions payload from the private raw cache and exact-matches its CIK, issuer name, official website domains, snapshot ID, and request before any network call. The provider then binds publication time, every redirect hop, final URL, response metadata, and exact raw bytes; the analyst separately decides whether a management claim is corroborated or has a cross-company read-through.
 
 ```json

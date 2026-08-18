@@ -15,6 +15,7 @@ from serenity_core.providers.base import ProviderEnvelope
 
 FRED_OBSERVATIONS_URL = "https://api.stlouisfed.org/fred/series/observations"
 FRED_PROVIDER_VERSION = "alfred-v1"
+_AVAILABILITY_LAG_DAYS = 2
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,15 @@ def _utc_now() -> datetime:
 
 
 def _cutoff_boundary(cutoff: str) -> tuple[str, datetime]:
+    """Return the newest ALFRED vintage knowably visible by the cutoff, and the cutoff.
+
+    ALFRED echoes ``realtime_start`` as the queried vintage date, never the true
+    first-release date, so asking for the cutoff's own vintage puts the
+    availability bound two days past the cutoff and nothing is ever consumable.
+    Asking for ``cutoff - 2 days`` is the same policy read from the other side:
+    the newest vintage whose global date upper bound has already passed.
+    """
+
     if not isinstance(cutoff, str) or not cutoff:
         raise ValueError("cutoff must be an ISO date or instant")
     try:
@@ -48,11 +58,11 @@ def _cutoff_boundary(cutoff: str) -> tuple[str, datetime]:
             if instant.tzinfo is None:
                 instant = instant.replace(tzinfo=timezone.utc)
             cutoff_at = instant.astimezone(timezone.utc)
-            return cutoff_at.date().isoformat(), cutoff_at
-        cutoff_date = date.fromisoformat(cutoff)
-        return cutoff_date.isoformat(), datetime.combine(cutoff_date, time.max, tzinfo=timezone.utc)
+        else:
+            cutoff_at = datetime.combine(date.fromisoformat(cutoff), time.max, tzinfo=timezone.utc)
     except ValueError as error:
         raise ValueError("cutoff must be an ISO date or instant") from error
+    return (cutoff_at.date() - timedelta(days=_AVAILABILITY_LAG_DAYS)).isoformat(), cutoff_at
 
 
 def _is_active_at(observation: Mapping[str, Any], cutoff: str) -> bool:
@@ -82,7 +92,7 @@ def _response_parts(response: bytes | FredHttpResponse) -> tuple[bytes, int | No
 
 
 def _availability_bound(realtime_start: str) -> tuple[str, datetime]:
-    bound = datetime.combine(date.fromisoformat(realtime_start) + timedelta(days=2), time.min, tzinfo=timezone.utc)
+    bound = datetime.combine(date.fromisoformat(realtime_start) + timedelta(days=_AVAILABILITY_LAG_DAYS), time.min, tzinfo=timezone.utc)
     return bound.isoformat(timespec="seconds").replace("+00:00", "Z"), bound
 
 
@@ -103,7 +113,14 @@ class FredProvider:
         self._http_get = http_get
         self._clock = clock
 
-    def observations(self, series_id: str, *, cutoff: str) -> list[ProviderEnvelope]:
+    def observations(
+        self,
+        series_id: str,
+        *,
+        cutoff: str,
+        observation_start: str | None = None,
+        observation_end: str | None = None,
+    ) -> list[ProviderEnvelope]:
         fetched_at = self._clock()
         request: dict[str, Any] = {"series_id": series_id, "cutoff": cutoff}
         try:
@@ -132,6 +149,9 @@ class FredProvider:
             "realtime_start": vintage_date,
             "realtime_end": vintage_date,
         }
+        for name, window in (("observation_start", observation_start), ("observation_end", observation_end)):
+            if isinstance(window, str) and window:
+                params[name] = window
         request["params"] = {key: value for key, value in params.items() if key != "api_key"}
         try:
             raw_content, http_status = _response_parts(self._http_get(FRED_OBSERVATIONS_URL, params))

@@ -29,6 +29,9 @@ data/state_store.db/
 .serenity/
 /sessions/
 
+# Finalized decision lineage is a researcher's own output, not part of the published harness.
+records/
+
 # --- Runtime loop/research artifacts & scratch (not deliverables) ---
 .omo/
 scratchpad_macro.json

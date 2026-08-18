@@ -26,6 +26,16 @@ _SNAPSHOT_CAPABILITIES = frozenset(
         "ibd-rs-rating.relative-strength-observation",
     }
 )
+SEC_FILING_VERBS = {
+    "sec.submissions": "submissions",
+    "sec.filings": "filings",
+    "sec.filing-text": "filing_text",
+    "sec.filing-section": "section",
+    "sec.xbrl-facts": "xbrl_facts",
+    "sec.segments": "segments",
+    "sec.statement": "statement",
+    "sec.eightk": "eightk",
+}
 _SECRET_PARAMETER_NAMES = frozenset(
     {
         "api_key",
@@ -144,6 +154,20 @@ class EvidenceProviderRegistry:
         envelopes = self._enforce_cutoff(envelopes, cutoff, provider_id, request)
         return self._finalize(envelopes, provider_id=provider_id, request=request)
 
+    def unmet_precondition(self, request_doc: Mapping[str, Any], *, status: str, reason: str) -> list[ProviderEnvelope]:
+        """Return one typed envelope for a precondition the caller resolved as unmet.
+
+        The registry cannot see what the caller holds — an issuer that declares
+        no website in its SEC submission puts issuer-ir.document structurally
+        out of reach. That absence is recordable evidence, so it becomes a
+        typed result instead of an error, which is what lets a decision say
+        BLOCKED honestly rather than leaving the run with nothing saved.
+        """
+
+        request = self._validate_request(request_doc)
+        provider_id = self._owners[request["capability_id"]]
+        return self._finalize([self._registry_envelope(provider_id, request, status, reason)])
+
     @staticmethod
     def _capability_owners(catalog: Mapping[str, Any]) -> dict[str, str]:
         owners: dict[str, str] = {}
@@ -201,10 +225,17 @@ class EvidenceProviderRegistry:
     ) -> list[ProviderEnvelope]:
         provider = self._provider(provider_id)
         if provider_id == "alfred-fred":
-            result = provider.observations(parameters["series_id"], cutoff=cutoff)
-        elif provider_id == "sec" and capability_id in {"sec.submissions", "sec.filings"}:
-            filing_request = {**parameters, "capability": capability_id.split(".", 1)[1]}
-            result = provider.execute(filing_request, cutoff=cutoff)
+            result = provider.observations(
+                parameters["series_id"],
+                cutoff=cutoff,
+                observation_start=parameters.get("observation_start"),
+                observation_end=parameters.get("observation_end"),
+            )
+        elif provider_id == "sec":
+            verb = SEC_FILING_VERBS.get(capability_id)
+            if verb is None:
+                raise LookupError("no SEC filing verb is bound to this catalog capability")
+            result = provider.execute({**parameters, "capability": verb}, cutoff=cutoff)
         elif provider_id == "issuer-ir" and capability_id == "issuer-ir.document":
             result = provider.collect(parameters, cutoff=cutoff, verified_origin=issuer_origin_binding)
         else:

@@ -158,8 +158,12 @@ def _filing_metadata(value: Any) -> dict[str, Any]:
         "primary_document": source.get("primary_document") if isinstance(source.get("primary_document"), str) else None,
     }
     for key in ("available_at", "acceptance_at", "acceptance_datetime", "acceptanceDateTime"):
-        if isinstance(source.get(key), str):
-            metadata["available_at"] = source[key]
+        acceptance = source.get(key)
+        if isinstance(acceptance, datetime):
+            metadata["available_at"] = _as_iso(acceptance)
+            break
+        if isinstance(acceptance, str):
+            metadata["available_at"] = acceptance
             break
     return metadata
 

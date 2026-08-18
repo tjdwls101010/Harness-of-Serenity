@@ -59,8 +59,10 @@ def test_fred_dispatch_preserves_multiple_vintages_in_deterministic_order() -> N
     calls: list[tuple[str, str]] = []
 
     class FredFixture:
-        def observations(self, series_id: str, *, cutoff: str) -> list[ProviderEnvelope]:
-            calls.append((series_id, cutoff))
+        def observations(
+            self, series_id: str, *, cutoff: str, observation_start: str | None = None, observation_end: str | None = None
+        ) -> list[ProviderEnvelope]:
+            calls.append((series_id, cutoff, observation_start, observation_end))
             return [
                 available_envelope(provider="fred", source_version="2026-06-15", available_at="2026-06-15T00:00:00Z"),
                 available_envelope(provider="fred", source_version="2026-05-15", available_at="2026-05-15T00:00:00Z"),
@@ -80,10 +82,34 @@ def test_fred_dispatch_preserves_multiple_vintages_in_deterministic_order() -> N
         )
     )
 
-    assert calls == [("DGS10", "2026-07-01T00:00:00Z")]
+    assert calls == [("DGS10", "2026-07-01T00:00:00Z", None, None)]
     assert [envelope.to_dict()["temporal"]["source_version"] for envelope in envelopes] == ["2026-05-15", "2026-06-15"]
     for envelope in envelopes:
         validate_document(envelope.to_dict(), "urn:serenity:schema:provider-envelope:1")
+
+
+def test_an_alfred_fred_observation_window_reaches_the_provider() -> None:
+    calls: list[tuple[str | None, str | None]] = []
+
+    class FredFixture:
+        def observations(
+            self, _series_id: str, *, cutoff: str, observation_start: str | None = None, observation_end: str | None = None
+        ) -> list[ProviderEnvelope]:
+            calls.append((observation_start, observation_end))
+            return [available_envelope(provider="fred", source_version="2026-06-15", available_at="2026-06-15T00:00:00Z")]
+
+    EvidenceProviderRegistry(
+        provider_factories={"alfred-fred": lambda **_kwargs: FredFixture()}, clock=lambda: FROZEN_NOW
+    ).collect(
+        request_for(
+            "alfred-fred.macro-series",
+            "alfred-fred",
+            parameters={"series_id": "DGS10", "observation_start": "2026-06-01", "observation_end": "2026-06-30"},
+            cutoff="2026-07-01T00:00:00Z",
+        )
+    )
+
+    assert calls == [("2026-06-01", "2026-06-30")]
 
 
 def test_offline_policy_returns_a_nonempty_typed_envelope_without_constructing_provider() -> None:
@@ -340,3 +366,48 @@ def test_snapshot_owned_baseline_capability_is_explicitly_not_applicable() -> No
     assert len(envelopes) == 1
     assert envelopes[0].to_dict()["status"] == "not_applicable"
     assert envelopes[0].to_dict()["error"] == {"reason": "baseline snapshot capability is owned by the snapshot service"}
+
+
+@pytest.mark.parametrize(
+    ("capability_id", "backend_verb", "parameters"),
+    [
+        ("sec.submissions", "submissions", {}),
+        ("sec.filings", "filings", {"form": "10-Q"}),
+        ("sec.filing-text", "filing_text", {"accession": "0001158114-26-000012", "format": "markdown"}),
+        ("sec.filing-section", "section", {"form": "10-K", "named": "risk_factors"}),
+        ("sec.xbrl-facts", "xbrl_facts", {"form": "10-K", "concept": "Revenues"}),
+        ("sec.segments", "segments", {"form": "10-K", "axis": "ProductOrServiceAxis"}),
+        ("sec.statement", "statement", {"form": "10-K", "statement": "income"}),
+        ("sec.eightk", "eightk", {"item": "2.02"}),
+    ],
+)
+def test_every_catalog_sec_capability_dispatches_to_its_declared_backend_verb(
+    capability_id: str, backend_verb: str, parameters: dict[str, object]
+) -> None:
+    received: list[dict[str, object]] = []
+
+    class FilingsFixture:
+        def execute(self, request: dict[str, object], cutoff: str | None) -> ProviderEnvelope:
+            received.append(request)
+            return available_envelope(provider="sec.filings", source_version="0001158114-26-000012", available_at="2026-08-14T00:00:00Z")
+
+    identity = {"ticker": "AAOI", "cik": "0001158114", "issuer": "APPLIED OPTOELECTRONICS, INC."}
+    envelopes = EvidenceProviderRegistry(
+        provider_factories={"sec": lambda **_kwargs: FilingsFixture()}, clock=lambda: FROZEN_NOW
+    ).collect(
+        request_for(capability_id, "sec", parameters={"identity": identity, **parameters}, cutoff="2026-08-17T00:00:00Z")
+    )
+
+    assert received == [{"identity": identity, **parameters, "capability": backend_verb}]
+    assert [envelope.to_dict()["status"] for envelope in envelopes] == ["available"]
+
+
+def test_no_catalog_sec_capability_is_left_without_a_real_filings_verb() -> None:
+    from serenity_core.providers.filings import _CAPABILITIES
+    from serenity_core.providers.registry import SEC_FILING_VERBS
+    from serenity_core.research import load_evidence_catalog
+
+    declared = next(provider["capabilities"] for provider in load_evidence_catalog()["providers"] if provider["provider_id"] == "sec")
+
+    assert set(SEC_FILING_VERBS.values()) <= set(_CAPABILITIES)
+    assert set(declared) - {"sec.identity"} == set(SEC_FILING_VERBS)
