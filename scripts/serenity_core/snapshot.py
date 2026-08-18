@@ -53,8 +53,9 @@ class SnapshotBlockedError(ValueError):
 
     exit_code = 3
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, diagnosis: Mapping[str, Any] | None = None) -> None:
         self.reason = reason
+        self.diagnosis = dict(diagnosis or {})
         super().__init__(reason)
 
 
@@ -139,9 +140,9 @@ def _snapshot_identity(resolution: Mapping[str, Any]) -> dict[str, Any]:
     status = resolution.get("status")
     identity = resolution.get("identity")
     if status != "available" or not isinstance(identity, Mapping):
-        rejection = resolution.get("rejection")
-        code = rejection.get("code") if isinstance(rejection, Mapping) else None
-        raise SnapshotBlockedError(str(code or "identity_unresolved"))
+        rejection = resolution.get("rejection") if isinstance(resolution.get("rejection"), Mapping) else {}
+        code = rejection.get("code")
+        raise SnapshotBlockedError(str(code or "identity_unresolved"), {key: value for key, value in rejection.items() if key != "code"})
     if identity.get("listing_country") != "US":
         raise SnapshotBlockedError("non_us_listing")
 

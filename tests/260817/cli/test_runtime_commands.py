@@ -1709,3 +1709,79 @@ def test_missing_active_pointer_with_an_open_manifest_requires_repair(run_cli, t
 
     assert result["error"]["code"] == "persistence_conflict"
     assert "repair" in result["error"]["message"]
+
+
+def test_live_snapshot_reports_why_sec_identity_was_unavailable_instead_of_only_its_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = RunStore(tmp_path).start(
+        mode="single-name",
+        question="What evidence would change the NVDA thesis?",
+        subjects=["NVDA"],
+        as_of="2026-08-17",
+        source_policy={"policy_id": "live-free-v1", "allow_network": True, "historical_cutoff": "2026-08-17T23:59:59Z"},
+    )
+
+    def blocked_identity(
+        *, ticker: str, as_of: str, historical_cutoff: str, allowed_providers: frozenset[str]
+    ) -> tuple[dict[str, object], None, None]:
+        return (
+            {
+                "schema_id": "urn:serenity:identity-resolution:1",
+                "status": "invalid",
+                "identity": None,
+                "rejection": {
+                    "code": "sec_directory_unavailable",
+                    "reason": "SEC company_tickers could not be loaded",
+                    "category": "availability",
+                    "retryable": True,
+                    "detail": "SEC company_tickers unavailable: HTTP Error 403: Forbidden",
+                    "http_status": 403,
+                },
+                "provider_envelopes": [],
+            },
+            None,
+            None,
+        )
+
+    monkeypatch.setattr(serenity, "build_live_snapshot_inputs", blocked_identity)
+
+    with pytest.raises(SerenityError) as raised:
+        serenity.dispatch(
+            argparse.Namespace(command="snapshot", snapshot_command="security", run_id=run["run_id"], frozen_packet=None), tmp_path
+        )
+
+    error = raised.value.payload["error"]
+    assert (raised.value.exit_code, error["code"], error["message"]) == (3, "identity_blocked", "sec_directory_unavailable")
+    assert error["category"] == "availability"
+    assert error["retryable"] is True
+    assert error["http_status"] == 403
+    assert error["detail"] == "SEC company_tickers unavailable: HTTP Error 403: Forbidden"
+    assert error["reason"] == "SEC company_tickers could not be loaded"
+
+
+def test_frozen_snapshot_carries_the_identity_rejection_diagnosis_into_the_cli_error(run_cli, tmp_path: Path) -> None:
+    run_id = start_run(run_cli)
+    packet = frozen_snapshot_packet()
+    packet["identity_resolution"] = {
+        "schema_id": "urn:serenity:identity-resolution:1",
+        "status": "invalid",
+        "identity": None,
+        "rejection": {
+            "code": "sec_submission_unavailable",
+            "reason": "SEC submissions could not be loaded",
+            "category": "availability",
+            "retryable": True,
+            "detail": "SEC submissions unavailable: HTTP Error 503: Service Unavailable",
+            "http_status": 503,
+        },
+        "provider_envelopes": [],
+    }
+
+    result = run_cli("snapshot", "security", run_id, "--frozen-packet", str(write_json(tmp_path / "blocked.json", packet)), expected_exit=3)
+
+    error = result["error"]
+    assert (error["code"], error["message"]) == ("identity_blocked", "sec_submission_unavailable")
+    assert error["category"] == "availability"
+    assert error["retryable"] is True
+    assert error["http_status"] == 503

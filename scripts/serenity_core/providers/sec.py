@@ -7,6 +7,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -37,6 +38,22 @@ def default_http_get(uri: str, headers: dict[str, str]) -> bytes:
     request = Request(uri, headers=headers)
     with urlopen(request, timeout=30) as response:  # nosec B310 - fixed official SEC endpoints
         return response.read()
+
+
+def _http_status(exc: BaseException) -> int | None:
+    return exc.code if isinstance(exc, HTTPError) else None
+
+
+def _identity_rejection(code: str, reason: str) -> dict[str, Any]:
+    return {"code": code, "reason": reason, "category": "identity", "retryable": False}
+
+
+def _unavailable_rejection(code: str, reason: str, detail: str, http_status: int | None) -> dict[str, Any]:
+    """Separate a transport outage from an identity conflict so the operator knows whether to retry."""
+    rejection: dict[str, Any] = {"code": code, "reason": reason, "category": "availability", "retryable": True, "detail": detail}
+    if http_status is not None:
+        rejection["http_status"] = http_status
+    return rejection
 
 
 @dataclass(frozen=True)
@@ -99,12 +116,19 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(envelope.to_dict(),),
                 provider_envelopes=(envelope,),
-                rejection={"code": "sec_user_agent_required", "reason": "SEC requests require user_agent or SERENITY_SEC_USER_AGENT"},
+                rejection={
+                    "code": "sec_user_agent_required",
+                    "reason": "SEC requests require user_agent or SERENITY_SEC_USER_AGENT",
+                    "category": "configuration",
+                    "retryable": False,
+                },
             )
         try:
             raw_directory = self._http_get(COMPANY_TICKERS_URI, self._headers())
             directory = json.loads(raw_directory)
         except Exception as exc:  # external provider boundary
+            detail = f"SEC company_tickers unavailable: {exc}"
+            http_status = _http_status(exc)
             envelope = ProviderEnvelope.unavailable(
                 provider="sec.company_tickers",
                 provider_version="v1",
@@ -112,8 +136,9 @@ class SecIdentityProvider:
                 fetched_at=fetched_at,
                 request=request,
                 status="unavailable",
-                reason=f"SEC company_tickers unavailable: {exc}",
+                reason=detail,
                 available_at=available_at,
+                http_status=http_status,
                 parse={"status": "not_parsed", "transform_version": "sec-identity/1"},
             )
             return SecLookup(
@@ -123,7 +148,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(envelope.to_dict(),),
                 provider_envelopes=(envelope,),
-                rejection={"code": "sec_directory_unavailable", "reason": "SEC company_tickers could not be loaded"},
+                rejection=_unavailable_rejection("sec_directory_unavailable", "SEC company_tickers could not be loaded", detail, http_status),
             )
 
         record = self._find_record(directory, normalized_ticker)
@@ -147,7 +172,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(provider_envelope.to_dict(),),
                 provider_envelopes=(provider_envelope,),
-                rejection={"code": "unresolved_ticker", "reason": "ticker is not present in SEC company_tickers"},
+                rejection=_identity_rejection("unresolved_ticker", "ticker is not present in SEC company_tickers"),
             )
 
         try:
@@ -172,7 +197,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(provider_envelope.to_dict(),),
                 provider_envelopes=(provider_envelope,),
-                rejection={"code": "invalid_sec_cik", "reason": "SEC company_tickers CIK is invalid"},
+                rejection=_identity_rejection("invalid_sec_cik", "SEC company_tickers CIK is invalid"),
             )
 
         directory_envelope = ProviderEnvelope.available(
@@ -192,6 +217,8 @@ class SecIdentityProvider:
             raw_submission = self._http_get(submission_uri, self._headers())
             submission = json.loads(raw_submission)
         except Exception as exc:  # external provider boundary
+            detail = f"SEC submissions unavailable: {exc}"
+            http_status = _http_status(exc)
             submission_envelope = ProviderEnvelope.unavailable(
                 provider="sec.submissions",
                 provider_version="v1",
@@ -199,8 +226,9 @@ class SecIdentityProvider:
                 fetched_at=fetched_at,
                 request={"ticker": normalized_ticker, "cik": cik},
                 status="unavailable",
-                reason=f"SEC submissions unavailable: {exc}",
+                reason=detail,
                 available_at=available_at,
+                http_status=http_status,
                 identity_bindings={"ticker": normalized_ticker, "cik": cik},
                 parse={"status": "not_parsed", "transform_version": "sec-identity/1"},
             )
@@ -211,7 +239,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(directory_envelope.to_dict(), submission_envelope.to_dict()),
                 provider_envelopes=(directory_envelope, submission_envelope),
-                rejection={"code": "sec_submission_unavailable", "reason": "SEC submissions could not be loaded"},
+                rejection=_unavailable_rejection("sec_submission_unavailable", "SEC submissions could not be loaded", detail, http_status),
             )
 
         submission_data = submission if isinstance(submission, dict) else {}
@@ -247,7 +275,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(directory_envelope.to_dict(), submission_envelope.to_dict()),
                 provider_envelopes=(directory_envelope, submission_envelope),
-                rejection={"code": "sec_submission_cik_conflict", "reason": "SEC submissions CIK does not match company_tickers"},
+                rejection=_identity_rejection("sec_submission_cik_conflict", "SEC submissions CIK does not match company_tickers"),
             )
         tickers = submission.get("tickers")
         if not isinstance(tickers, list) or normalized_ticker not in {str(value).upper() for value in tickers}:
@@ -258,7 +286,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(directory_envelope.to_dict(), submission_envelope.to_dict()),
                 provider_envelopes=(directory_envelope, submission_envelope),
-                rejection={"code": "sec_submission_ticker_conflict", "reason": "SEC submissions does not corroborate the requested ticker"},
+                rejection=_identity_rejection("sec_submission_ticker_conflict", "SEC submissions does not corroborate the requested ticker"),
             )
         name = submission.get("name")
         exchanges = submission.get("exchanges")
@@ -270,7 +298,7 @@ class SecIdentityProvider:
                 exchange=None,
                 envelopes=(directory_envelope.to_dict(), submission_envelope.to_dict()),
                 provider_envelopes=(directory_envelope, submission_envelope),
-                rejection={"code": "invalid_sec_submission", "reason": "SEC submissions lacks name or exchange"},
+                rejection=_identity_rejection("invalid_sec_submission", "SEC submissions lacks name or exchange"),
             )
         return SecLookup(
             ticker=normalized_ticker,
