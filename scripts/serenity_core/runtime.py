@@ -7,7 +7,7 @@ import re
 import threading
 import time
 import uuid
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -480,6 +480,56 @@ class RunStore:
         if phase:
             manifest["current_phase"] = phase
         manifest["events"].append({"at": now, "type": "artifact_attached", "detail": name})
+        self._rehash_and_write(run_id, manifest)
+        return manifest
+
+    def attach_artifacts(
+        self,
+        run_id: str,
+        *,
+        attachments: Sequence[Mapping[str, Any]],
+        phase: str | None = None,
+    ) -> dict[str, Any]:
+        """Attach several artifacts against one manifest read and one write.
+
+        Attaching them one at a time re-reads, re-validates and rewrites the whole
+        manifest per artifact, which is quadratic in a document that each
+        attachment also grows. Each mapping takes ``name`` and ``path``, and
+        optionally ``schema_id``.
+        """
+
+        with self._lifecycle_lock():
+            self._reconcile_lifecycle()
+            return self._attach_artifacts(run_id, attachments=attachments, phase=phase)
+
+    def _attach_artifacts(
+        self,
+        run_id: str,
+        *,
+        attachments: Sequence[Mapping[str, Any]],
+        phase: str | None = None,
+    ) -> dict[str, Any]:
+        manifest = self.read(run_id)
+        if manifest.get("status") != "OPEN":
+            raise SerenityError("invalid_lifecycle", f"only an OPEN run accepts artifacts: {run_id}", 3, run_id=run_id)
+        now = utc_now()
+        attached = False
+        for attachment in attachments:
+            name = attachment["name"]
+            artifact = self._build_attachment(name=name, path=attachment["path"], schema_id=attachment.get("schema_id"))
+            existing = manifest["artifacts"].get(name)
+            if existing is not None and existing != artifact:
+                raise SerenityError("persistence_conflict", f"artifact name already has different content: {name}", 5)
+            if existing == artifact:
+                continue
+            manifest["artifacts"][name] = artifact
+            manifest["events"].append({"at": now, "type": "artifact_attached", "detail": name})
+            attached = True
+        if not attached:
+            return manifest
+        manifest["updated_at"] = now
+        if phase:
+            manifest["current_phase"] = phase
         self._rehash_and_write(run_id, manifest)
         return manifest
 

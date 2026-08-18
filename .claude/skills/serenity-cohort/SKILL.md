@@ -31,6 +31,6 @@ Assign an action only when that candidate’s evidence supports it. Exclude unre
 
 ## Deliverable and hand-off
 
-Deliver a transparent membership and exclusion list, per-candidate facts versus inferences, relative fit, action, trigger, bear case, falsifier, and confidence limit. Hand a chosen name to single-name research for its own decision record; preserve the blind challenge as evidence, never as the final verdict.
+Deliver a transparent membership and exclusion list, per-candidate facts versus inferences, relative fit, action, trigger, bear case, falsifier, and confidence limit. Hand a chosen name to single-name research for its own decision record; preserve the blind challenge as evidence, never as the final verdict. A finalized cohort decision can be registered with `"$SERENITY_PYTHON" "$SERENITY_CLI" outcomes register` against a benchmark and measured later with `outcomes refresh`, which is how a relative-fit claim becomes checkable rather than merely stated; it stays optional, because a decision never revisited is a research choice.
 
 Method claims: `claim-03-verify-identity-and-revenue-linkage`, `claim-09-use-milestone-falsifiers-not-price-alone`, `claim-11-evaluate-process-with-complete-attribution`, `aug-adaptive-evidence-not-decision-code`, and `aug-blind-method-and-evaluation-boundary` route comparable evidence, price-independent falsification, outcome discipline, and blind challenge here.

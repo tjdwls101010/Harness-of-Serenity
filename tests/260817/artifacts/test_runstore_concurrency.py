@@ -522,3 +522,30 @@ def test_concurrent_artifact_refresh_allows_one_current_writer_and_rejects_the_s
     refreshed = RunStore(tmp_path).read(run["run_id"])
     assert refreshed["artifacts"]["hypothesis-ledger"] == successes[0]["run"]["artifacts"]["hypothesis-ledger"]
     assert [event["type"] for event in refreshed["events"]].count("artifact_superseded") == 1
+
+
+def test_attaching_many_artifacts_rewrites_the_manifest_once(tmp_path: Path) -> None:
+    """`_attach_artifact` re-reads, re-validates and rewrites the whole manifest per
+    artifact, so attaching N evidence results is O(N^2) over a growing document. One
+    unbounded request wrote 1,068 artifacts into a 410 KB manifest."""
+
+    store = RunStore(tmp_path)
+    run = store.start(mode="single-name", question="How many writes does one collect cost?", subjects=["NVDA"], as_of="2026-08-17", source_policy={"policy_id": "fixture", "allow_network": False})
+    attachments = []
+    for index in range(25):
+        path = tmp_path / ".serenity" / "runs" / run["run_id"] / f"evidence-{index}.json"
+        path.write_text(json.dumps({"index": index}), encoding="utf-8")
+        attachments.append({"name": f"evidence-result-{index}", "path": path})
+
+    writes = []
+    original = RunStore._rehash_and_write
+    RunStore._rehash_and_write = lambda self, run_id, manifest: (writes.append(run_id), original(self, run_id, manifest))[1]
+    try:
+        manifest = store.attach_artifacts(run["run_id"], attachments=attachments, phase="evidence_collected")
+    finally:
+        RunStore._rehash_and_write = original
+
+    assert len(writes) == 1
+    assert len([name for name in manifest["artifacts"] if name.startswith("evidence-result-")]) == 25
+    assert manifest["current_phase"] == "evidence_collected"
+    assert store.read(run["run_id"])["artifacts"].keys() == manifest["artifacts"].keys()

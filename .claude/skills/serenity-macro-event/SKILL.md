@@ -7,7 +7,7 @@ description: Analyze macro regime, policy, geopolitical headlines, selloffs, dis
 
 ## Question frame
 
-Use this mode for a regime, policy, geopolitical headline, selloff, displacement claim, or mechanical catalyst; do not use it for a routine named-ticker valuation with no event or macro premise. Start with `"$SERENITY_PYTHON" "$SERENITY_CLI" run start --mode macro-event --question "<question>" --as-of YYYY-MM-DD`, pinned to the question’s cutoff, then run `"$SERENITY_PYTHON" "$SERENITY_CLI" run start --help` before adding artifact arguments. Frame the question as: what changed, for whom, on what time horizon, and does it alter demand, supply, pricing, financing, or only sentiment?
+Use this mode for a regime, policy, geopolitical headline, selloff, displacement claim, or mechanical catalyst; do not use it for a routine named-ticker valuation with no event or macro premise. Start with `"$SERENITY_PYTHON" "$SERENITY_CLI" run start --mode macro-event --question "<question>" --as-of YYYY-MM-DD`, pinned to the question’s cutoff, then run `"$SERENITY_PYTHON" "$SERENITY_CLI" run start --help` before adding artifact arguments. Frame the question as: what changed, for whom, on what time horizon, and does it alter demand, supply, pricing, financing, or only sentiment? This mode's `--subject` values are **series identifiers** such as `DGS10`, not tickers, so they take no security snapshot; `snapshot security` pins a security's identity, and a FRED series has no identity to resolve. Pin a security only when the read narrows onto one, and then say so as a single-name hand-off.
 
 ## Competing hypotheses
 
@@ -31,6 +31,6 @@ State the current action and the condition that would change it. Use `MONITOR` o
 
 ## Deliverable and hand-off
 
-Deliver a dated event ledger: facts, hypotheses, causal inference, action, trigger, bear case, and falsifier. If a security or comparison remains material, hand off only explicit implications and evidence gaps to single-name or cohort research; do not smuggle a macro conclusion in as their verdict.
+Deliver a dated event ledger: facts, hypotheses, causal inference, action, trigger, bear case, and falsifier. If a security or comparison remains material, hand off only explicit implications and evidence gaps to single-name or cohort research; do not smuggle a macro conclusion in as their verdict. A regime call whose falsifier has a date can be registered with `"$SERENITY_PYTHON" "$SERENITY_CLI" outcomes register` and revisited with `outcomes refresh` on that date; it stays optional, because a decision never revisited is a research choice.
 
 Method claims: `claim-01-screen-price-and-positioning-before-inference`, `claim-06-test-catalyst-conversion-capacity`, `claim-10-treat-thin-reports-as-leads`, `aug-identity-time-provenance-boundary`, and `aug-adaptive-evidence-not-decision-code` route price moves, catalyst conversion, thin reports, identity, and adaptive evidence here.

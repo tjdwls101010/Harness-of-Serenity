@@ -556,3 +556,72 @@ def test_tampered_attached_snapshot_is_revalidated_before_its_fact_ids_are_trust
         validate(tmp_path, decision(), manifest=manifest, run_dir=run_dir)
 
     assert failure.value.exit_code == 5
+
+
+def _cohort_run(tmp_path: Path, *, pinned: tuple[str, ...]) -> tuple[dict, Path]:
+    manifest, run_dir = open_run(tmp_path)
+    manifest["mode"] = "cohort"
+    manifest["subjects"] = ["NVDA", "AMD"]
+    for ticker in pinned:
+        if ticker == "NVDA":
+            continue
+        peer = snapshot(manifest["run_id"])
+        for derived in ("snapshot_id", "content_hash"):
+            peer.pop(derived, None)
+        peer["identity"] = {**peer["identity"], "ticker": ticker, "name": f"{ticker} INC"}
+        peer["facts"] = [{**fact, "fact_id": f"{fact['fact_id']}-{ticker.lower()}", "identity_bindings": {"ticker": ticker}} for fact in peer["facts"]]
+        peer["snapshot_id"] = f"snapshot-{canonical_hash(peer)[:20]}"
+        attached_artifact(manifest, tmp_path, run_dir, name=f"fact-snapshot-{ticker}", filename=f"fact-snapshot-{ticker}.json", schema_id="urn:serenity:schema:fact-snapshot:2", value=document_with_hash(peer))
+    manifest.pop("content_hash", None)
+    manifest["content_hash"] = canonical_hash(manifest)
+    write_json(run_dir / "run-manifest.json", manifest)
+    return manifest, run_dir
+
+
+def test_a_cohort_decision_is_refused_while_a_subject_has_no_pinned_identity(tmp_path: Path) -> None:
+    """A comparison whose peers were never identity-bound compares whatever the
+    tickers happened to resolve to. Only single-name was gated before, so the
+    cohort, discovery, and macro decisions on disk have no snapshot at all."""
+
+    manifest, run_dir = _cohort_run(tmp_path, pinned=("NVDA",))
+    unpinned = decision()
+    unpinned["scope"] = {"kind": "cohort", "subjects": ["NVDA", "AMD"]}
+
+    with pytest.raises(SerenityError, match="AMD"):
+        validate(tmp_path, unpinned, manifest=manifest, run_dir=run_dir)
+
+
+def test_a_cohort_decision_validates_once_every_subject_is_pinned(tmp_path: Path) -> None:
+    manifest, run_dir = _cohort_run(tmp_path, pinned=("NVDA", "AMD"))
+    pinned = decision()
+    pinned["scope"] = {"kind": "cohort", "subjects": ["NVDA", "AMD"]}
+
+    assert validate(tmp_path, pinned, manifest=manifest, run_dir=run_dir)["valid"] is True
+
+
+def test_an_unpinned_cohort_subject_can_still_reach_a_blocked_decision(tmp_path: Path) -> None:
+    """Unresolved identity has to stay recordable, or a run with a peer it cannot
+    bind has no way to finish and the lifecycle is unfinishable rather than honest."""
+
+    manifest, run_dir = _cohort_run(tmp_path, pinned=("NVDA",))
+    blocked = decision(action="BLOCKED")
+    blocked["scope"] = {"kind": "cohort", "subjects": ["NVDA", "AMD"]}
+
+    assert validate(tmp_path, blocked, manifest=manifest, run_dir=run_dir)["valid"] is True
+
+
+def test_macro_subjects_are_series_identifiers_and_need_no_security_snapshot(tmp_path: Path) -> None:
+    """DGS10 is a FRED series, not a security. Requiring `snapshot security` for it
+    would demand an identity resolution that has no meaning for the subject."""
+
+    manifest, run_dir = open_run(tmp_path)
+    manifest["mode"] = "macro-event"
+    manifest["subjects"] = ["DGS10"]
+    del manifest["artifacts"]["fact-snapshot"]
+    manifest.pop("content_hash", None)
+    manifest["content_hash"] = canonical_hash(manifest)
+    write_json(run_dir / "run-manifest.json", manifest)
+    macro = decision()
+    macro["scope"] = {"kind": "macro", "subjects": ["DGS10"]}
+
+    assert validate(tmp_path, macro, manifest=manifest, run_dir=run_dir)["valid"] is True

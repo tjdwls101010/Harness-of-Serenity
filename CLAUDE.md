@@ -18,7 +18,7 @@ The active method contract is source-tagged in `method/claim-ledger.v1.json`: 12
 
 ## Typed lifecycle
 
-Use the runtime interface below for a substantive research question: start the matching mode -> pin identity and time -> record competing hypotheses -> request adaptive evidence -> run a valid lens if a numeric target is needed -> save a decision. An OPEN run is unfinished work: save and finalize a typed decision (including BLOCKED), or abandon it with a recorded reason before stopping. An answer that merely says BLOCKED has no lifecycle effect. Do not treat a natural-language answer as a substitute for lifecycle artifacts.
+Use the runtime interface below for a substantive research question: start the matching mode -> pin identity and time -> record competing hypotheses -> request adaptive evidence -> run a valid lens if a numeric target is needed -> save a decision -> optionally register it with `outcomes register` so a later checkpoint can measure it. An OPEN run is unfinished work: save and finalize a typed decision (including BLOCKED), or abandon it with a recorded reason before stopping. An answer that merely says BLOCKED has no lifecycle effect. Do not treat a natural-language answer as a substitute for lifecycle artifacts.
 
 ```sh
 SERENITY_PYTHON="${CLAUDE_PROJECT_DIR}/scripts/.venv/bin/python"

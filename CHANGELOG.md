@@ -6,6 +6,9 @@ All notable changes to Harness of Serenity are documented here. Historical sourc
 
 ### Fixed
 
+- Stopped the lens dropping `inputs[].evidence_refs`, which left the reproducibility hash blind to the evidence a spec claims, so two specs citing different filings hashed identically.
+- Drove `outcomes register` and `outcomes refresh` against a real finalized decision for the first time; both worked, and the gap was that nothing named them as a step. They are now reachable from `CLAUDE.md`'s lifecycle line and every skill's hand-off, and covered at the CLI seam rather than only at the store.
+- Settled what a `macro-event` run's subjects mean: series identifiers, not tickers, stated in that mode's skill.
 - Gave `EdgarToolsBackend` — the only class that talks to real `edgar` objects — a test seat, and fixed the three defects that had lived in that untested seam: `sec.submissions` could never return `available`, `sec.filing-section` with `named=` silently answered "not disclosed" for any non-10-K form, and `sec.filing-text` by accession lost its acceptance instant.
 - Resolved `named` sections per form, so a 10-Q reaches Part II Item 1A instead of a `TenK` property that does not exist there, and an unsupported form/section pair returns a typed `invalid` naming what the form does define. An absence of adapter support can no longer impersonate an absence of disclosure.
 - Stopped a `limit` from hiding the accession a filing search is looking for.
@@ -14,6 +17,9 @@ All notable changes to Harness of Serenity are documented here. Historical sourc
 
 ### Added
 
+- `snapshot security --subject TICKER` pins one subject at a time, so a cohort can bind identity for every peer; the bare `fact-snapshot` name is kept for a single-subject run. A `single-name` or `cohort` decision is now refused unless every subject is pinned, and the refusal names the ones that are not.
+- `snapshot facts RUN_ID --from-evidence RESULT_ID --fact name=..,concept=..,unit=..` derives typed facts from a saved `sec.xbrl-facts` result, stamped with the accession URL and the filing's raw-byte hash. `lens run` unions every attached fact snapshot, so a numeric target can stand on a filing rather than on a provider-computed ratio.
+- `RunStore.attach_artifacts` writes the manifest once for a whole batch; `evidence collect` used it to stop being quadratic in the number of results.
 - A `capability_parameters` contract per capability in the evidence catalog, validated by the registry before a provider is constructed, so a wrong `provider_parameters` shape is refused by name instead of costing an external request. It replaces the ad-hoc `alfred-fred` special case and is readable one at a time with `evidence catalog --capability <id>`.
 - Bounded evidence reads: `evidence collect` and `evidence read` answer with the value's shape, `--value` opts into the payload, and `evidence read --match REGEX --context N` returns matching spans with character offsets that verify against the stored artifact. A 144k-character section now costs kilobytes to reference.
 - Routed the instruction layer to those interfaces: each skill names the capabilities its mode needs and the bounded-read commands, `serenity-discovery` names `graph put` and the `us_expression.resolution` enum, `serenity-macro-event` names the macro series capabilities for the first time, and `serenity-filings` names the eight `sec.*` capability IDs and its bulk-reading role. `serenity_harness.py validate` now fails when a skill or agent names a capability the catalog does not declare.

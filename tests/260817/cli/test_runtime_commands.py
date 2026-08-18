@@ -1987,3 +1987,224 @@ def test_an_unparsable_match_pattern_is_refused_by_name(tmp_path: Path, run_cli)
     failure = run_cli("evidence", "read", run_id, stored["result_id"], "--match", "unbalanced(", expected_exit=2)
 
     assert "--match" in failure["error"]["message"]
+
+
+def _retickered_packet(ticker: str) -> dict[str, object]:
+    packet = json.loads(json.dumps(frozen_snapshot_packet()))
+    packet["identity_resolution"]["ticker"] = ticker
+    packet["identity_resolution"]["identity"]["ticker"] = ticker
+    market = packet["market_envelope"]
+    if isinstance(market.get("identity_bindings"), dict):
+        market["identity_bindings"]["ticker"] = ticker
+    if isinstance(market.get("data"), dict) and isinstance(market["data"].get("identity"), dict):
+        market["data"]["identity"]["ticker"] = ticker
+    return packet
+
+
+def test_a_cohort_run_pins_each_subject_under_its_own_snapshot_name(run_cli, tmp_path: Path) -> None:
+    """`snapshot security` used to require exactly one run subject, so a cohort --
+    which requires at least two -- could not pin identity for any of them."""
+
+    run_id = run_cli(
+        "run", "start", "--mode", "cohort", "--question", "Which of these captures the node?",
+        "--subject", "NVDA", "--subject", "AMD", "--as-of", "2026-08-17", "--offline",
+    )["run"]["run_id"]
+
+    for ticker in ("NVDA", "AMD"):
+        run_cli("snapshot", "security", run_id, "--subject", ticker, "--frozen-packet", str(write_json(tmp_path / f"{ticker}.json", _retickered_packet(ticker))))
+
+    artifacts = run_cli("run", "status", run_id)["run"]["artifacts"]
+    assert {"fact-snapshot-NVDA", "fact-snapshot-AMD"} <= set(artifacts)
+    assert (tmp_path / artifacts["fact-snapshot-AMD"]["path"]).is_file()
+
+
+def test_a_single_subject_run_keeps_the_bare_snapshot_name(run_cli, tmp_path: Path) -> None:
+    run_id = start_run(run_cli)
+
+    run_cli("snapshot", "security", run_id, "--frozen-packet", str(write_json(tmp_path / "nvda.json", frozen_snapshot_packet())))
+
+    assert "fact-snapshot" in run_cli("run", "status", run_id)["run"]["artifacts"]
+
+
+def test_a_multi_subject_live_snapshot_refuses_to_guess_which_subject_it_pins(run_cli, tmp_path: Path) -> None:
+    run_id = run_cli(
+        "run", "start", "--mode", "cohort", "--question", "Which of these captures the node?",
+        "--subject", "NVDA", "--subject", "AMD", "--as-of", "2026-08-17",
+    )["run"]["run_id"]
+
+    failure = run_cli("snapshot", "security", run_id, expected_exit=2)
+
+    assert "--subject" in failure["error"]["message"]
+
+
+def _xbrl_row(**overrides: object) -> dict[str, object]:
+    """The column names edgartools actually returns, captured from a live 10-Q."""
+
+    return {
+        "concept": "us-gaap:Revenues", "label": "Total revenue", "value": "74550000000", "numeric_value": 74550000000.0,
+        "period_key": "duration_2026-01-26_2026-04-26", "period_start": "2026-01-26", "period_end": "2026-04-26",
+        "is_dimensioned": False, "decimals": -6, "statement_type": "IncomeStatement", "fact_id": "f-694",
+        "unit_ref": "usd", "fiscal_period": "Q1", "fiscal_year": "2027", **overrides,
+    }
+
+
+def _saved_xbrl_result(tmp_path: Path, run_cli, run_id: str, rows: list[dict[str, object]]) -> dict[str, object]:
+    run_cli("hypothesis", "put", run_id, "--document", str(write_json(tmp_path / "hyp.json", hypotheses())))
+    request = run_cli(
+        "evidence", "request", run_id, "--hypothesis-id", "hyp-demand-holds",
+        "--capability-id", "sec.xbrl-facts", "--document", str(write_json(tmp_path / "xbrl-req.json", evidence_request())),
+    )["request"]
+    document = {
+        **evidence_result(),
+        "provider": "sec.filings",
+        "source": {"uri": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000052/nvda-20260426.htm", "parameters": {}, "canonical_id": "sec:0001045810:0001045810-26-000052"},
+        "temporal": {"effective_at": "2026-04-26", "period_start": None, "period_end": None, "observed_at": "2026-04-26", "available_at": "2026-05-20T20:35:52Z", "source_version": "0001045810-26-000052"},
+        "value": {"identity": {"ticker": "NVDA", "cik": "0001045810", "issuer": "NVIDIA CORP"}, "capability": "xbrl-facts", "result": {"facts": rows}},
+    }
+    return run_cli("evidence", "read", run_id, request["request_id"], "--document", str(write_json(tmp_path / "xbrl-result.json", document)))["result"]
+
+
+def test_a_derived_fact_carries_the_accession_and_raw_hash_of_the_filing_it_came_from(run_cli, tmp_path: Path) -> None:
+    """`CLAUDE.md` refuses a structural read earned from a provider-derived score, and
+    the 31 yfinance facts a lens could reach include forward_pe and peg_ratio. A fact
+    derived from the filing's own XBRL is the only way that rule and the lens agree."""
+
+    run_id = start_run(run_cli)
+    run_cli("snapshot", "security", run_id, "--frozen-packet", str(write_json(tmp_path / "nvda.json", frozen_snapshot_packet())))
+    result = _saved_xbrl_result(tmp_path, run_cli, run_id, [_xbrl_row()])
+
+    snapshot = run_cli(
+        "snapshot", "facts", run_id, "--from-evidence", result["result_id"],
+        "--fact", "name=quarterly_revenue,concept=us-gaap:Revenues,unit=USD",
+    )["snapshot"]
+
+    fact = snapshot["facts"][0]
+    assert fact["fact_id"] == "quarterly_revenue"
+    assert fact["value"] == 74550000000.0
+    assert fact["unit"] == "USD"
+    assert fact["source_uri"].endswith("nvda-20260426.htm")
+    assert fact["source_version"] == "0001045810-26-000052"
+    assert fact["raw_content_sha256"] == result["raw_content_sha256"]
+    assert snapshot["identity"]["ticker"] == "NVDA"
+
+
+def test_an_ambiguous_concept_selection_names_what_would_distinguish_the_rows(run_cli, tmp_path: Path) -> None:
+    """One concept returns a row per period and per dimension. Picking one silently
+    is how a target ends up standing on a number nobody chose."""
+
+    run_id = start_run(run_cli)
+    run_cli("snapshot", "security", run_id, "--frozen-packet", str(write_json(tmp_path / "nvda.json", frozen_snapshot_packet())))
+    result = _saved_xbrl_result(tmp_path, run_cli, run_id, [_xbrl_row(), _xbrl_row(period_end="2025-04-27", numeric_value=26044000000.0)])
+
+    failure = run_cli(
+        "snapshot", "facts", run_id, "--from-evidence", result["result_id"],
+        "--fact", "name=quarterly_revenue,concept=us-gaap:Revenues,unit=USD", expected_exit=2,
+    )
+
+    assert "2 rows" in failure["error"]["message"]
+    assert "period_end" in failure["error"]["message"]
+
+
+def test_a_period_end_selector_resolves_the_ambiguity_it_reported(run_cli, tmp_path: Path) -> None:
+    run_id = start_run(run_cli)
+    run_cli("snapshot", "security", run_id, "--frozen-packet", str(write_json(tmp_path / "nvda.json", frozen_snapshot_packet())))
+    result = _saved_xbrl_result(tmp_path, run_cli, run_id, [_xbrl_row(), _xbrl_row(period_end="2025-04-27", numeric_value=26044000000.0)])
+
+    snapshot = run_cli(
+        "snapshot", "facts", run_id, "--from-evidence", result["result_id"],
+        "--fact", "name=quarterly_revenue,concept=us-gaap:Revenues,unit=USD,period_end=2025-04-27",
+    )["snapshot"]
+
+    assert snapshot["facts"][0]["value"] == 26044000000.0
+
+
+def test_deriving_facts_requires_the_subject_identity_to_be_pinned_first(run_cli, tmp_path: Path) -> None:
+    """A fact cannot be derived for a security whose identity was never bound; the
+    derived snapshot copies its identity from the pinned one."""
+
+    run_id = start_run(run_cli)
+    result = _saved_xbrl_result(tmp_path, run_cli, run_id, [_xbrl_row()])
+
+    failure = run_cli(
+        "snapshot", "facts", run_id, "--from-evidence", result["result_id"],
+        "--fact", "name=quarterly_revenue,concept=us-gaap:Revenues,unit=USD", expected_exit=5,
+    )
+
+    assert "snapshot" in failure["error"]["message"]
+
+
+def test_a_lens_can_stand_on_a_fact_derived_from_a_filing(run_cli, tmp_path: Path) -> None:
+    """The lens indexed only the security snapshot, so a numeric target could rest
+    only on the 31 yfinance facts -- several of them provider-computed ratios. A
+    target that traces to an accession needs the derived snapshot in the index too."""
+
+    run_id = start_run(run_cli)
+    security = run_cli("snapshot", "security", run_id, "--frozen-packet", str(write_json(tmp_path / "nvda.json", frozen_snapshot_packet())))["snapshot"]
+    market_cap = next(fact for fact in security["facts"] if fact["name"] == "market_cap")["fact_id"]
+    result = _saved_xbrl_result(tmp_path, run_cli, run_id, [_xbrl_row()])
+    run_cli(
+        "snapshot", "facts", run_id, "--from-evidence", result["result_id"],
+        "--fact", "name=quarterly_revenue,concept=us-gaap:Revenues,unit=USD",
+    )
+
+    lens = run_cli("lens", "run", run_id, "--spec", str(write_json(tmp_path / "spec.json", {
+        "schema_id": "urn:serenity:schema:lens-spec:1",
+        "lens_id": "lens-filing-multiple",
+        "run_id": run_id,
+        "question": "What multiple does the filing's own revenue imply?",
+        "formula": "market_cap / quarterly_revenue",
+        "output_unit": "multiple",
+        "assumptions": ["Quarterly revenue is not annualised."],
+        "validity_constraints": ["Both facts share the USD unit."],
+        "inputs": [
+            {"name": "market_cap", "fact_ref": market_cap, "unit": "USD"},
+            {"name": "quarterly_revenue", "fact_ref": "quarterly_revenue", "unit": "USD", "evidence_refs": [result["result_id"]]},
+        ],
+    })))["result"]
+
+    assert lens["validity"] == "valid"
+    assert set(lens["fact_refs"]) == {market_cap, "quarterly_revenue"}
+    assert lens["output"]["value"] > 0
+
+
+def test_a_finalized_decision_can_be_registered_and_measured_through_the_cli(run_cli, tmp_path: Path) -> None:
+    """`records/prospective/` had never existed and `OutcomesStore` had no production
+    caller: twelve tests covered the store, none drove the command that reaches it.
+    Registration stays optional -- a decision never revisited is a research choice."""
+
+    run_id = start_run(run_cli)
+    snapshot = run_cli("snapshot", "security", run_id, "--frozen-packet", str(write_json(tmp_path / "packet.json", frozen_snapshot_packet())))["snapshot"]
+    market_cap = next(fact for fact in snapshot["facts"] if fact["name"] == "market_cap")
+    run_cli("hypothesis", "put", run_id, "--document", str(write_json(tmp_path / "hypotheses.json", hypotheses())))
+    request = run_cli("evidence", "request", run_id, "--hypothesis-id", "hyp-demand-holds", "--capability-id", "sec.submissions", "--document", str(write_json(tmp_path / "request.json", evidence_request())))["request"]
+    evidence = run_cli("evidence", "read", run_id, request["request_id"], "--document", str(write_json(tmp_path / "evidence.json", evidence_result())))["result"]
+    lens = run_cli("lens", "run", run_id, "--spec", str(write_json(tmp_path / "lens.json", lens_spec(run_id, market_cap["fact_id"]))))["result"]
+    draft = write_json(tmp_path / "decision.json", decision_draft(run_id, evidence["result_id"], lens))
+    manifest_path = write_json(tmp_path / "evidence-manifest.json", {"evidence_result_ids": [evidence["result_id"]]})
+    finalized = run_cli("decision", "finalize", run_id, "--decision", str(draft), "--analysis", str(write_json(tmp_path / "analysis.json", {"markdown": "# NVDA"})), "--evidence-manifest", str(manifest_path))
+
+    decision_path = tmp_path / finalized["run"]["artifacts"]["research-decision"]["path"]
+    record = run_cli(
+        "outcomes", "register",
+        "--decision", str(decision_path),
+        "--benchmark-json", str(write_json(tmp_path / "benchmark.json", {"ticker": "SPY", "name": "SPDR S&P 500 ETF Trust"})),
+        "--checkpoint-schedule-json", str(write_json(tmp_path / "schedule.json", [{"kind": "next_earnings", "due_on": "2026-11-12"}])),
+    )["record"]
+
+    assert (tmp_path / "records" / "prospective" / record["record_id"] / "record.json").is_file()
+    assert record["condition_hit_is_trade"] is False
+
+    # An unavailable measurement with provenance is how a checkpoint that has not
+    # come due yet stays recordable instead of being back-filled.
+    pending = {"availability": "unavailable", "value": None, "provenance": {"provider": "yfinance", "source_version": "2026-08-18"}}
+    refreshed = run_cli(
+        "outcomes", "refresh", record["record_id"],
+        "--observation", str(write_json(tmp_path / "observation.json", {
+            "observation_id": "obs-2026-08-18", "as_of": "2026-08-18",
+            "subject_price": pending, "benchmark_return": pending, "mechanism_evidence": pending, "falsifier_state": pending,
+            "condition_hits": [{"condition": "next 10-Q names the dependency", "hit": False}],
+        })),
+    )["record"]
+
+    assert [observation["observation_id"] for observation in refreshed["observations"]] == ["obs-2026-08-18"]
+    assert refreshed["observations"][0]["event_hash"]

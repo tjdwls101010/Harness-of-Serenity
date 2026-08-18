@@ -22,6 +22,7 @@ from serenity_core.research import (
 )
 from serenity_core.runtime import RUN_MODES, RunStore, SerenityError, parse_as_of, parse_instant
 from serenity_core.lens import run_lens
+from serenity_core.snapshot import DerivedFactError, build_derived_fact_snapshot, parse_fact_selector
 from serenity_core.schema import SchemaViolation, validate_document
 from serenity_core.decision import finalize_decision, validate_decision
 from serenity_core.outcomes import OutcomesError, OutcomesStore
@@ -158,9 +159,64 @@ def require_evidence_available_by_cutoff(evidence: dict[str, Any], *, cutoff: st
         raise SerenityError("usage_or_schema", f"available {label} was not available by the run historical cutoff", 2)
 
 
-def load_attached_security_snapshot(*, manifest: dict[str, Any], root: Path, run_id: str) -> dict[str, Any]:
-    snapshot_path = root / ".serenity" / "runs" / run_id / "fact-snapshot.json"
-    artifact = manifest.get("artifacts", {}).get("fact-snapshot") if isinstance(manifest.get("artifacts"), dict) else None
+def snapshot_artifact_name(manifest: dict[str, Any], ticker: Any) -> str:
+    """Keep the bare name for a single-subject run so nothing existing moves.
+
+    Artifact names are free-form, and the decision layer already unions facts
+    across every attached snapshot, so a per-subject name costs nothing there --
+    but renaming the single-subject case would move every path already on disk.
+    """
+
+    subjects = [subject for subject in manifest.get("subjects", []) if isinstance(subject, str) and subject.strip()]
+    if len(subjects) <= 1 or not isinstance(ticker, str) or not ticker.strip():
+        return "fact-snapshot"
+    return f"fact-snapshot-{ticker.strip().upper()}"
+
+
+def load_attached_fact_snapshots(*, manifest: dict[str, Any], root: Path, run_id: str) -> list[dict[str, Any]]:
+    """Every fact-carrying document attached to the run, security snapshot first.
+
+    A lens that indexes only the security snapshot can stand on nothing but
+    provider-derived numbers, several of which are computed ratios. Ordering puts
+    the security snapshot first so the result's executed_at and identity keep
+    coming from the run's own pinning rather than from whichever filing was
+    derived from last.
+    """
+
+    artifacts = manifest.get("artifacts") if isinstance(manifest.get("artifacts"), dict) else {}
+    names = [name for name in artifacts if artifacts[name].get("schema_id") == "urn:serenity:schema:fact-snapshot:2"]
+    ordered = sorted(names, key=lambda name: (not name.startswith("fact-snapshot") or name.startswith("fact-snapshot-derived"), name))
+    snapshots = []
+    for name in ordered:
+        path = root / ".serenity" / "runs" / run_id / f"{name}.json"
+        try:
+            raw = path.read_bytes()
+        except OSError as exc:
+            raise SerenityError("persistence_conflict", f"attached fact snapshot cannot be read: {name}", 5, run_id=run_id) from exc
+        if artifacts[name].get("content_hash") != hashlib.sha256(raw).hexdigest():
+            raise SerenityError("persistence_conflict", f"attached fact snapshot content hash mismatch: {name}", 5, run_id=run_id)
+        try:
+            document = json.loads(raw)
+            # Integrity applies to a derived snapshot exactly as it does to the
+            # security one: both are fact-snapshot:2 documents whose ids are
+            # content-addressed, and a lens must not read an edited one.
+            validate_security_snapshot(document)
+        except (json.JSONDecodeError, SchemaViolation, SnapshotIntegrityError) as exc:
+            raise SerenityError("persistence_conflict", f"attached fact snapshot is invalid: {name}: {exc}", 5, run_id=run_id) from exc
+        snapshots.append(document)
+    if not snapshots:
+        raise SerenityError("persistence_conflict", "fact snapshot is not attached to the run manifest", 5, run_id=run_id)
+    return snapshots
+
+
+def load_attached_security_snapshot(*, manifest: dict[str, Any], root: Path, run_id: str, subject: str | None = None) -> dict[str, Any]:
+    name = snapshot_artifact_name(manifest, subject) if subject is not None else "fact-snapshot"
+    artifacts = manifest.get("artifacts") if isinstance(manifest.get("artifacts"), dict) else {}
+    if name not in artifacts and subject is not None:
+        # A single-subject run keeps the bare name; look there before giving up.
+        name = "fact-snapshot"
+    snapshot_path = root / ".serenity" / "runs" / run_id / f"{name}.json"
+    artifact = artifacts.get(name)
     expected_path = str(snapshot_path.relative_to(root))
     if not isinstance(artifact, dict) or artifact.get("path") != expected_path or artifact.get("schema_id") != "urn:serenity:schema:fact-snapshot:2":
         raise SerenityError("persistence_conflict", "fact snapshot is not attached to the run manifest", 5, run_id=run_id)
@@ -398,6 +454,7 @@ def document_cli_help(parser: JsonArgumentParser) -> None:
         "serenity.py run close": ("Close a finalized run after decision persistence.", "Requires FINALIZED.", "Updated run-manifest.json; matching active pointer is cleared.", "serenity.py run close RUN_ID --reason 'validated decision persisted'"),
         "serenity.py snapshot": ("Create deterministic security fact snapshots.", "Snapshot writes require OPEN.", "fact-snapshot.json.", "Workflow: serenity.py snapshot security RUN_ID --frozen-packet fixtures/frozen-snapshot.json"),
         "serenity.py snapshot security": ("Resolve identity and persist a small security fact snapshot.", "Requires OPEN and one subject for live collection. Live execution requires allowed sec, openfigi, and yfinance providers; ibd-rs-rating is optional.", "fact-snapshot.json attached to the run.", "serenity.py snapshot security RUN_ID --frozen-packet fixtures/frozen-snapshot.json"),
+        "serenity.py snapshot facts": ("Derive typed facts from a saved SEC XBRL result, stamped with the accession and raw-byte hash they came from.", "Requires OPEN and a pinned security snapshot for the subject; a fact cannot be derived for a security whose identity was never bound.", "fact-snapshot-derived-<id>.json attached to the run, which lens run unions with every other attached snapshot.", "serenity.py snapshot facts RUN_ID --from-evidence evidence-result-001 --fact name=quarterly_revenue,concept=us-gaap:Revenues,unit=USD"),
         "serenity.py hypothesis": ("Maintain competing research hypotheses.", "Hypothesis mutations require OPEN.", "hypothesis-ledger.json.", "Workflow: serenity.py hypothesis put RUN_ID --document fixtures/hypotheses.json"),
         "serenity.py hypothesis put": ("Store a versioned competing-hypothesis ledger.", "Requires OPEN.", "hypothesis-ledger.json.", "serenity.py hypothesis put RUN_ID --document fixtures/hypotheses.json"),
         "serenity.py evidence": ("Catalog, request, collect, and read typed evidence.", "Request, collect, and manual record operations require OPEN.", "evidence requests and results under the run.", "Workflow: serenity.py evidence request RUN_ID --hypothesis-id hyp-demand-holds --capability-id sec.filings --document fixtures/evidence-request.json\n  -> serenity.py evidence collect RUN_ID evidence-request-001\n  -> serenity.py evidence read RUN_ID evidence-result-001"),
@@ -465,6 +522,13 @@ def build_parser() -> JsonArgumentParser:
     security = snapshot_commands.add_parser("security")
     security.add_argument("run_id")
     security.add_argument("--frozen-packet")
+    security.add_argument("--subject", help="which run subject to pin; required when the run has more than one, since a snapshot binds one security")
+
+    facts = snapshot_commands.add_parser("facts")
+    facts.add_argument("run_id")
+    facts.add_argument("--from-evidence", required=True, help="a saved sec.xbrl-facts or sec.segments result id to derive from")
+    facts.add_argument("--fact", action="append", required=True, metavar="name=..,concept=..,unit=..", help="one fact per option: name, concept and unit are required; add period_end, period_start, fiscal_period, fiscal_year, statement_type or label to resolve an ambiguous concept. Repeat for more facts.")
+    facts.add_argument("--subject", help="which pinned subject's identity the derived facts belong to")
 
     hypothesis = commands.add_parser("hypothesis")
     hypothesis_commands = hypothesis.add_subparsers(dest="hypothesis_command", required=True, parser_class=JsonArgumentParser)
@@ -528,6 +592,25 @@ def build_parser() -> JsonArgumentParser:
     graph_put.add_argument("--file", required=True)
     document_cli_help(parser)
     return parser
+
+
+def _snapshot_subject(manifest: dict[str, Any], requested: str | None, run_id: str) -> str:
+    """Resolve which of the run's subjects this snapshot pins.
+
+    One snapshot binds one security, so a multi-subject run has to say which --
+    otherwise a cohort would silently pin its first peer and call the comparison
+    identity-bound.
+    """
+
+    subjects = [subject for subject in manifest.get("subjects", []) if isinstance(subject, str) and subject.strip()]
+    if requested is not None:
+        normalized = requested.strip().upper()
+        if normalized not in {subject.strip().upper() for subject in subjects}:
+            raise SerenityError("usage_or_schema", f"--subject {requested} is not a subject of this run: {subjects}", 2, run_id=run_id)
+        return normalized
+    if len(subjects) != 1:
+        raise SerenityError("usage_or_schema", f"this run has {len(subjects)} subjects, so a security snapshot needs --subject: {subjects}", 2, run_id=run_id)
+    return subjects[0]
 
 
 def _shown_evidence_result(result: dict, args) -> dict:
@@ -595,14 +678,12 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
             source_policy = manifest.get("source_policy")
             if isinstance(source_policy, dict) and source_policy.get("allow_network") is False:
                 raise SerenityError("provider_failure", "live snapshot providers are disabled by the run source policy", 4, run_id=args.run_id)
-            subjects = manifest.get("subjects")
-            if not isinstance(subjects, list) or len(subjects) != 1 or not isinstance(subjects[0], str):
-                raise SerenityError("usage_or_schema", "live security snapshot requires exactly one run subject", 2, run_id=args.run_id)
+            subject = _snapshot_subject(manifest, getattr(args, "subject", None), args.run_id)
             historical_cutoff, allowed_providers = live_snapshot_policy(manifest)
             load_project_env(root)
             try:
                 identity, market, rs_envelope = build_live_snapshot_inputs(
-                    ticker=subjects[0],
+                    ticker=subject,
                     as_of=manifest["as_of"],
                     historical_cutoff=historical_cutoff,
                     allowed_providers=allowed_providers,
@@ -644,11 +725,12 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
             raise SerenityError("identity_blocked", exc.reason, 3, run_id=args.run_id, **exc.diagnosis) from exc
         except Exception as exc:
             raise SerenityError("provider_failure", f"snapshot providers could not build a typed fact snapshot: {exc}", 4, run_id=args.run_id) from exc
+        artifact_name = snapshot_artifact_name(manifest, snapshot.get("identity", {}).get("ticker"))
         run = publish_run_document(
             store,
             run_id=args.run_id,
-            name="fact-snapshot",
-            filename="fact-snapshot.json",
+            name=artifact_name,
+            filename=f"{artifact_name}.json",
             document=snapshot,
             phase="snapshot_created",
         )
@@ -656,6 +738,27 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
         if raw_payload_cache is not None:
             response["raw_payload_cache"] = raw_payload_cache
         return response
+    if args.command == "snapshot" and args.snapshot_command == "facts":
+        manifest = store.read(args.run_id)
+        if manifest.get("status") != "OPEN":
+            raise SerenityError("invalid_lifecycle", f"only an OPEN run can derive facts: {args.run_id}", 3, run_id=args.run_id)
+        subject = getattr(args, "subject", None)
+        pinned = load_attached_security_snapshot(manifest=manifest, root=root, run_id=args.run_id, subject=subject)
+        artifacts = research_store(store, root, args.run_id)
+        try:
+            result = artifacts.read_evidence_result(args.from_evidence)
+            selectors = [parse_fact_selector(raw) for raw in args.fact]
+            derived = build_derived_fact_snapshot(run_manifest=manifest, pinned_snapshot=pinned, evidence_result=result, selectors=selectors)
+            validate_document(derived, "urn:serenity:schema:fact-snapshot:2")
+        except DerivedFactError as exc:
+            raise SerenityError("usage_or_schema", str(exc), 2, run_id=args.run_id) from exc
+        except SchemaViolation as exc:
+            raise SerenityError("usage_or_schema", f"derived fact snapshot is invalid: {exc}", 2, run_id=args.run_id) from exc
+        except ResearchArtifactValidationError as exc:
+            raise SerenityError("usage_or_schema", str(exc), 2, run_id=args.run_id) from exc
+        name = f"fact-snapshot-derived-{derived['snapshot_id'][-12:]}"
+        run = publish_run_document(store, run_id=args.run_id, name=name, filename=f"{name}.json", document=derived, phase="snapshot_created")
+        return {"command": "snapshot.facts", "ok": True, "snapshot": derived, "run": run}
     if args.command == "hypothesis" and args.hypothesis_command == "put":
         prior = store.read(args.run_id).get("artifacts", {}).get("hypothesis-ledger")
         artifacts = research_store(store, root, args.run_id)
@@ -781,16 +884,18 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
                 )
                 for envelope in documents
             ]
-            run = store.read(args.run_id)
-            for result in results:
-                path = root / ".serenity" / "runs" / args.run_id / "evidence" / "results" / f"{result['result_id']}.json"
-                run = store.attach_artifact(
-                    args.run_id,
-                    name=result["result_id"],
-                    path=path,
-                    schema_id=result["schema_id"],
-                    phase="evidence_collected",
-                )
+            run = store.attach_artifacts(
+                args.run_id,
+                attachments=[
+                    {
+                        "name": result["result_id"],
+                        "path": root / ".serenity" / "runs" / args.run_id / "evidence" / "results" / f"{result['result_id']}.json",
+                        "schema_id": result["schema_id"],
+                    }
+                    for result in results
+                ],
+                phase="evidence_collected",
+            )
         except ResearchArtifactConflictError as exc:
             raise SerenityError("persistence_conflict", str(exc), 5, run_id=args.run_id) from exc
         except ResearchArtifactValidationError as exc:
@@ -849,8 +954,8 @@ def dispatch(args: argparse.Namespace, root: Path) -> dict[str, Any]:
             validate_document(spec, "urn:serenity:schema:lens-spec:1")
         except SchemaViolation as exc:
             raise SerenityError("usage_or_schema", str(exc), 2, run_id=args.run_id) from exc
-        snapshot = load_attached_security_snapshot(manifest=manifest, root=root, run_id=args.run_id)
-        result = run_lens(spec, snapshot)
+        snapshots = load_attached_fact_snapshots(manifest=manifest, root=root, run_id=args.run_id)
+        result = run_lens(spec, snapshots)
         try:
             validate_document(result, "urn:serenity:schema:lens-result:1")
         except SchemaViolation as exc:

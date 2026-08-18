@@ -6,7 +6,7 @@ import ast
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 
@@ -103,27 +103,45 @@ def _input_specs(spec: Mapping[str, Any]) -> list[dict[str, Any]]:
         fact_ref = item.get("fact_ref")
         unit = item.get("unit")
         if isinstance(name, str) and isinstance(fact_ref, str) and isinstance(unit, str):
-            inputs.append({"name": name, "fact_ref": fact_ref, "unit": unit})
+            resolved: dict[str, Any] = {"name": name, "fact_ref": fact_ref, "unit": unit}
+            # Dropping evidence_refs left the reproducibility hash blind to the
+            # evidence a spec claims, so two specs citing different filings hashed
+            # the same. The chain from a numeric target back to an accession is
+            # only worth anything if changing it changes the result's identity.
+            evidence_refs = item.get("evidence_refs")
+            if isinstance(evidence_refs, list) and all(isinstance(reference, str) for reference in evidence_refs):
+                resolved["evidence_refs"] = evidence_refs
+            inputs.append(resolved)
     return inputs
 
 
-def _fact_index(snapshot: Mapping[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
+def _fact_index(snapshots: Sequence[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
+    """Union facts across every fact-carrying document attached to the run.
+
+    Indexing one snapshot meant a lens could only stand on the security
+    snapshot's provider-derived numbers -- several of which are themselves
+    computed ratios -- while a fact derived from a filing's own XBRL was
+    unreachable. A fact_id present in two documents stays duplicated on purpose:
+    the caller reports it as a conflict rather than silently choosing one.
+    """
+
     indexed: dict[str, list[Mapping[str, Any]]] = {}
-    facts = snapshot.get("facts")
-    if not isinstance(facts, list):
-        return indexed
-    for fact in facts:
-        if isinstance(fact, Mapping) and isinstance(fact.get("fact_id"), str):
-            indexed.setdefault(fact["fact_id"], []).append(fact)
+    for snapshot in snapshots:
+        facts = snapshot.get("facts") if isinstance(snapshot, Mapping) else None
+        if not isinstance(facts, list):
+            continue
+        for fact in facts:
+            if isinstance(fact, Mapping) and isinstance(fact.get("fact_id"), str):
+                indexed.setdefault(fact["fact_id"], []).append(fact)
     return indexed
 
 
-def _resolve_inputs(spec: Mapping[str, Any], snapshot: Mapping[str, Any]) -> tuple[dict[str, float], list[dict[str, Any]], list[str], list[dict[str, Any]], str]:
+def _resolve_inputs(spec: Mapping[str, Any], snapshots: Sequence[Mapping[str, Any]]) -> tuple[dict[str, float], list[dict[str, Any]], list[str], list[dict[str, Any]], str]:
     input_specs = _input_specs(spec)
     if not input_specs:
         return {}, [], [], [_issue("invalid_inputs", message="inputs must be a non-empty lens-spec input array")], "invalid"
 
-    facts = _fact_index(snapshot)
+    facts = _fact_index(snapshots)
     values: dict[str, float] = {}
     input_facts: list[dict[str, Any]] = []
     fact_refs: list[str] = []
@@ -246,7 +264,15 @@ def _result(
     return result
 
 
-def run_lens(lens_spec: dict[str, Any], fact_snapshot: dict[str, Any]) -> dict[str, Any]:
+def _as_snapshots(fact_snapshot: Any) -> list[Mapping[str, Any]]:
+    if isinstance(fact_snapshot, Mapping):
+        return [fact_snapshot]
+    if isinstance(fact_snapshot, Sequence) and not isinstance(fact_snapshot, (str, bytes)):
+        return [item for item in fact_snapshot if isinstance(item, Mapping)]
+    return []
+
+
+def run_lens(lens_spec: dict[str, Any], fact_snapshot: dict[str, Any] | Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Execute a declared lens without accepting unreferenced numeric inputs.
 
     Every failure is returned as a schema-shaped typed result.  This keeps a
@@ -254,8 +280,9 @@ def run_lens(lens_spec: dict[str, Any], fact_snapshot: dict[str, Any]) -> dict[s
     number, or an investment verdict.
     """
     spec: Mapping[str, Any] = lens_spec if isinstance(lens_spec, Mapping) else {}
-    snapshot: Mapping[str, Any] = fact_snapshot if isinstance(fact_snapshot, Mapping) else {}
-    values, input_facts, fact_refs, issues, validity = _resolve_inputs(spec, snapshot)
+    snapshots = _as_snapshots(fact_snapshot)
+    snapshot: Mapping[str, Any] = snapshots[0] if snapshots else {}
+    values, input_facts, fact_refs, issues, validity = _resolve_inputs(spec, snapshots)
     if validity != "valid":
         return _result(spec, snapshot, validity=validity, input_facts=input_facts, fact_refs=fact_refs, expression=None, values=values, issues=issues, value=None)
     expression, formula_issues = _formula(spec, values)
