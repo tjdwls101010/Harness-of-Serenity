@@ -1,0 +1,16 @@
+{
+  "calls": [
+    {
+      "bytes": 279,
+      "payload": "map-ticker-0.json",
+      "sha256": "ccf85f26f46253b230b24986e8a3162fee1b5e43f232320465932432d8d02cf0",
+      "uri": "https://api.openfigi.com/v3/mapping"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:38Z",
+  "case": "map-ticker",
+  "provider_id": "openfigi",
+  "query": {
+    "ticker": "SWK"
+  }
+}

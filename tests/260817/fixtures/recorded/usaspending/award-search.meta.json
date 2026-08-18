@@ -1,0 +1,25 @@
+{
+  "calls": [
+    {
+      "bytes": 1210,
+      "payload": "award-search-0.json",
+      "sha256": "fd9155d96dad5a6fd0bd582ac7564b2089b35fce1418c192022ed495a9178d1b",
+      "uri": "https://api.usaspending.gov/api/v2/search/spending_by_award/"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:39Z",
+  "case": "award-search",
+  "provider_id": "usaspending",
+  "query": {
+    "award_type_codes": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "limit": 3,
+    "recipient_search_text": [
+      "Stanley Black"
+    ]
+  }
+}

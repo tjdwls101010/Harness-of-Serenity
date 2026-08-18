@@ -718,6 +718,7 @@ def test_macos_launch_uses_the_resolved_codex_executable_and_allows_only_its_run
     assert "hosted provider transport" in record["os_isolation"]["residual_surface"]
 
 
+@pytest.mark.skipif(platform.system() != "Darwin", reason="launch_cleanroom defaults to the os-enforced mode, which requires Darwin")
 def test_launch_refuses_a_package_changed_after_its_hash_was_recorded(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()

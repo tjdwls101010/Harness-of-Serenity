@@ -26,6 +26,7 @@ _SNAPSHOT_CAPABILITIES = frozenset(
         "ibd-rs-rating.relative-strength-observation",
     }
 )
+FRED_VINTAGE_MODES = {"alfred-fred.macro-series": "active", "alfred-fred.vintage-series": "history"}
 SEC_FILING_VERBS = {
     "sec.submissions": "submissions",
     "sec.filings": "filings",
@@ -230,6 +231,7 @@ class EvidenceProviderRegistry:
                 cutoff=cutoff,
                 observation_start=parameters.get("observation_start"),
                 observation_end=parameters.get("observation_end"),
+                vintages=FRED_VINTAGE_MODES[capability_id],
             )
         elif provider_id == "sec":
             verb = SEC_FILING_VERBS.get(capability_id)

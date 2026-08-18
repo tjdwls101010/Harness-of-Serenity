@@ -277,3 +277,26 @@ def test_bis_stays_disabled_for_the_true_reason_that_no_api_endpoint_is_bound() 
     assert envelope["status"] == "not_requested"
     assert envelope["error"] == {"reason": "no BIS API endpoint is bound; https://www.bis.gov/ is a homepage, not a query API"}
     validate_document(envelope, "urn:serenity:schema:provider-envelope:1")
+
+
+def test_usitc_stays_disabled_because_its_bound_path_answers_html_with_http_200() -> None:
+    provider = public_data_catalog(clock=lambda: FROZEN_NOW)["usitc"]
+
+    envelope = provider.collect({"hs_codes": ["854231"], "year": 2025}).to_dict()
+
+    assert provider.configured is False
+    assert envelope["status"] == "not_requested"
+    assert envelope["error"] == {
+        "reason": "no USITC API endpoint is bound; https://dataweb.usitc.gov/api/data answers the DataWeb app's HTML with HTTP 200 for every request, and the queryable host datawebws.usitc.gov is token-gated"
+    }
+    validate_document(envelope, "urn:serenity:schema:provider-envelope:1")
+
+
+def test_uspto_is_bound_to_a_resource_path_rather_than_the_api_root() -> None:
+    """The bare ``/api/v1/patent/`` base answers 403 and is not a queryable
+    resource; ``applications/search`` answers 401, which is what an unkeyed
+    request to a real resource returns."""
+
+    provider = public_data_catalog(clock=lambda: FROZEN_NOW, config={"uspto_api_key": "uspto-secret"})["uspto"]
+
+    assert provider.build_request({"q": "patent"}).url == "https://api.uspto.gov/api/v1/patent/applications/search"

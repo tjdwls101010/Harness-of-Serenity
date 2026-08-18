@@ -58,7 +58,7 @@ def test_filing_list_preserves_sec_identity_and_exact_injected_raw_bytes() -> No
     assert envelope["data"]["identity"] == IDENTITY
     assert envelope["data"]["capability"] == "filings"
     assert envelope["data"]["requested"] == request
-    assert envelope["data"]["filing"] == response["filing"]
+    assert envelope["data"]["filing"] == {**response["filing"], "available_at": None}
     assert envelope["source"]["uri"] == "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000123/nvda-20260727.htm"
     assert envelope["source"]["content_sha256"] == hashlib.sha256(RAW_FIXTURE.read_bytes()).hexdigest()
     assert envelope["parse"] == {"status": "parsed", "transform_version": "filings-provider/1"}

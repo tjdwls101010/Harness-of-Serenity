@@ -60,7 +60,13 @@ def test_fred_dispatch_preserves_multiple_vintages_in_deterministic_order() -> N
 
     class FredFixture:
         def observations(
-            self, series_id: str, *, cutoff: str, observation_start: str | None = None, observation_end: str | None = None
+            self,
+            series_id: str,
+            *,
+            cutoff: str,
+            observation_start: str | None = None,
+            observation_end: str | None = None,
+            vintages: str = "active",
         ) -> list[ProviderEnvelope]:
             calls.append((series_id, cutoff, observation_start, observation_end))
             return [
@@ -93,7 +99,13 @@ def test_an_alfred_fred_observation_window_reaches_the_provider() -> None:
 
     class FredFixture:
         def observations(
-            self, _series_id: str, *, cutoff: str, observation_start: str | None = None, observation_end: str | None = None
+            self,
+            _series_id: str,
+            *,
+            cutoff: str,
+            observation_start: str | None = None,
+            observation_end: str | None = None,
+            vintages: str = "active",
         ) -> list[ProviderEnvelope]:
             calls.append((observation_start, observation_end))
             return [available_envelope(provider="fred", source_version="2026-06-15", available_at="2026-06-15T00:00:00Z")]
@@ -411,3 +423,33 @@ def test_no_catalog_sec_capability_is_left_without_a_real_filings_verb() -> None
 
     assert set(SEC_FILING_VERBS.values()) <= set(_CAPABILITIES)
     assert set(declared) - {"sec.identity"} == set(SEC_FILING_VERBS)
+
+
+def test_the_two_alfred_fred_capabilities_ask_the_provider_for_different_vintages() -> None:
+    """Two catalog IDs that dispatch identically are one capability wearing two
+    names; the catalog would be advertising a read the runtime cannot perform."""
+
+    modes: list[str] = []
+
+    class FredFixture:
+        def observations(
+            self,
+            _series_id: str,
+            *,
+            cutoff: str,
+            observation_start: str | None = None,
+            observation_end: str | None = None,
+            vintages: str = "active",
+        ) -> list[ProviderEnvelope]:
+            modes.append(vintages)
+            return [available_envelope(provider="fred", source_version="2026-06-15", available_at="2026-06-15T00:00:00Z")]
+
+    registry = EvidenceProviderRegistry(
+        provider_factories={"alfred-fred": lambda **_kwargs: FredFixture()}, clock=lambda: FROZEN_NOW
+    )
+    for capability_id in ("alfred-fred.macro-series", "alfred-fred.vintage-series"):
+        registry.collect(
+            request_for(capability_id, "alfred-fred", parameters={"series_id": "DGS10"}, cutoff="2026-07-01T00:00:00Z")
+        )
+
+    assert modes == ["active", "history"]

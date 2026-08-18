@@ -1,0 +1,78 @@
+# 테스트 스위트를 GitHub 호스티드 러너에서 돌린다.
+#
+# 왜 별도 워크플로인가: 이 레포의 기존 두 워크플로(scheduled-scrape, scrape-watchdog)는
+#   self-hosted 러너 위에서 도는 수집 파이프라인이고, 그래서 의도적으로 `pull_request`
+#   트리거를 달지 않는다 — 공개 레포 + self-hosted 러너는 포크 PR이 내 맥에서 임의 코드를
+#   실행시키는 경로이기 때문이다. 그 제약은 수집 파이프라인의 것이지 테스트의 것이 아니다.
+#   테스트를 ubiquitous ubuntu-latest(일회용 VM, 시크릿 없음)에 두면 두 위험 표면이
+#   완전히 분리되고, PR마다 648개 테스트가 실제로 돈다.
+#
+# 왜 네트워크가 필요 없나: tests/ 아래에는 urlopen/requests/socket 호출이 없다. 프로바이더
+#   경계는 전부 주입된 트랜스포트로 대체되고, 실제 응답이 필요한 곳은 커밋된 녹화 페이로드를
+#   재생한다(tests/260817/fixtures/recorded/). 실물 인터페이스를 두드리는 프로브는
+#   `live` 마커로 분리되어 있고 아래에서 명시적으로 제외한다.
+#
+# `-m "not live"`를 pytest.ini가 이미 걸어두는데 여기서 또 쓰는 이유: 그 기본값이 나중에
+#   바뀌어도 CI가 조용히 외부 API를 두드리기 시작하면 안 된다. 보장을 설정 파일 하나에
+#   의존시키지 않는다.
+#
+# validate_harness.py는 여기서 돌지 않는다 — 레포가 아니라 작성자의 harness-creator 스킬
+#   디렉터리에 있어서 CI가 볼 수 없다. 하네스 구조 검증은 로컬 검증 절차로 남는다.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # scripts/requirements.txt가 "provider interfaces are verified against
+          # these exact releases"라고 주장하므로, CI도 그 정확한 릴리스로 돈다.
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install pinned runtime
+        run: python -m pip install -r scripts/requirements.txt
+
+      # 클린룸 테스트 58개는 `shutil.which("codex")`가 실행 가능한 파일로 풀리기를 요구한다.
+      # 이들은 codex를 *실행하지* 않는다 — 어떤 명령줄이 구성되고 어떤 샌드박스 프로파일이
+      # 나오는지를 검사할 뿐이다. 그래서 스텁이면 커버리지가 그대로 유지된다. 대안이었던
+      # "codex 없으면 skip"은 CI가 58개를 조용히 건너뛰게 만드는데, 그건 이 PR이 없애려는
+      # 실패 양식(초록불 뒤의 죽은 기능) 그 자체다.
+      #
+      # 반대로 클린룸을 *실행*하는 3개는 ubuntu에서 skip된다(기존 Darwin 게이트 4개와 합쳐 7개). `launch_cleanroom`이
+      # os-enforced 모드를 기본으로 쓰고 그 모드는 Darwin을 요구하므로, 리눅스에서는
+      # 검사 대상에 닿기도 전에 거부된다. 이건 선언된 플랫폼 경계이지 조용한 누락이
+      # 아니다 — 다만 그중 둘(evaluation CLI 오케스트레이션)은 OS 경계 자체가 아니라
+      # 기본 격리 모드 때문에 걸린 것이라, logical-audited로도 돌 수 있게 하면 리눅스
+      # 커버리지를 되찾을 수 있다.
+      - name: Provide a codex stub the cleanroom tests can resolve
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          printf '#!/bin/sh\nexit 1\n' > "$HOME/.local/bin/codex"
+          chmod +x "$HOME/.local/bin/codex"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run the offline suite
+        run: python -m pytest tests/ -q -m "not live"
+
+      - name: Validate the typed harness
+        run: python scripts/serenity_harness.py validate

@@ -1,0 +1,17 @@
+{
+  "calls": [
+    {
+      "bytes": 1244,
+      "payload": "region-data-0.json",
+      "sha256": "45ecc7c0a364cc52e324cc6222744333d6c80a23e57bce0541d5a3c4659d7ebd",
+      "uri": "https://api.eia.gov/v2/electricity/rto/region-data/data/"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:34Z",
+  "case": "region-data",
+  "provider_id": "eia",
+  "query": {
+    "length": 3,
+    "route": "electricity/rto/region-data"
+  }
+}

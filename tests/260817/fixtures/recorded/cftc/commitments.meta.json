@@ -1,0 +1,16 @@
+{
+  "calls": [
+    {
+      "bytes": 14102,
+      "payload": "commitments-0.json",
+      "sha256": "05ddddddd9e64c765f18091ce1d992fe871de58481b2f260437a7534e92d6316",
+      "uri": "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:33Z",
+  "case": "commitments",
+  "provider_id": "cftc",
+  "query": {
+    "$limit": 3
+  }
+}

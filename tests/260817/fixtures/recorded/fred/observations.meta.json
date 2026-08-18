@@ -1,0 +1,19 @@
+{
+  "calls": [
+    {
+      "bytes": 2537,
+      "payload": "observations-0.json",
+      "sha256": "a5fe1a38be3977e86f095cfb5c242823d2d4941bcccd19e970f543a7c19fb1f7",
+      "uri": "https://api.stlouisfed.org/fred/series/observations"
+    }
+  ],
+  "captured_at": "2026-08-18T11:11:37Z",
+  "case": "observations",
+  "provider_id": "fred",
+  "query": {
+    "cutoff": "2026-08-15T00:00:00Z",
+    "observation_end": "2026-07-31",
+    "observation_start": "2026-07-01",
+    "series_id": "DGS10"
+  }
+}

@@ -78,6 +78,8 @@ python3 "$HARNESS_CREATOR_DIR/scripts/test_hook.py" --settings .claude/settings.
 python3 "$HARNESS_CREATOR_DIR/scripts/test_hook.py" --settings .claude/settings.json --event Stop --input-field stop_hook_active=true
 ```
 
+Provider boundaries are verified in two tiers, because they fail in two different ways. `pytest tests/ -q` runs offline in CI and replays real captured payloads from `tests/260817/fixtures/recorded/` through the real adapters, so a hand-authored fixture can no longer encode a response shape the provider never returns; `tests/260817/fixtures/recorded/capture_payloads.py` re-captures them by driving each provider's own request builder. `pytest tests/ -q -m live` builds one real object per capability through the adapter itself and asserts the attributes and types it parses — edgartools and yfinance hand back Python objects rather than JSON, so no recorded file can pin `EntityFiling.acceptance_datetime` being a `datetime` or `TenQ` lacking `.risk_factors`. Live probes are excluded by default and never run in CI; run them when a pinned release in `scripts/requirements.txt` moves. `.github/workflows/tests.yml` runs the offline tier on GitHub-hosted runners, deliberately disjoint from the self-hosted scrape workflows and their fork-PR risk.
+
 The harness validator is fast and static: it checks root boundaries, exact inventory, frontmatter, hook wiring, symlinks, absence of legacy prose-hook surfaces, variable-based skill invocation, this spec’s required contracts, and the source-tagged method artifacts (fixed hashes, canonical self-hashes, 12/8/0 tags, synthesis provenance, and resolvable workflow/spec claim IDs). It never calls providers, replays historical data, or grades research.
 
 ## Recovery

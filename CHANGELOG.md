@@ -6,6 +6,21 @@ All notable changes to Harness of Serenity are documented here. Historical sourc
 
 ### Fixed
 
+- Gave `EdgarToolsBackend` — the only class that talks to real `edgar` objects — a test seat, and fixed the three defects that had lived in that untested seam: `sec.submissions` could never return `available`, `sec.filing-section` with `named=` silently answered "not disclosed" for any non-10-K form, and `sec.filing-text` by accession lost its acceptance instant.
+- Resolved `named` sections per form, so a 10-Q reaches Part II Item 1A instead of a `TenK` property that does not exist there, and an unsupported form/section pair returns a typed `invalid` naming what the form does define. An absence of adapter support can no longer impersonate an absence of disclosure.
+- Stopped a `limit` from hiding the accession a filing search is looking for.
+- Made `available_at` always present in filing metadata, so unknown availability reads as `None` rather than as a `KeyError` at the first filer that has none.
+- Disabled `usitc` for the true reason that `dataweb.usitc.gov/api/data` answers the DataWeb app's HTML with HTTP 200 for every request, and rebound `uspto` from its API root, which answers 403, to the search resource that answers 401.
+
+### Added
+
+- `alfred-fred.vintage-series` now returns the revision history its name promises; it and `alfred-fred.macro-series` had dispatched identically, so one catalog ID was a dead label.
+- Recorded golden payloads under `tests/260817/fixtures/recorded/`, captured from the live endpoints through each provider's own request builder and replayed through the real adapter, with a capture tool that refuses to write a recording containing a credential.
+- A `live` marker and `pytest.ini`: `pytest -m live` probes the real provider interfaces the adapters parse, and is excluded from the default run and from CI.
+- `.github/workflows/tests.yml` runs the offline suite and `serenity_harness.py validate` on GitHub-hosted runners, disjoint from the self-hosted scrape workflows.
+
+### Fixed
+
 - Separated registry identity from source identity in the evidence catalog, so `sec.*` and `alfred-fred.*` results can be recorded at all; before this every one of them was rejected as not owning its own capability.
 - Exposed the six implemented-but-unreachable SEC narrative capabilities (`sec.filing-text`, `sec.filing-section`, `sec.xbrl-facts`, `sec.segments`, `sec.statement`, `sec.eightk`) and replaced the registry's string-split verb derivation with an explicit map.
 - Kept the SEC acceptance instant that `edgartools` returns as a `datetime`, which had been discarded and left every filing unusable under an intraday cutoff.

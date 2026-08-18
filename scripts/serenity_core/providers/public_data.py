@@ -283,12 +283,22 @@ class USASpendingAdapter(PublicDataAdapter):
 
 
 class USITCDataWebAdapter(PublicDataAdapter):
+    """Declared but not bound: the bound path answers HTML with HTTP 200.
+
+    ``dataweb.usitc.gov/api/data`` serves the DataWeb single-page app's shell for
+    GET and POST alike, so a request succeeds at the transport layer and parses
+    as nothing -- the failure mode that reads as a provider outage instead of a
+    missing binding. The queryable host is ``datawebws.usitc.gov``, which issues
+    no free public token.
+    """
+
     provider_id = "usitc"
     title = "USITC DataWeb trade data"
     priority = "high"
     capability = "numeric"
     capabilities = ("usitc.trade-data", "usitc.tariff-data")
     source_uri = "https://dataweb.usitc.gov/api/data"
+    unavailable_reason = "no USITC API endpoint is bound; https://dataweb.usitc.gov/api/data answers the DataWeb app's HTML with HTTP 200 for every request, and the queryable host datawebws.usitc.gov is token-gated"
 
     def build_request(self, query: Mapping[str, Any]) -> HttpRequest:
         return HttpRequest(method="POST", url=self.source_uri, query={}, body=dict(query))
@@ -454,7 +464,7 @@ class USPTOAdapter(OptionalAPIAdapter):
     title = "USPTO"
     priority = "optional"
     capabilities = ("uspto.patent-records",)
-    source_uri = "https://api.uspto.gov/api/v1/patent/"
+    source_uri = "https://api.uspto.gov/api/v1/patent/applications/search"
     config_key = "uspto_api_key"
     secret_parameter_names = ("X-API-KEY",)
 
