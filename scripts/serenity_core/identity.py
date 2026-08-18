@@ -159,7 +159,7 @@ class IdentityResolver:
         provider_envelopes: list[ProviderEnvelope],
         *,
         status: str,
-        rejection: dict[str, str],
+        rejection: dict[str, Any],
     ) -> IdentityResolution:
         return IdentityResolution(
             {

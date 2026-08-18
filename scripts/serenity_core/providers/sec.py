@@ -65,7 +65,7 @@ class SecLookup:
     envelopes: tuple[dict[str, Any], ...]
     issuer_domains: tuple[str, ...] = ()
     provider_envelopes: tuple[ProviderEnvelope, ...] = ()
-    rejection: dict[str, str] | None = None
+    rejection: dict[str, Any] | None = None
 
 
 class SecIdentityProvider:
