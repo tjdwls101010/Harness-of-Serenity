@@ -59,8 +59,10 @@ def test_fred_dispatch_preserves_multiple_vintages_in_deterministic_order() -> N
     calls: list[tuple[str, str]] = []
 
     class FredFixture:
-        def observations(self, series_id: str, *, cutoff: str) -> list[ProviderEnvelope]:
-            calls.append((series_id, cutoff))
+        def observations(
+            self, series_id: str, *, cutoff: str, observation_start: str | None = None, observation_end: str | None = None
+        ) -> list[ProviderEnvelope]:
+            calls.append((series_id, cutoff, observation_start, observation_end))
             return [
                 available_envelope(provider="fred", source_version="2026-06-15", available_at="2026-06-15T00:00:00Z"),
                 available_envelope(provider="fred", source_version="2026-05-15", available_at="2026-05-15T00:00:00Z"),
@@ -80,10 +82,34 @@ def test_fred_dispatch_preserves_multiple_vintages_in_deterministic_order() -> N
         )
     )
 
-    assert calls == [("DGS10", "2026-07-01T00:00:00Z")]
+    assert calls == [("DGS10", "2026-07-01T00:00:00Z", None, None)]
     assert [envelope.to_dict()["temporal"]["source_version"] for envelope in envelopes] == ["2026-05-15", "2026-06-15"]
     for envelope in envelopes:
         validate_document(envelope.to_dict(), "urn:serenity:schema:provider-envelope:1")
+
+
+def test_an_alfred_fred_observation_window_reaches_the_provider() -> None:
+    calls: list[tuple[str | None, str | None]] = []
+
+    class FredFixture:
+        def observations(
+            self, _series_id: str, *, cutoff: str, observation_start: str | None = None, observation_end: str | None = None
+        ) -> list[ProviderEnvelope]:
+            calls.append((observation_start, observation_end))
+            return [available_envelope(provider="fred", source_version="2026-06-15", available_at="2026-06-15T00:00:00Z")]
+
+    EvidenceProviderRegistry(
+        provider_factories={"alfred-fred": lambda **_kwargs: FredFixture()}, clock=lambda: FROZEN_NOW
+    ).collect(
+        request_for(
+            "alfred-fred.macro-series",
+            "alfred-fred",
+            parameters={"series_id": "DGS10", "observation_start": "2026-06-01", "observation_end": "2026-06-30"},
+            cutoff="2026-07-01T00:00:00Z",
+        )
+    )
+
+    assert calls == [("2026-06-01", "2026-06-30")]
 
 
 def test_offline_policy_returns_a_nonempty_typed_envelope_without_constructing_provider() -> None:

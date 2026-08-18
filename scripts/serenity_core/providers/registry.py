@@ -225,7 +225,12 @@ class EvidenceProviderRegistry:
     ) -> list[ProviderEnvelope]:
         provider = self._provider(provider_id)
         if provider_id == "alfred-fred":
-            result = provider.observations(parameters["series_id"], cutoff=cutoff)
+            result = provider.observations(
+                parameters["series_id"],
+                cutoff=cutoff,
+                observation_start=parameters.get("observation_start"),
+                observation_end=parameters.get("observation_end"),
+            )
         elif provider_id == "sec":
             verb = SEC_FILING_VERBS.get(capability_id)
             if verb is None:
